@@ -1,0 +1,40 @@
+.PHONY: run default clean wave waves data
+ALL_SRC = $(wildcard src/*.v)
+ALL_INC = $(wildcard inc/*.h)
+
+VLIBS   = -lsrc/parts.v
+VLG_SRC = $(filter-out src/parts.v,$(ALL_SRC))
+#VLG_SRC = $(ALL_SRC)
+
+IVL      = iverilog
+IVL_DEF  = -DINIT_MM=1
+IVL_OPTS = -g2012 -s top -I./inc $(IVL_DEF) $(VLIBS)
+
+WAVE = gtkwave
+WV_VCD_FILE  = -f csim.vcd
+WV_SAVE_FILE = -a csim.gtkw
+#WV_RC_FILE   = -r csim.rc
+
+WAVE_OPTS = $(WV_VCD_FILE) $(WV_SAVE_FILE) $(WV_RC_FILE)
+#WAVE_OPTS = $(WV_VCD_FILE) $(WV_SAVE_FILE) $(WV_RC_FILE)
+
+TARGET = bin/cachesim
+
+default: run
+
+$(TARGET): $(ALL_SRC) $(ALL_INC)
+	$(IVL) $(IVL_OPTS)	$(VLG_SRC) -o $@
+
+run: $(TARGET)
+	$(TARGET)
+
+data:
+	./scripts/gentbdata.py
+
+waves: wave
+wave:
+	$(WAVE) $(WAVE_OPTS)  &
+
+clean:
+	-rm -f $(TARGET)
+	-rm -f $(WV_VCD_FILE)
