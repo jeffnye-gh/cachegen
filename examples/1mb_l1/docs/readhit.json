@@ -1,0 +1,29 @@
+{ signal: [
+  { name: "clk",              wave: 'p.......' },
+  [ "PE",
+    { name: "pe_rd",          wave: '10.' },
+    { name: "pe_a",           wave: '=xx', data: ["a1",  "a2", "a3"] },
+   ],
+  [ "FSM", 
+    { name: "fsm_cc_tag",       wave: 'x=xx', data: ["ta1",  "ta2", "ta3"] },
+    { name: "fsm_cc_index",     wave: 'x=xx', data: ["ia1",  "ia2", "ia3"] },
+    { name: "fsm_cc_offset",    wave: 'x=xx', data: ["oa1",  "oa2", "oa3"] },
+  ],
+  [ "LOOKUP",
+    { name: "cc_tag_readdata",  wave: 'x=x', data: ["rdt1",  "rdt2", "rdt3"] },
+    { name: "cc_ary_readdata",  wave: 'x=x', data: ["adt1",  "adt2", "adt3"] },
+  ],
+  [ "CMP",
+    { name: "hit",      wave: '010' },
+    { name: "way_match",wave: 'x=x', data: ["wm0", "wm1" ] },
+  ],
+  [ "To PE",
+    { name: "fsm_pe_readdata",      wave: 'x=x', data: ["data0", "data1" ] },
+    { name: "fsm_pe_readdata_valid",wave: '010',  }
+  ],
+  [ "TB",
+    { name: "capture_a",      wave: 'x=x', data: ["data0", "data1" ] },
+    { name: "capture_d", wave: '010',  }
+  ]
+]}
+

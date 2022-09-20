@@ -41,29 +41,30 @@ def dsramGen(base,ramName,cfg,ext,cmt):
 # --------------------------------------------------------------------
 # TAGS
 # --------------------------------------------------------------------
-def tagGen(base,ramName,cfg,ext,cmt):
-  tagbase = base+'/'+ramName+'.'+cfg+'.'+ext;
-  tagcmt  = cmt
-  if(cfg == 'cfg0'):
-    for i in range(0,4):
-      fn = tagbase.replace('N',str(i))
-      cm = tagcmt.replace('N',str(i))
-      print('creating %s' % fn)
-      with open(fn, 'w') as f:
-        f.write(cm);
-        k = i;
-        for j in range(0,128):
-          if(j == 0) :
-            f.write('@0000 ')
-          else:
-            f.write('      ')
-        
-          f.write(f'{k:04x}')
-          f.write('\n')
-          k += 4
-        f.write('      3FFF')
-  
-  print('tag configuration %s complete' % cfg)
+# OLD
+#def tagGen(base,ramName,cfg,ext,cmt):
+#  tagbase = base+'/'+ramName+'.'+cfg+'.'+ext;
+#  tagcmt  = cmt
+#  if(cfg == 'cfg0'):
+#    for i in range(0,4):
+#      fn = tagbase.replace('N',str(i))
+#      cm = tagcmt.replace('N',str(i))
+#      print('creating %s' % fn)
+#      with open(fn, 'w') as f:
+#        f.write(cm);
+#        k = i;
+#        for j in range(0,128):
+#          if(j == 0) :
+#            f.write('@0000 ')
+#          else:
+#            f.write('      ')
+#        
+#          f.write(f'{k:04x}')
+#          f.write('\n')
+#          k += 4
+#        f.write('      3FFF')
+#  
+#  print('tag configuration %s complete' % cfg)
 ## --------------------------------------------------------------------
 ## Valid bits
 ## --------------------------------------------------------------------
@@ -110,31 +111,23 @@ def modGen(base,arrayName,cfg,ext,cmt):
 ## --------------------------------------------------------------------
 ## LRU bits
 ## --------------------------------------------------------------------
-def lruGen(base,arrayName,cfg,ext,cmt):
-  lrubase = base+'/'+arrayName+'.'+cfg+'.'+ext;
-  lrucmt  = cmt
-#lrubase = basedir+'lru.cfg0.memh'
-#lrucmt  = '''// vi:syntax=verilog
-#// Config 0,  LRU array, 1 per index, 4 ways so 3 PLRU bits
-#//
-#// PLRU array - set to 000
-#// 8192 (13b address) by 3 bit (3 PLRU bits)
-#'''
-  if(cfg == 'cfg0'):
-    fn = lrubase
-    cm = lrucmt
-    print('creating %s' % fn)
-    with open(fn, 'w') as f:
-      f.write(cm);
-      for j in range(0,8192):
-        if(j == 0) :
-          f.write('@0000 ')
-        else:
-          f.write('      ')
-        f.write('0\n')
- 
-  print('lru bit configuration %s complete' % cfg)
-
+#def lruGen(base,arrayName,cfg,ext,cmt):
+#  lrubase = base+'/'+arrayName+'.'+cfg+'.'+ext;
+#  lrucmt  = cmt
+#  if(cfg == 'cfg0'):
+#    fn = lrubase
+#    cm = lrucmt
+#    print('creating %s' % fn)
+#    with open(fn, 'w') as f:
+#      f.write(cm);
+#      for j in range(0,8192):
+#        if(j == 0) :
+#          f.write('@0000 ')
+#        else:
+#          f.write('      ')
+#        f.write('0\n')
+# 
+#  print('lru bit configuration %s complete' % cfg)
 # ===========================================================================
 def main():
   basedir = './tmp'
@@ -153,12 +146,12 @@ def main():
 //    --wpWpii --wpWpii --wpWpii --wpWpii --wpWpii --wpWpii --wpWpii --wpWpii
 '''
 
-  tagCmnt  = '''// vi:syntax=verilog
-// Config 0, tag array way N
-//
-// Only first 129 locations are initialized , address 128 has all F's
-// 8192 (13b address) by 14 bit (tag)
-'''
+#  tagCmnt  = '''// vi:syntax=verilog
+#// Config 0, tag array way N
+#//
+#// Only first 129 locations are initialized , address 128 has all F's
+#// 8192 (13b address) by 14 bit (tag)
+#'''
 
   valCmnt  = '''// vi:syntax=verilog
 // Config 0, valid bit array, includes all 4 ways
@@ -174,18 +167,18 @@ def main():
 // 8192 (13b address) by 4 bit (dirty bit per way)
 '''
 
-  lruCmnt  = '''// vi:syntax=verilog
-// Config 0,  LRU array, 1 per index, 4 ways so 3 PLRU bits
-//
-// PLRU array - set to 000
-// 8192 (13b address) by 3 bit (3 PLRU bits)
-'''
+#  lruCmnt  = '''// vi:syntax=verilog
+#// Config 0,  LRU array, 1 per index, 4 ways so 3 PLRU bits
+#//
+#// PLRU array - set to 000
+#// 8192 (13b address) by 3 bit (3 PLRU bits)
+#'''
 
   cmt = dsramCmnt.replace('-N-',str(0))
   dsramGen(basedir,'dsramN','cfg0','memh',cmt)
 
-  cmt = tagCmnt.replace('-N-',str(0))
-  tagGen(basedir,'tagN','cfg0','memh',cmt)
+#  cmt = tagCmnt.replace('-N-',str(0))
+#  tagGen(basedir,'tagN','cfg0','memh',cmt)
 
   cmt = valCmnt.replace('-N-',str(0))
   valGen(basedir,'val','cfg0','memh',cmt)
@@ -193,8 +186,8 @@ def main():
   cmt = modCmnt.replace('-N-',str(0))
   modGen(basedir,'mod','cfg0','memh',cmt)
 
-  cmt = lruCmnt.replace('-N-',str(0))
-  lruGen(basedir,'lru','cfg0','memh',cmt)
+#  cmt = lruCmnt.replace('-N-',str(0))
+#  lruGen(basedir,'lru','cfg0','memh',cmt)
 
 if __name__ == '__main__':
   main()

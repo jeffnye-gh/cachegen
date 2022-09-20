@@ -4,15 +4,23 @@
 //  See README.txt
 // ----------------------------------------------------------------------
 module top;
-
-localparam integer MAX = 5000;
-localparam integer MM_MEM_RANGE = 256;
-localparam integer EXP_DATA_ENTRIES = 256;
-
 `include "utils.h"    //support tasks/functions
 `include "tbcmds.h"   //TB controls
 `include "tests.h"    //tasks implementing tests
 `include "locals.h"   //other enum like vars
+
+localparam integer MAX = 5000;
+localparam integer MM_MEM_RANGE = 256;
+localparam integer EXP_DATA_ENTRIES = 256;
+// ------------------------------------------------------------------------
+// Test controls
+// ------------------------------------------------------------------------
+localparam _bypass_test = 1'b0;
+localparam _tag_rw_test = 1'b0;
+localparam _basic_tests      = 1'b1;
+localparam   _bt_lru_test    = 1'b1;
+localparam   _bt_rd_hit_test = 1'b0;
+localparam   _bt_wr_hit_test = 1'b0;
 
 // ----------------------------------------------------------------------
 integer count;
@@ -36,6 +44,10 @@ reg          tb_cc_read;
 reg          tb_cc_write;
 reg  [31:0]  tb_cc_writedata;
 reg  [255:0] tb_cc_wide_writedata;
+wire [31:0]  cc_tb_readdata;
+
+wire cc_tb_readdata_valid;
+wire cc_tb_req_hit;
 // ----------------------------------------------------------------------
 wire [31:0]  cc_mm_address;
 wire [255:0] cc_mm_writedata;
@@ -44,10 +56,9 @@ wire         cc_mm_read;
 wire [255:0] mm_cc_readdata;
 wire [255:0] xmm_cc_readdata;
 wire         mm_cc_readdatavalid;
-wire [31:0]  cc_tb_readdata;
-wire         cc_tb_data_valid;
+
 // ------------------------------------------------------------------------
-reg  [127:0] mm_tmp_data[0:EXP_DATA_ENTRIES];
+//reg  [127:0] mm_tmp_data[0:EXP_DATA_ENTRIES];
 reg  [31:0] mm_expect_data[0:EXP_DATA_ENTRIES];
 reg  [31:0] mm_expect_addr[0:EXP_DATA_ENTRIES];
 
@@ -72,8 +83,8 @@ initial begin
   tb_cmd = TB_CMD_NOP;
 
   tb_cc_ram_test = 1'b0;
-  tb_cc_read = 1'b0;
-  tb_cc_write = 1'b0;
+  tb_cc_read     = 1'b0;
+  tb_cc_write    = 1'b0;
 
   lru_errs = 0;
   basic_rd_hit_errs = 0;
@@ -89,22 +100,23 @@ always master_clk = #50 !master_clk;
 always @(posedge master_clk) clk   <= !clk;
 always @(posedge clk) count <= count + 1;
 // ------------------------------------------------------------------------
-reg [31:0] capture_addr;
-//reg [31:0] capture_data;
+//reg [31:0] capture_addr;
 integer capture_a_index,capture_d_index;
-//reg cc_tb_data_valid_q;
+wire [31:0] mm_capture_addr_0 = mm_capture_addr[0];
+wire [31:0] mm_capture_addr_1 = mm_capture_addr[1];
+reg  [31:0] tb_cc_address_q;
 // ------------------------------------------------------------------------
 always @(posedge clk) begin
-//  cc_tb_data_valid_q <= cc_tb_data_valid;
 
-  if(tb_cc_read) capture_addr <= tb_cc_address; 
+  if(tb_cc_read) begin
+    mm_capture_addr[capture_a_index] <= tb_cc_address;
+    capture_a_index <= capture_a_index + 1;
+  end
 
-  if(cc_tb_data_valid) begin
+  if(cc_tb_readdata_valid) begin
     //$display("-I: capturing data : a:%08x:%08x",capture_addr,cc_tb_readdata);
-    mm_capture_data[capture_d_index] = cc_tb_readdata;
-    mm_capture_addr[capture_a_index] = capture_addr;
-    capture_d_index += 1;
-    capture_a_index += 1;
+    mm_capture_data[capture_d_index] <= cc_tb_readdata;
+    capture_d_index <= capture_d_index+1;
   end
 end
 // ------------------------------------------------------------------------
@@ -128,13 +140,6 @@ always @(tb_cmd or reset) begin
     endcase 
   end
 end
-// ------------------------------------------------------------------------
-localparam _bypass_test = 1'b0;
-localparam _tag_rw_test = 1'b0;
-localparam _basic_tests     = 1'b1;
-localparam   _bt_lru_test   = 1'b1;
-localparam   _bt_rd_hit_test = 1'b1;
-localparam   _bt_wr_hit_test = 1'b1;
 // ------------------------------------------------------------------------
 always @(count) begin
 
@@ -161,10 +166,12 @@ always @(count) begin
   if(count > MAX) terminate();
 end
 // ----------------------------------------------------------------
+_probes _prb();
 cache dut0(
   //outputs
-  .rd   (cc_tb_readdata),
-  .valid(cc_tb_data_valid),
+  .rd      (cc_tb_readdata),
+  .rd_valid(cc_tb_readdata_valid),
+  .req_hit (cc_tb_req_hit),
 
   //from TB 
   .a    (tb_cc_address),

@@ -1,0 +1,15 @@
+
+{ signal: [
+  { name: "clk",    wave: 'p.......' },
+  { name: "rd",     wave: '10.' },
+  { name: "addr",   wave: '===', data: ["a1", "a2", "a3"] },
+  { name: "tagout", wave: 'x==', data: ["t1", "t2"] },
+  { name: "hit",    wave: '010' },
+  { name: "dout",   wave: 'x==', data: ["d1", "d2"] },
+  { name: "valid",  wave: '010' },
+  { name: "capt_a", wave: '10.' },
+  { name: "capt_d", wave: '010' },
+  { name: "exp_a",  wave: '=x', data: ["a1"] },
+  { name: "exp_d",  wave: 'xx=', data: ["d1"] },
+  {}
+]}

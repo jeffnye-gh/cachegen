@@ -11,7 +11,6 @@ module dsram #(
   output reg  [255:0] rd,
 
   input  wire [ADDR_WIDTH-1:0] a,
-  input  wire [2:0]    offset,
   input  wire [3:0]    be,
   input  wire [255:0]  wd,
   input  wire          fill,

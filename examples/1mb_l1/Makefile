@@ -35,6 +35,9 @@ waves: wave
 wave:
 	$(WAVE) $(WAVE_OPTS)  &
 
+_IVL_OPTS = -g2012  -I./inc $(IVL_DEF) $(VLIBS)
+one:
+	$(IVL) $(_IVL_OPTS) src/fsm.v
 clean:
 	-rm -f $(TARGET)
 	-rm -f $(WV_VCD_FILE)

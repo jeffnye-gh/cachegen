@@ -7,9 +7,13 @@
 //  32B  line/block size
 //
 //  I am assuming a 32b address space, with cache backed by an abstracted
-//  4GB main memory model using SV associative array where a key looksup
+//  4GB main memory model using SV associative array where a key looks up
 //    a cache line. Read from unallocated memory will generate a message
 //    but I don't plan on a hardware handshake at the moment.
+//
+//  NOTE: associative array idea is a problem. I am having trouble 
+//        convincing iverilog to allow data types in the array declarations.
+//        See the source files for more.
 //
 //  Capacity    2^20 bytes
 //  Block size  2^5
@@ -36,7 +40,7 @@
 //  10987654321098 7654321098765 432-- 3210
 //  TTTTTTTTTTTTTT SSSSSSSSSSSSS ooo-- bbbb
 //
-//  The tags can be 8KB x 4 x 14b
+//  The tags are    8KB x 4 x 14b
 //  Valid bits are  8KB x 4 x  1b
 //  Dirty bits are  8KB x 4 x  1b
 //  LRU   bits are  8KB   x    3b
@@ -66,18 +70,19 @@
 //    LRU bits   8KB x 3        cache/bitary/lbits
 //
 //  Policies
+//    Read miss policy is allocate, of course
 //    Write miss policy is allocate
 //    Write hit policy is no-write-through
-//    Initial eviction policy is psuedo-LRU
+//    Initial eviction policy is psuedo-LRU, 3 bit tree
 //    There are no memory attributes or other MPU-like regions
-//    Extra: see PDF for alternative eviction policy. FIXME: add description
-//    here if warranted.
 //
 //  Control
 //    A case style FSM implements control. This control interprets access
 //    signals and status bits. The FSM drives the control signals on RAMs
 //    etc. For testing the FSM supports commands from the testbench, e.g.
 //    tag/status/darray read/write, and bypasses the typical sequence.
+//
+//    NOTE: below is just a thought, see the implementation files for more.
 //
 //    Possible commands are below. I may not implement all of these. Allocating
 //    4 bits for the command signals from the TB.
@@ -96,7 +101,8 @@
 // Timing
 //    There is not a lot of timing related staging except the RAMs operate
 //    with a single cycle of read latency, even main memory. 
-//    A real design would use a waitstate handshake.
+//    A real design would use a waitstate handshake. I will reconsider this
+//    once I have functional tests and coverage.
 //
 //    There is a read data valid from the cgcache for capture TB purposes
 //
@@ -109,10 +115,14 @@
 //    readmemh files are in ./input, used for sim initialization and some
 //    golden reference files.
 //
-// Structure is:
+// Verilog structure is:
 //
 //    top
-//      l1       dut 
+//      cache    dut0
+//        tags
+//        data array's
+//        status bits
+//        fsm
 //        FIXME: add the rest
 //      mm       main memory
 // ----------------------------------------------------------------------

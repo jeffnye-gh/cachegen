@@ -1,4 +1,8 @@
 // vi:ft=verilog:
+`ifndef POSCLK 
+`define POSCLK 
+//`define POSCLK @(posedge clk)
+`endif
 // -----------------------------------------------------------------
 `include "sim_cntrl.h"
 // =================================================================
@@ -7,11 +11,15 @@
 task rd_req(input [31:0] a,input [3:0] be,input verbose=0);
 begin
   if(verbose) $display("-I: rd req : a:%08x  be:%04b",a,be);
-  top.tb_cc_address = a;
+  top.tb_cc_address    = a;
   top.tb_cc_byteenable = be;
   top.tb_cc_read       = 1'b1;
   top.tb_cc_write      = 1'b0;
   @(posedge clk);
+  //#1 so the signal has enough hold for the simulator to catch it
+//  top.tb_cc_read       = #1 1'b0;
+//  top.tb_cc_write      = #1 1'b0;
+//  top.tb_cc_address    = #1 31'bx;
 end
 endtask
 // --------------------------------------------------------------------------
@@ -24,83 +32,85 @@ begin
   top.tb_cc_write      = 1'b1;
   top.tb_cc_writedata  = wd;
   @(posedge clk);
+//  top.tb_cc_read       = #1 1'b0;
+//  top.tb_cc_write      = #1 1'b0;
+//  top.tb_cc_address    = #1 31'bx;
 end
 endtask
 // --------------------------------------------------------------------------
-//                                     bbbb
-//  33222222222211 11111111            eeee
-//  10987654321098 7654321098765 432-- 3210
-//  TTTTTTTTTTTTTT SSSSSSSSSSSSS ooo-- bbbb
-//
-//  index 13'h0 way0:tag: 14'h0  ea: {14'h0,13'h0,word,byte} 
-//  index 13'h0 way1:tag: 14'h1  ea: {14'h1,13'h0,word,byte}
-//  index 13'h0 way2:tag: 14'h2  ea: {14'h2,13'h0,word,byte}
-//  index 13'h0 way3:tag: 14'h3  ea: {14'h3,13'h0,word,byte}
-//
-//  index 13'h1 way0:tag: 14'h4  ea: {14'h4,13'h1,word,byte}
-//  index 13'h1 way1:tag: 14'h5  ea: {14'h5,13'h1,word,byte}
-//  index 13'h1 way2:tag: 14'h6  ea: {14'h6,13'h1,word,byte}
-//  index 13'h1 way3:tag: 14'h7  ea: {14'h7,13'h1,word,byte}
-//
-//  index 13'h2 way0:tag: 14'h8  ea: {14'h8,13'h2,word,byte}
-//  index 13'h2 way1:tag: 14'h9  ea: {14'h9,13'h2,word,byte}
-//  index 13'h2 way2:tag: 14'ha  ea: {14'ha,13'h2,word,byte}
-//  index 13'h2 way3:tag: 14'hb  ea: {14'hb,13'h2,word,byte}
-//
-//  index 13'h3 way0:tag: 14'hc  ea: {14'hc,13'h3,word,byte}
-//  index 13'h3 way1:tag: 14'hd  ea: {14'hd,13'h3,word,byte}
-//  index 13'h3 way2:tag: 14'he  ea: {14'he,13'h3,word,byte}
-//  index 13'h3 way3:tag: 14'hf  ea: {14'hf,13'h3,word,byte}
-// --------------------------------------------------------------------------
-//     33222222222211 11111111           
-//     10987654321098 7654321098765 432--
-//     TTTTTTTTTTTTTT SSSSSSSSSSSSS ooo--
-// EA: 00000000000000 0000000000000 xxx0   EA: 32'h000000XX0
-// EA: 00000000000001 0000000000000 xxx0   EA: 32'h000400XX0
-// EA: 00000000000010 0000000000000 xxx0   EA: 32'h000800XX0
-// EA: 00000000000011 0000000000000 xxx0   EA: 32'h000c00XX0
-// EA: 00000000000100 0000000000001 xxx0   EA: 32'h001000XX0
-// EA: 00000000000101 0000000000001 xxx0   EA: 32'h001400XX0
-// EA: 00000000000110 0000000000001 xxx0   EA: 32'h001800XX0
-// EA: 00000000000111 0000000000001 xxx0   EA: 32'h001c00XX0
-// EA: 00000000001000 0000000000010 xxx0   EA: 32'h002000XX0
-// EA: 00000000001001 0000000000010 xxx0   EA: 32'h002400XX0
-// EA: 00000000001010 0000000000010 xxx0   EA: 32'h002800XX0
-// EA: 00000000001011 0000000000010 xxx0   EA: 32'h002c00XX0
-// EA: 00000000001100 0000000000011 xxx0   EA: 32'h003000XX0
-// EA: 00000000001101 0000000000011 xxx0   EA: 32'h003400XX0
-// EA: 00000000001110 0000000000011 xxx0   EA: 32'h003800XX0
-// EA: 00000000001111 0000000000011 xxx0   EA: 32'h003c00XX0
-//
-//
-//
-
-// --------------------------------------------------------------------------
-task cfgBasicTest(input int cfgsel);
+// Loads the 11bit memb (NOTE: B)  file and converts the entries to 
+// 4 valid bits, 4 dirty bits and 3 lru bits init data
+// -----------------------------------------------------------------
+task show_bit_state(input int cnt,input int verbose=0);
+int i;
 begin
-  testName = "cfgBasicTest";
-  case(cfgsel) 
-    0: begin
-       $display("-I: setting configuration 0");
-       //data arrays
-       $readmemh("data/dsram0.cfg0.memh",top.dut0.data[0].dsram.ram);
-       $readmemh("data/dsram1.cfg0.memh",top.dut0.data[1].dsram.ram);
-       $readmemh("data/dsram2.cfg0.memh",top.dut0.data[2].dsram.ram);
-       $readmemh("data/dsram3.cfg0.memh",top.dut0.data[3].dsram.ram);
-       //tag arrays
-       $readmemh("data/tag0.cfg0.memh",top.dut0.tags[0].tag.ram);
-       $readmemh("data/tag1.cfg0.memh",top.dut0.tags[1].tag.ram);
-       $readmemh("data/tag2.cfg0.memh",top.dut0.tags[2].tag.ram);
-       $readmemh("data/tag3.cfg0.memh",top.dut0.tags[3].tag.ram);
-       //valid bits
-       $readmemh("data/val.cfg0.memh",top.dut0.bits0.vbits);
-       //dirty bits
-       $readmemh("data/mod.cfg0.memh",top.dut0.bits0.mbits);
-       //LRU bits
-       $readmemh("data/lru.cfg0.memh",top.dut0.bits0.lbits);
-       end
-  endcase
-  @(posedge clk);
+  if(verbose) $display("-I: show_bit_state");
+  for(i=0;i<cnt;i=i+1) begin
+    $display("%0d : v:%04b m:%04b lru:%03b",
+      i,
+      top.dut0.bits0.vbits[i],
+      top.dut0.bits0.mbits[i],
+      top.dut0.bits0.lbits[i]);
+  end
+  //`POSCLK; //@(posedge clk);
+end
+endtask
+
+// -----------------------------------------------------------------
+// Loads the 11bit memb (NOTE: B)  file and converts the entries to 
+// 4 valid bits, 4 dirty bits and 3 lru bits init data
+// -----------------------------------------------------------------
+task clear_initial_bits(input int verbose=0);
+int i;
+begin
+  for(i=0;i<EXP_DATA_ENTRIES;i=i+1) begin
+    top.dut0.bits0.lbits[i] = 3'bx;
+    top.dut0.bits0.mbits[i] = 4'bx;
+    top.dut0.bits0.vbits[i] = 4'bx; 
+  end
+  `POSCLK; //@(posedge clk);
+end
+endtask
+// -----------------------------------------------------------------
+// -----------------------------------------------------------------
+task load_initial_bits(input string fn,input int verbose=0);
+integer i;
+reg [10:0] local_bits[EXP_DATA_ENTRIES];
+begin
+  if(verbose) $display("-I: loading initial bit data from %0s",fn);
+  //clear_tmp_data();
+  $readmemb(fn,local_bits);
+  $display("HERE lb %011b",local_bits[0]);
+  for(i=0;i<EXP_DATA_ENTRIES;i=i+1) begin
+    top.dut0.bits0.lbits[i] = local_bits[i][2:0];
+    if(i==0) $display("HERE 2 lb %03b",local_bits[i][2:0]);
+    if(i==0) $display("HERE 3 lb %03b",top.dut0.bits0.lbits[i]);
+    top.dut0.bits0.mbits[i] = local_bits[i][6:3];
+    top.dut0.bits0.vbits[i] = local_bits[i][10:7];
+  end
+  $display("HERE 4 lb %03b",top.dut0.bits0.lbits[i]);
+  show_bit_state(4,1);
+  `POSCLK; //@(posedge clk);
+  $display("HERE 5 lb %03b",top.dut0.bits0.lbits[i]);
+end
+endtask
+// -----------------------------------------------------------------
+// Loads the 64bit memh file and converts the entries to 4x14b tag
+// initialization data
+// -----------------------------------------------------------------
+task load_initial_tags(input string fn,input int verbose=0);
+integer i;
+reg  [63:0]  tmp_data[0:EXP_DATA_ENTRIES];
+begin
+  if(verbose) $display("-I: loading expect tags");
+  $readmemh(fn,tmp_data);
+  for(i=0;i<EXP_DATA_ENTRIES;i=i+1) begin
+    top.dut0.tags[0].tag.ram[i] = tmp_data[i][13:0];
+    top.dut0.tags[1].tag.ram[i] = tmp_data[i][29:16];
+    top.dut0.tags[2].tag.ram[i] = tmp_data[i][45:32];
+    top.dut0.tags[3].tag.ram[i] = tmp_data[i][61:48];
+  end
+  `POSCLK; //@(posedge clk);
 end
 endtask
 // -----------------------------------------------------------------
@@ -109,19 +119,19 @@ endtask
 // -----------------------------------------------------------------
 task load_expect_tags(input string fn,input int verbose=0);
 integer i;
-reg [13:0] tags[0:3];
+reg [13:0]  tags[0:3];
+reg [63:0]  tmp_data[0:EXP_DATA_ENTRIES];
 begin
   if(verbose) $display("-I: loading expect tags");
-  clear_tmp_data();
-  $readmemh(fn,mm_tmp_data);
+  $readmemh(fn,tmp_data);
   for(i=0;i<EXP_DATA_ENTRIES;i=i+1) begin
-    tags[0] = mm_tmp_data[i][13:0];
-    tags[1] = mm_tmp_data[i][29:16];
-    tags[2] = mm_tmp_data[i][45:32];
-    tags[3] = mm_tmp_data[i][61:48];
+    tags[0] = tmp_data[i][13:0];
+    tags[1] = tmp_data[i][29:16];
+    tags[2] = tmp_data[i][45:32];
+    tags[3] = tmp_data[i][61:48];
     mm_expect_tags[i] = {tags[3],tags[2],tags[1],tags[0]};
   end
-  @(posedge clk);
+  `POSCLK; //@(posedge clk);
 end
 endtask
 // -----------------------------------------------------------------
@@ -131,7 +141,7 @@ task load_expect_bits(input string fn,input int verbose=0);
 begin
   if(verbose) $display("-I: loading expect bits");
   $readmemb(fn,mm_expect_bits);
-  @(posedge clk);
+  `POSCLK; //@(posedge clk);
 end
 endtask
 // -----------------------------------------------------------------
@@ -141,31 +151,23 @@ begin
   if(verbose) $display("-I: loading expect data");
   $readmemh(afn,top.mm_expect_addr);
   $readmemh(dfn,top.mm_expect_data);
-  @(posedge clk);
+  `POSCLK; //@(posedge clk);
 end
 endtask
 // -----------------------------------------------------------------
 // Separate from clear_tb_data() because this is called multiple
 // times when converting files
 // -----------------------------------------------------------------
-task clear_tmp_data(input int verbose=0);
-integer i;
-begin
-  if(verbose) $display("-I: clearing tb temp data");
-  for(i=0;i<EXP_DATA_ENTRIES;i=i+1) begin
-    top.mm_tmp_data[i]     = 128'bx;
-  end
-  @(posedge clk);
-end
-endtask
-// -----------------------------------------------------------------
-// set all design state to x
-// -----------------------------------------------------------------
-task clear_design_data(input int verbose=0);
-integer i;
-begin
-end
-endtask
+//task clear_tmp_data(input int verbose=0);
+//integer i;
+//begin
+//  if(verbose) $display("-I: clearing tb temp data");
+//  for(i=0;i<EXP_DATA_ENTRIES;i=i+1) begin
+//    top.mm_tmp_data[i]     = 128'bx;
+//  end
+//  `POSCLK; //@(posedge clk);
+//end
+//endtask
 // -----------------------------------------------------------------
 // -----------------------------------------------------------------
 task clear_tb_data(input int start,input int stop,input int verbose=0);
@@ -175,28 +177,31 @@ begin
   capture_a_index = 0;
   capture_d_index = 0;
   for(i=start;i<stop;i=i+1) begin
-    top.mm_expect_data[i]  = 32'bx;
+
     top.mm_expect_addr[i]  = 32'bx;
+    top.mm_expect_data[i]  = 32'bx;
+
     top.mm_capture_addr[i] = 32'bx;
     top.mm_capture_data[i] = 32'bx;
-    top.mm_tmp_data[i]     = 128'bx;
+
     top.mm_expect_tags[i]  =  56'bx;
     top.mm_expect_bits[i]  =  11'bx;
+
   end
-  @(posedge clk);
+  `POSCLK; //@(posedge clk);
 end
 endtask
 // -----------------------------------------------------------------
 // -----------------------------------------------------------------
-task show_tb_add_data(input int start,stop,verbose=0);
-integer i,errs;
+task check_tb_add_data(output integer errs,input int start,stop,verbose=0);
+integer i;
 reg matcha,matchd,match;
 begin
+  //do not clear errs, this should be done by the caller
   if(verbose) $display("-I: showing addr/data expect values:");
   if(start > EXP_DATA_ENTRIES || stop > EXP_DATA_ENTRIES) begin
     $display("-E: in show_tb_add_data(), array range exceeded");
   end else begin
-    errs = 0;
     for(i=start;i<stop;i+=1) begin
       matcha = compare(top.mm_expect_addr[i],top.mm_capture_addr[i]);
       matchd = compare(top.mm_expect_data[i],top.mm_capture_data[i]);
@@ -206,24 +211,24 @@ begin
                top.mm_expect_addr[i], top.mm_expect_data[i],
                top.mm_capture_addr[i],top.mm_capture_data[i],match);
     end
-    $display("-I: ERRORS : %04d",errs);
+    //$display("-I: ERRORS : %04d",errs);
   end
-  @(posedge clk);
+  `POSCLK; //@(posedge clk);
 end
 endtask
 // -----------------------------------------------------------------
 // -----------------------------------------------------------------
-task show_tb_tags_bits(input int start,stop,verbose=0);
-integer i,errs;
+task check_tb_tags_bits(output int errs,input int start,stop,verbose=0);
+integer i;
 reg matcht,matchb,match;
 reg [55:0] local_tags[0:EXP_DATA_ENTRIES];
 reg [10:0] local_bits[0:EXP_DATA_ENTRIES];
 begin
+  //do not clear errs, this should be done by the caller
   if(verbose) $display("-I: showing tag/bits expect values:");
   if(start > EXP_DATA_ENTRIES || stop > EXP_DATA_ENTRIES) begin
     $display("-E: in show_tb_tags_bits(), array range exceeded");
   end else begin
-    errs = 0;
     for(i=start;i<stop;i+=1) begin
       local_tags[i] = { top.dut0.tags[3].tag.ram[i],
                         top.dut0.tags[2].tag.ram[i],
@@ -258,9 +263,9 @@ begin
         local_bits[i][6:3],
         local_bits[i][2:0],match);
     end
-    $display("-I: ERRORS : %04d",errs);
+    //$display("-I: ERRORS : %04d",errs);
   end
-  @(posedge clk);
+  `POSCLK; //@(posedge clk);
 end
 endtask
 // -----------------------------------------------------------------
@@ -298,6 +303,23 @@ begin
   @(posedge clk);
   @(posedge clk);
   $finish;
+end
+endtask
+// -----------------------------------------------------------------
+// -----------------------------------------------------------------
+task beginTestMsg(input string testName);
+begin
+  $display("-I: BEGIN TEST : %0s",testName);
+end
+endtask
+// -----------------------------------------------------------------
+// -----------------------------------------------------------------
+task endTestMsg(input string testName,input int errs);
+string pf,pre;
+begin
+  if(errs > 0) begin pf = "FAIL"; pre = "-E: "; end
+  else         begin pf = "PASS"; pre = "-I: "; end
+  $display("%0s END TEST   : %0s : errors %0d : %0s",pre,testName,errs,pf);
 end
 endtask
 // -----------------------------------------------------------------

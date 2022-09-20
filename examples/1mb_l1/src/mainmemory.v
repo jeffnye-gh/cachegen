@@ -174,95 +174,95 @@ always @(posedge clk) valid <= valid_d;
 // ------------------------------------------------------------------------
 // debug Probes
 // ------------------------------------------------------------------------
-//First 8 locations in main memory, re as cache lines
-wire [255:0] mm0 = {ram7[0],ram6[0],ram5[0],ram4[0],
-                    ram3[0],ram2[0],ram1[0],ram0[0]};
-wire [255:0] mm1 = {ram7[1],ram6[1],ram5[1],ram4[1],
-                    ram3[1],ram2[1],ram1[1],ram0[1]};
-wire [255:0] mm2 = {ram7[2],ram6[2],ram5[2],ram4[2],
-                    ram3[2],ram2[2],ram1[2],ram0[2]};
-wire [255:0] mm3 = {ram7[3],ram6[3],ram5[3],ram4[3],
-                    ram3[3],ram2[3],ram1[3],ram0[3]};
-wire [255:0] mm4 = {ram7[4],ram6[4],ram5[4],ram4[4],
-                    ram3[4],ram2[4],ram1[4],ram0[4]};
-wire [255:0] mm5 = {ram7[5],ram6[5],ram5[5],ram4[5],
-                    ram3[5],ram2[5],ram1[5],ram0[5]};
-wire [255:0] mm6 = {ram7[6],ram6[6],ram5[6],ram4[6],
-                    ram3[6],ram2[6],ram1[6],ram0[6]};
-wire [255:0] mm7 = {ram7[7],ram6[7],ram5[7],ram4[7],
-                    ram3[7],ram2[7],ram1[7],ram0[7]};
-
-//First 8 locations for each bank, by word
-wire [31:0] ram0_0 = ram0[0];
-wire [31:0] ram0_1 = ram0[1];
-wire [31:0] ram0_2 = ram0[2];
-wire [31:0] ram0_3 = ram0[3];
-wire [31:0] ram0_4 = ram0[4];
-wire [31:0] ram0_5 = ram0[5];
-wire [31:0] ram0_6 = ram0[6];
-wire [31:0] ram0_7 = ram0[7];
-
-wire [31:0] ram1_0 = ram1[0];
-wire [31:0] ram1_1 = ram1[1];
-wire [31:0] ram1_2 = ram1[2];
-wire [31:0] ram1_3 = ram1[3];
-wire [31:0] ram1_4 = ram1[4];
-wire [31:0] ram1_5 = ram1[5];
-wire [31:0] ram1_6 = ram1[6];
-wire [31:0] ram1_7 = ram1[7];
-
-wire [31:0] ram2_0 = ram2[0];
-wire [31:0] ram2_1 = ram2[1];
-wire [31:0] ram2_2 = ram2[2];
-wire [31:0] ram2_3 = ram2[3];
-wire [31:0] ram2_4 = ram2[4];
-wire [31:0] ram2_5 = ram2[5];
-wire [31:0] ram2_6 = ram2[6];
-wire [31:0] ram2_7 = ram2[7];
-
-wire [31:0] ram3_0 = ram3[0];
-wire [31:0] ram3_1 = ram3[1];
-wire [31:0] ram3_2 = ram3[2];
-wire [31:0] ram3_3 = ram3[3];
-wire [31:0] ram3_4 = ram3[4];
-wire [31:0] ram3_5 = ram3[5];
-wire [31:0] ram3_6 = ram3[6];
-wire [31:0] ram3_7 = ram3[7];
-
-wire [31:0] ram4_0 = ram4[0];
-wire [31:0] ram4_1 = ram4[1];
-wire [31:0] ram4_2 = ram4[2];
-wire [31:0] ram4_3 = ram4[3];
-wire [31:0] ram4_4 = ram4[4];
-wire [31:0] ram4_5 = ram4[5];
-wire [31:0] ram4_6 = ram4[6];
-wire [31:0] ram4_7 = ram4[7];
-
-wire [31:0] ram5_0 = ram5[0];
-wire [31:0] ram5_1 = ram5[1];
-wire [31:0] ram5_2 = ram5[2];
-wire [31:0] ram5_3 = ram5[3];
-wire [31:0] ram5_4 = ram5[4];
-wire [31:0] ram5_5 = ram5[5];
-wire [31:0] ram5_6 = ram5[6];
-wire [31:0] ram5_7 = ram5[7];
-
-wire [31:0] ram6_0 = ram6[0];
-wire [31:0] ram6_1 = ram6[1];
-wire [31:0] ram6_2 = ram6[2];
-wire [31:0] ram6_3 = ram6[3];
-wire [31:0] ram6_4 = ram6[4];
-wire [31:0] ram6_5 = ram6[5];
-wire [31:0] ram6_6 = ram6[6];
-wire [31:0] ram6_7 = ram6[7];
-
-wire [31:0] ram7_0 = ram7[0];
-wire [31:0] ram7_1 = ram7[1];
-wire [31:0] ram7_2 = ram7[2];
-wire [31:0] ram7_3 = ram7[3];
-wire [31:0] ram7_4 = ram7[4];
-wire [31:0] ram7_5 = ram7[5];
-wire [31:0] ram7_6 = ram7[6];
-wire [31:0] ram7_7 = ram7[7];
+////First 8 locations in main memory, re as cache lines
+//wire [255:0] mm0 = {ram7[0],ram6[0],ram5[0],ram4[0],
+//                    ram3[0],ram2[0],ram1[0],ram0[0]};
+//wire [255:0] mm1 = {ram7[1],ram6[1],ram5[1],ram4[1],
+//                    ram3[1],ram2[1],ram1[1],ram0[1]};
+//wire [255:0] mm2 = {ram7[2],ram6[2],ram5[2],ram4[2],
+//                    ram3[2],ram2[2],ram1[2],ram0[2]};
+//wire [255:0] mm3 = {ram7[3],ram6[3],ram5[3],ram4[3],
+//                    ram3[3],ram2[3],ram1[3],ram0[3]};
+//wire [255:0] mm4 = {ram7[4],ram6[4],ram5[4],ram4[4],
+//                    ram3[4],ram2[4],ram1[4],ram0[4]};
+//wire [255:0] mm5 = {ram7[5],ram6[5],ram5[5],ram4[5],
+//                    ram3[5],ram2[5],ram1[5],ram0[5]};
+//wire [255:0] mm6 = {ram7[6],ram6[6],ram5[6],ram4[6],
+//                    ram3[6],ram2[6],ram1[6],ram0[6]};
+//wire [255:0] mm7 = {ram7[7],ram6[7],ram5[7],ram4[7],
+//                    ram3[7],ram2[7],ram1[7],ram0[7]};
+//
+////First 8 locations for each bank, by word
+//wire [31:0] mm_ram0_0 = ram0[0];
+//wire [31:0] mm_ram0_1 = ram0[1];
+//wire [31:0] mm_ram0_2 = ram0[2];
+//wire [31:0] mm_ram0_3 = ram0[3];
+//wire [31:0] mm_ram0_4 = ram0[4];
+//wire [31:0] mm_ram0_5 = ram0[5];
+//wire [31:0] mm_ram0_6 = ram0[6];
+//wire [31:0] mm_ram0_7 = ram0[7];
+//
+//wire [31:0] mm_ram1_0 = ram1[0];
+//wire [31:0] mm_ram1_1 = ram1[1];
+//wire [31:0] mm_ram1_2 = ram1[2];
+//wire [31:0] mm_ram1_3 = ram1[3];
+//wire [31:0] mm_ram1_4 = ram1[4];
+//wire [31:0] mm_ram1_5 = ram1[5];
+//wire [31:0] mm_ram1_6 = ram1[6];
+//wire [31:0] mm_ram1_7 = ram1[7];
+//
+//wire [31:0] mm_ram2_0 = ram2[0];
+//wire [31:0] mm_ram2_1 = ram2[1];
+//wire [31:0] mm_ram2_2 = ram2[2];
+//wire [31:0] mm_ram2_3 = ram2[3];
+//wire [31:0] mm_ram2_4 = ram2[4];
+//wire [31:0] mm_ram2_5 = ram2[5];
+//wire [31:0] mm_ram2_6 = ram2[6];
+//wire [31:0] mm_ram2_7 = ram2[7];
+//
+//wire [31:0] mm_ram3_0 = ram3[0];
+//wire [31:0] mm_ram3_1 = ram3[1];
+//wire [31:0] mm_ram3_2 = ram3[2];
+//wire [31:0] mm_ram3_3 = ram3[3];
+//wire [31:0] mm_ram3_4 = ram3[4];
+//wire [31:0] mm_ram3_5 = ram3[5];
+//wire [31:0] mm_ram3_6 = ram3[6];
+//wire [31:0] mm_ram3_7 = ram3[7];
+//
+//wire [31:0] mm_ram4_0 = ram4[0];
+//wire [31:0] mm_ram4_1 = ram4[1];
+//wire [31:0] mm_ram4_2 = ram4[2];
+//wire [31:0] mm_ram4_3 = ram4[3];
+//wire [31:0] mm_ram4_4 = ram4[4];
+//wire [31:0] mm_ram4_5 = ram4[5];
+//wire [31:0] mm_ram4_6 = ram4[6];
+//wire [31:0] mm_ram4_7 = ram4[7];
+//
+//wire [31:0] mm_ram5_0 = ram5[0];
+//wire [31:0] mm_ram5_1 = ram5[1];
+//wire [31:0] mm_ram5_2 = ram5[2];
+//wire [31:0] mm_ram5_3 = ram5[3];
+//wire [31:0] mm_ram5_4 = ram5[4];
+//wire [31:0] mm_ram5_5 = ram5[5];
+//wire [31:0] mm_ram5_6 = ram5[6];
+//wire [31:0] mm_ram5_7 = ram5[7];
+//
+//wire [31:0] mm_ram6_0 = ram6[0];
+//wire [31:0] mm_ram6_1 = ram6[1];
+//wire [31:0] mm_ram6_2 = ram6[2];
+//wire [31:0] mm_ram6_3 = ram6[3];
+//wire [31:0] mm_ram6_4 = ram6[4];
+//wire [31:0] mm_ram6_5 = ram6[5];
+//wire [31:0] mm_ram6_6 = ram6[6];
+//wire [31:0] mm_ram6_7 = ram6[7];
+//
+//wire [31:0] mm_ram7_0 = ram7[0];
+//wire [31:0] mm_ram7_1 = ram7[1];
+//wire [31:0] mm_ram7_2 = ram7[2];
+//wire [31:0] mm_ram7_3 = ram7[3];
+//wire [31:0] mm_ram7_4 = ram7[4];
+//wire [31:0] mm_ram7_5 = ram7[5];
+//wire [31:0] mm_ram7_6 = ram7[6];
+//wire [31:0] mm_ram7_7 = ram7[7];
 
 endmodule

@@ -1,0 +1,23 @@
+{ signal: [
+  { name: "clk",              wave: 'p.......' },
+  { name: "count",  wave: '====', data: ["8","9","10","11"]},
+  [ "PE",
+    { name: "pe_acess",       wave: '==', data: [ "r/w", "r/w" ] },
+    { name: "pe_a",           wave: '==', data: [ "c00",  "400"  ] },
+   ],
+  [ "TAG", 
+    { name: "tag_read",    wave: '11' },
+    { name: "tag_out",     wave: 'x=.', data: ["0003", "0003", "ia3"] },
+    { name: "tag_compare", wave: '011' },
+   { name: "way_hit",     wave: 'x==', data: ["1000",  "0010", "oa3"] }
+   ],
+   [ "LRU",
+    { name: "lru_read",    wave: '11' },
+    { name: "lru_out",     wave: 'x==', data: ["000", "byp", "ia3"] },
+    { name: "new_lru",     wave: 'x=', data: ["110",  "oa2", "oa3"] },
+    { name: "lru_wr",      wave: '01' },
+    { name: "lru_data_0",  wave: '=.=', data: ["000", "110", "110"] },    
+  ],
+
+]}
+
