@@ -58,6 +58,24 @@ begin
 end
 endtask
 // --------------------------------------------------------------------------
+// show a single line in a way
+//
+// 32bytes per line format is : 256x
+// -----------------------------------------------------------------
+task show_line(input int way, input [12:0] index);
+int i;
+reg [255:0] data;
+begin
+  data = 256'h7EADBEEF6EADBEEF5EADBEEF4EADBEEF3EADBEEF2EADBEEF1EADBEEF0EADBEEF;
+  //$display("-I: show_line");
+       if(way == 0) data = top.dut0.dsram0.ram[index];
+  else if(way == 1) data = top.dut0.dsram1.ram[index];
+  else if(way == 2) data = top.dut0.dsram2.ram[index];
+  else if(way == 3) data = top.dut0.dsram3.ram[index];
+  $display("-I: show way%0d d:%032x",way,data);
+end
+endtask
+// --------------------------------------------------------------------------
 // Loads the 11bit memb (NOTE: B)  file and converts the entries to 
 // 4 valid bits, 4 dirty bits and 3 lru bits init data
 // -----------------------------------------------------------------
@@ -74,7 +92,6 @@ begin
   end
 end
 endtask
-
 // -----------------------------------------------------------------
 // Loads the 11bit memb (NOTE: B)  file and converts the entries to 
 // 4 valid bits, 4 dirty bits and 3 lru bits init data
@@ -103,7 +120,6 @@ begin
     top.dut0.bits0.mbits[i] = local_bits[i][6:3];
     top.dut0.bits0.vbits[i] = local_bits[i][10:7];
   end
-  show_bit_state(4,1);
 end
 endtask
 // -----------------------------------------------------------------
@@ -180,19 +196,6 @@ begin
   $readmemh(df3,top.mm_expect_dary_3);
 end
 endtask
-// -----------------------------------------------------------------
-// Separate from clear_tb_data() because this is called multiple
-// times when converting files
-// -----------------------------------------------------------------
-//task clear_tmp_data(input int verbose=0);
-//integer i;
-//begin
-//  if(verbose) $display("-I: clearing tb temp data");
-//  for(i=0;i<EXP_DATA_ENTRIES;i=i+1) begin
-//    top.mm_tmp_data[i]     = 128'bx;
-//  end
-//end
-//endtask
 // -----------------------------------------------------------------
 // -----------------------------------------------------------------
 task clear_tb_data(input int start,input int stop,input int verbose=0);
@@ -277,13 +280,13 @@ begin
   
     for(i=start;i<stop;i+=1) begin
       matchd[0] = compare256(top.mm_expect_dary_0[i],
-                             top.dut0.data[0].dsram.ram[i]);
+                             top.dut0.dsram0.ram[i]);
       matchd[1] = compare256(top.mm_expect_dary_1[i],
-                             top.dut0.data[1].dsram.ram[i]);
+                             top.dut0.dsram1.ram[i]);
       matchd[2] = compare256(top.mm_expect_dary_2[i],
-                             top.dut0.data[2].dsram.ram[i]);
+                             top.dut0.dsram2.ram[i]);
       matchd[3] = compare256(top.mm_expect_dary_3[i],
-                             top.dut0.data[3].dsram.ram[i]);
+                             top.dut0.dsram3.ram[i]);
       matchall = &matchd;
       if(!matchall)    $display("-E: index %0d mismatch",i);
       else if(verbose) $display("-I: index %0d    match",i);
@@ -291,48 +294,48 @@ begin
       // -------------------------------------------------------------
       if(!matchd[0]) begin
         $display("-E:way0 exp:%032x ",     top.mm_expect_dary_0[i]);
-        $display("-E:way0 act:%032x m:%0d",top.dut0.data[0].dsram.ram[i],
+        $display("-E:way0 act:%032x m:%0d",top.dut0.dsram0.ram[i],
                                           matchd[0]);
         errs = errs + 1;
       end else if(verbose) begin
         $display("-I:way0 exp:%032x ",     top.mm_expect_dary_0[i]);
-        $display("-I:way0 act:%032x m:%0d",top.dut0.data[0].dsram.ram[i],
+        $display("-I:way0 act:%032x m:%0d",top.dut0.dsram0.ram[i],
                                            matchd[0]);
       end
 
       // -------------------------------------------------------------
       if(!matchd[1]) begin
         $display("-E:way1 exp:%032x ",   top.mm_expect_dary_1[i]);
-        $display("-E:way1 act:%032x m:0",top.dut0.data[1].dsram.ram[i],
+        $display("-E:way1 act:%032x m:0",top.dut0.dsram1.ram[i],
                                            matchd[1]);
         errs = errs + 1;
       end else if(verbose) begin
         $display("-I:way1 exp:%032x ",     top.mm_expect_dary_1[i]);
-        $display("-I:way1 act:%032x m:%0d",top.dut0.data[1].dsram.ram[i],
+        $display("-I:way1 act:%032x m:%0d",top.dut0.dsram1.ram[i],
                                            matchd[1]);
       end
 
       // -------------------------------------------------------------
       if(!matchd[2]) begin
         $display("-E:way2 exp:%032x ",   top.mm_expect_dary_2[i]);
-        $display("-E:way2 act:%032x m:0",top.dut0.data[2].dsram.ram[i],
+        $display("-E:way2 act:%032x m:0",top.dut0.dsram2.ram[i],
                                            matchd[2]);
         errs = errs + 1;
       end else if(verbose) begin
         $display("-I:way2 exp:%032x ",     top.mm_expect_dary_2[i]);
-        $display("-I:way2 act:%032x m:%0d",top.dut0.data[2].dsram.ram[i],
+        $display("-I:way2 act:%032x m:%0d",top.dut0.dsram2.ram[i],
                                            matchd[2]);
       end
 
       // -------------------------------------------------------------
       if(!matchd[3]) begin
         $display("-E:way3 exp:%032x ",     top.mm_expect_dary_3[i]);
-        $display("-E:way3 act:%032x m:%0d",top.dut0.data[3].dsram.ram[i],
+        $display("-E:way3 act:%032x m:%0d",top.dut0.dsram3.ram[i],
                                            matchd[3]);
         errs = errs + 1;
       end else if(verbose) begin
         $display("-I:way3 exp:%032x ",     top.mm_expect_dary_3[i]);
-        $display("-I:way3 act:%032x m:%0d",top.dut0.data[3].dsram.ram[i],
+        $display("-I:way3 act:%032x m:%0d",top.dut0.dsram3.ram[i],
                                            matchd[3]);
       end
 //      end
@@ -407,7 +410,7 @@ end
 endtask
 // -----------------------------------------------------------------
 // -----------------------------------------------------------------
-task nop(input int count);
+task nop(input int count,input int verbose=0);
 integer i;
 begin
   for(i=0;i<count;i=i+1) begin
@@ -415,6 +418,7 @@ begin
     tb_cc_read     = 1'b0;
     tb_cc_write    = 1'b0;
     tb_cc_ram_test = 1'b0;
+    if(verbose) $display("-I: NOP");
     @(posedge clk);
   end
 end
@@ -446,7 +450,7 @@ endtask
 // -----------------------------------------------------------------
 task beginTestMsg(input string testName);
 begin
-  $display("-I: BEGIN TEST : %0s",testName);
+  $display("-I: BEGIN TEST : %014s",testName);
 end
 endtask
 // -----------------------------------------------------------------
@@ -456,7 +460,7 @@ string pf,pre;
 begin
   if(errs > 0) begin pf = "FAIL"; pre = "-E: "; end
   else         begin pf = "PASS"; pre = "-I: "; end
-  $display("%0s END TEST   : %0s : errors %0d : %0s",pre,testName,errs,pf);
+  $display("%0sEND TEST   : %014s : errors %0d : %0s",pre,testName,errs,pf);
 end
 endtask
 // -----------------------------------------------------------------

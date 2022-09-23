@@ -16,13 +16,13 @@ begin
   index  = a[17:5];
   offset = a[4:2];
   if(tagway == 14'h000) begin
-    act = top.dut0.data[0].dsram.ram[index] >> offset*32;
+    act = top.dut0.dsram0.ram[index] >> offset*32;
   end else if(tagway == 14'h001) begin
-    act = top.dut0.data[1].dsram.ram[index] >> offset*32;
+    act = top.dut0.dsram1.ram[index] >> offset*32;
   end else if(tagway == 14'h002) begin
-    act = top.dut0.data[2].dsram.ram[index] >> offset*32;
+    act = top.dut0.dsram2.ram[index] >> offset*32;
   end else if(tagway == 14'h003) begin
-    act = top.dut0.data[3].dsram.ram[index] >> offset*32;
+    act = top.dut0.dsram3.ram[index] >> offset*32;
   end
 
   if(act !== exp) begin

@@ -45,20 +45,21 @@ reg [31:0] addr;
 reg [31:0] incr;
 reg [2:0]  act_lru,exp_lru;
 begin
+  nop(4);
+
   errs = 0;
+  clear_tb_data(0,EXP_DATA_ENTRIES,verbose);
 
-  $display("-I: clearing test bench data");
-  clear_tb_data(0,EXP_DATA_ENTRIES,1);
+  if(verbose) $display("-I: setting initial configuration ");
+  $readmemh("data/dsram0.cfg0.memh",top.dut0.dsram0.ram);
+  $readmemh("data/dsram1.cfg0.memh",top.dut0.dsram1.ram);
+  $readmemh("data/dsram2.cfg0.memh",top.dut0.dsram2.ram);
+  $readmemh("data/dsram3.cfg0.memh",top.dut0.dsram3.ram);
 
-  //@(posedge clk);
-  $display("-I: setting initial configuration ");
-  $readmemh("data/dsram0.cfg0.memh",top.dut0.data[0].dsram.ram);
-  $readmemh("data/dsram1.cfg0.memh",top.dut0.data[1].dsram.ram);
-  $readmemh("data/dsram2.cfg0.memh",top.dut0.data[2].dsram.ram);
-  $readmemh("data/dsram3.cfg0.memh",top.dut0.data[3].dsram.ram);
-  load_initial_tags("data/tags.cfg0.memh");
-  load_initial_bits("data/bits.cfg0.memb",1);
-  //show_bit_state(4,1);
+  load_initial_tags("data/tags.cfg0.memh",verbose);
+  load_initial_bits("data/bits.cfg0.memb",verbose);
+
+  nop(4);
 
   testName = "basicLruTest";
   beginTestMsg(testName);
@@ -105,13 +106,8 @@ begin
     $display("-I: basicLruTest : exp:%03b  act:%03b",exp_lru,act_lru);
   end
 
-//
-//  if(exp_lru === act_lru) errs = 0;
-//  else errs = 1;
-//
-//  nop(4);
-
   endTestMsg(testName,errs);
+  nop(4);
 end
 endtask
 // --------------------------------------------------------------------------
@@ -132,58 +128,75 @@ reg [2:0] lru_exp,lru_act;
 reg [31:0] addr;
 
 begin
+  nop(4);
+
   testName = "basicRdHitTest";
   beginTestMsg(testName);
 
   v = verbose;
 
-  $display("-I: clearing test bench data");
-  clear_tb_data(0,EXP_DATA_ENTRIES,1);
+  clear_tb_data(0,EXP_DATA_ENTRIES,v);
 
-  $display("-I: setting initial configuration ");
-  $readmemh("data/dsram0.cfg0.memh",top.dut0.data[0].dsram.ram);
-  $readmemh("data/dsram1.cfg0.memh",top.dut0.data[1].dsram.ram);
-  $readmemh("data/dsram2.cfg0.memh",top.dut0.data[2].dsram.ram);
-  $readmemh("data/dsram3.cfg0.memh",top.dut0.data[3].dsram.ram);
-  load_initial_tags("data/tags.cfg0.memh");
-  load_initial_bits("data/bits.cfg0.memb",1);
+  nop(4);
+
+  if(verbose) $display("-I: setting initial configuration ");
+  $readmemh("data/dsram0.cfg0.memh",top.dut0.dsram0.ram);
+  $readmemh("data/dsram1.cfg0.memh",top.dut0.dsram1.ram);
+  $readmemh("data/dsram2.cfg0.memh",top.dut0.dsram2.ram);
+  $readmemh("data/dsram3.cfg0.memh",top.dut0.dsram3.ram);
+
+  load_initial_tags("data/tags.cfg0.memh",v);
+  load_initial_bits("data/bits.cfg0.memb",v);
+
+  nop(4);
+
   @(posedge clk);
   top.dut0.lrurf0.regs[0] = 3'b0;
   @(posedge clk);
-  //show_bit_state(4,1);
+
+
+  //some arbitrary nops inserted just for simple state test
 
           //tag/way index   word                  --wpWpii
   rd_req({14'h003,13'h000,3'h3,2'h0},4'b1111,v);//00303000
   rd_req({14'h001,13'h001,3'h7,2'h0},4'b1111,v);//00107001
+  nop(4);
   rd_req({14'h002,13'h002,3'h6,2'h0},4'b1111,v);//00206002
+  nop(1);
   rd_req({14'h000,13'h003,3'h5,2'h0},4'b1111,v);//00005003
   rd_req({14'h000,13'h004,3'h2,2'h0},4'b1111,v);//00002004
+  nop(4);
   rd_req({14'h001,13'h001,3'h1,2'h0},4'b1111,v);//00101001
   rd_req({14'h002,13'h005,3'h5,2'h0},4'b1111,v);//00205005
   rd_req({14'h003,13'h007,3'h3,2'h0},4'b1111,v);//00303007
+  nop(2);
   rd_req({14'h000,13'h002,3'h2,2'h0},4'b1111,v);//00002002
   rd_req({14'h001,13'h003,3'h1,2'h0},4'b1111,v);//00101003
   rd_req({14'h000,13'h003,3'h6,2'h0},4'b1111,v);//00006003
+  nop(4);
   rd_req({14'h001,13'h003,3'h7,2'h0},4'b1111,v);//00107003
   rd_req({14'h003,13'h006,3'h4,2'h0},4'b1111,v);//00304006
   rd_req({14'h000,13'h006,3'h3,2'h0},4'b1111,v);//00003006
+  nop(1);
   rd_req({14'h000,13'h002,3'h0,2'h0},4'b1111,v);//00000002
   rd_req({14'h001,13'h000,3'h1,2'h0},4'b1111,v);//00101000
 
+
   load_expect_capture_data("./golden/basicRdHit.a.cfg0.memh",
-                           "./golden/basicRdHit.d.cfg0.memh",1);
-  load_expect_tags("./golden/basicRdHit.t.cfg0.memh",1);
-  load_expect_bits("./golden/basicRdHit.b.cfg0.memb",1); //NOTE B file
+                           "./golden/basicRdHit.d.cfg0.memh",v);
+  load_expect_tags("./golden/basicRdHit.t.cfg0.memh",v);
+  load_expect_bits("./golden/basicRdHit.b.cfg0.memb",v); //NOTE B file
 
-  @(posedge clk);
-  @(posedge clk);
-  @(posedge clk);
-  @(posedge clk);
+  nop(4,1); //let state propagate
 
-  check_tb_add_data (errs,0,16,1); //EXP_DATA_ENTRIES);
-  check_tb_tags_bits(errs,0,16,1); //EXP_DATA_ENTRIES);
+  check_tb_add_data (errs,0,16,v); //EXP_DATA_ENTRIES);
+  check_tb_tags_bits(errs,0,16,v); //EXP_DATA_ENTRIES);
 
   endTestMsg(testName,errs);
+
+  //$display("HERE basicRdHitTest");
+  //show_line(0,0);
+  nop(4);
 end
 endtask
 // --------------------------------------------------------------------------
@@ -224,20 +237,44 @@ reg [2:0]  act_lru,exp_lru;
 int check;
 reg v;
 begin
+  nop(4);
   testName = "basicWrHitTest";
   beginTestMsg(testName);
 
   v = verbose;
 
   clear_tb_data(0,EXP_DATA_ENTRIES,1);
-  //Same zero'd image in each data way
-  $readmemh("data/dsramN.cfg1.memh",top.dut0.data[0].dsram.ram);
-  $readmemh("data/dsramN.cfg1.memh",top.dut0.data[1].dsram.ram);
-  $readmemh("data/dsramN.cfg1.memh",top.dut0.data[2].dsram.ram);
-  $readmemh("data/dsramN.cfg1.memh",top.dut0.data[3].dsram.ram);
+  nop(4);
+
+  if(verbose) $display("-I: setting initial configuration ");
+
+  $readmemh("data/dsramN.cfg1.memh",top.dut0.dsram0.ram);
+  $readmemh("data/dsramN.cfg1.memh",top.dut0.dsram1.ram);
+  $readmemh("data/dsramN.cfg1.memh",top.dut0.dsram2.ram);
+  $readmemh("data/dsramN.cfg1.memh",top.dut0.dsram3.ram);
+
   load_initial_tags("data/tags.cfg1.memh");
   load_initial_bits("data/bits.cfg1.memb",1);
-  load_initial_bits("data/bits.cfg1.memb",1);
+
+  //FIXME: I have not found why the readmemh's above are not working.
+  //I see left over state from the previous read test. Uncomment to
+  //see what I mean
+  //  $display("HERE basicWrHit before explicit re-init 1");
+  //  show_line(0,0);
+  //  show_line(1,0);
+  //  show_line(2,0);
+  //  show_line(3,0);
+  @(posedge clk);
+  top.dut0.dsram0.ram[0] = 256'b0;
+  top.dut0.dsram1.ram[0] = 256'b0;
+  top.dut0.dsram2.ram[0] = 256'b0;
+  top.dut0.dsram3.ram[0] = 256'b0;
+  @(posedge clk);
+  //  $display("HERE basicWrHit after explicit re-init 1");
+  //  show_line(0,0);
+  //  show_line(1,0);
+  //  show_line(2,0);
+  //  show_line(3,0);
 
 //  way  index word be      value
 // --------------------------------
@@ -264,54 +301,53 @@ begin
 //  0,   2,    0,   1111,   01020304 done
 //  1,   0,    1,   1111,   50607080 done
 
-//        //tag/way index   word                      --wpWpii  LRU     
-wr_req({14'h000,13'h000,3'h0,2'h0},4'b1111,32'h01111111,v);//i0 000->000
-wr_req({14'h000,13'h000,3'h1,2'h0},4'b0001,32'h00000022,v); //i0 000->000
+  //        //tag/way index   word                      --wpWpii  LRU     
+  wr_req({14'h000,13'h000,3'h0,2'h0},4'b1111,32'h01111111,v);//i0 000->000
+  wr_req({14'h000,13'h000,3'h1,2'h0},4'b0001,32'h00000022,v); //i0 000->000
 
-wr_req({14'h000,13'h000,3'h2,2'h0},4'b0010,32'h00003300,v); //i0 000->000
-wr_req({14'h000,13'h000,3'h3,2'h0},4'b0100,32'h00440000,v); //i0 000->000
-wr_req({14'h000,13'h000,3'h4,2'h0},4'b1000,32'h05000000,v); //i0 000->000
-wr_req({14'h000,13'h000,3'h5,2'h0},4'b1111,32'h0CACACAC,v); //i0 000->000
-wr_req({14'h000,13'h000,3'h6,2'h0},4'b1111,32'h0A4367BC,v); //i0 000->000
-wr_req({14'h000,13'h000,3'h7,2'h0},4'b1111,32'h00E1D2C3,v); //i0 000->000
+  wr_req({14'h000,13'h000,3'h2,2'h0},4'b0010,32'h00003300,v); //i0 000->000
+  wr_req({14'h000,13'h000,3'h3,2'h0},4'b0100,32'h00440000,v); //i0 000->000
+  wr_req({14'h000,13'h000,3'h4,2'h0},4'b1000,32'h05000000,v); //i0 000->000
+  wr_req({14'h000,13'h000,3'h5,2'h0},4'b1111,32'h0CACACAC,v); //i0 000->000
+  wr_req({14'h000,13'h000,3'h6,2'h0},4'b1111,32'h0A4367BC,v); //i0 000->000
+  wr_req({14'h000,13'h000,3'h7,2'h0},4'b1111,32'h00E1D2C3,v); //i0 000->000
 
-wr_req({14'h000,13'h001,3'h0,2'h0},4'b1111,32'h11111111,v); //i1 000->000
-wr_req({14'h000,13'h001,3'h1,2'h0},4'b1111,32'h10000022,v); //i1 000->000
-wr_req({14'h000,13'h001,3'h2,2'h0},4'b1111,32'h10003300,v); //i1 000->000
-wr_req({14'h000,13'h001,3'h3,2'h0},4'b1111,32'h10440000,v); //i1 000->000
-wr_req({14'h000,13'h001,3'h4,2'h0},4'b1111,32'h15000000,v); //i1 000->000
-wr_req({14'h000,13'h001,3'h5,2'h0},4'b1111,32'h1CACACAC,v); //i1 000->000
-wr_req({14'h000,13'h001,3'h6,2'h0},4'b1111,32'h1A4367BC,v); //i1 000->000
-wr_req({14'h000,13'h001,3'h7,2'h0},4'b1111,32'h10E1D2C3,v); //i1 000->000
+  wr_req({14'h000,13'h001,3'h0,2'h0},4'b1111,32'h11111111,v); //i1 000->000
+  wr_req({14'h000,13'h001,3'h1,2'h0},4'b1111,32'h10000022,v); //i1 000->000
+  wr_req({14'h000,13'h001,3'h2,2'h0},4'b1111,32'h10003300,v); //i1 000->000
+  wr_req({14'h000,13'h001,3'h3,2'h0},4'b1111,32'h10440000,v); //i1 000->000
+  wr_req({14'h000,13'h001,3'h4,2'h0},4'b1111,32'h15000000,v); //i1 000->000
+  wr_req({14'h000,13'h001,3'h5,2'h0},4'b1111,32'h1CACACAC,v); //i1 000->000
+  wr_req({14'h000,13'h001,3'h6,2'h0},4'b1111,32'h1A4367BC,v); //i1 000->000
+  wr_req({14'h000,13'h001,3'h7,2'h0},4'b1111,32'h10E1D2C3,v); //i1 000->000
 
-        //tag/way index   word                      --wpWpii
-wr_req({14'h000,13'h002,3'h0,2'h0},4'b1111,32'h21111111,v); //i2 000->000
-wr_req({14'h000,13'h002,3'h1,2'h0},4'b1111,32'h20000022,v); //i2 000->000
-wr_req({14'h000,13'h002,3'h2,2'h0},4'b1111,32'h20003300,v); //i2 000->000
-wr_req({14'h000,13'h002,3'h3,2'h0},4'b1111,32'h20440000,v); //i2 000->000
-wr_req({14'h000,13'h002,3'h4,2'h0},4'b1111,32'h25000000,v); //i2 000->000
-wr_req({14'h000,13'h002,3'h5,2'h0},4'b1111,32'h2CACACAC,v); //i2 000->000
-wr_req({14'h000,13'h002,3'h6,2'h0},4'b1111,32'h2A4367BC,v); //i2 000->000
-wr_req({14'h000,13'h002,3'h7,2'h0},4'b1111,32'h20E1D2C3,v); //i2 000->000
+          //tag/way index   word                      --wpWpii
+  wr_req({14'h000,13'h002,3'h0,2'h0},4'b1111,32'h21111111,v); //i2 000->000
+  wr_req({14'h000,13'h002,3'h1,2'h0},4'b1111,32'h20000022,v); //i2 000->000
+  wr_req({14'h000,13'h002,3'h2,2'h0},4'b1111,32'h20003300,v); //i2 000->000
+  wr_req({14'h000,13'h002,3'h3,2'h0},4'b1111,32'h20440000,v); //i2 000->000
+  wr_req({14'h000,13'h002,3'h4,2'h0},4'b1111,32'h25000000,v); //i2 000->000
+  wr_req({14'h000,13'h002,3'h5,2'h0},4'b1111,32'h2CACACAC,v); //i2 000->000
+  wr_req({14'h000,13'h002,3'h6,2'h0},4'b1111,32'h2A4367BC,v); //i2 000->000
+  wr_req({14'h000,13'h002,3'h7,2'h0},4'b1111,32'h20E1D2C3,v); //i2 000->000
 
-//      //tag/way index   word                      --wpWpii
-wr_req({14'h003,13'h000,3'h3,2'h0},4'b0011,32'h22221111,v); //i0 000->110
-wr_req({14'h001,13'h001,3'h7,2'h0},4'b1100,32'h3333xxxx,v); //i1 000->001
-wr_req({14'h002,13'h002,3'h6,2'h0},4'b0001,32'hxxxxxx44,v); //i2 000->100
-wr_req({14'h000,13'h003,3'h5,2'h0},4'b0100,32'hxx55xxxx,v); //i3 000->000
-wr_req({14'h000,13'h004,3'h2,2'h0},4'b0010,32'hxxxx66xx,v); //i4 000->000
-wr_req({14'h001,13'h001,3'h1,2'h0},4'b1000,32'h77xxxxxx,v); //i1 001->001
-wr_req({14'h002,13'h005,3'h5,2'h0},4'b1111,32'h88888888,v); //i5 000->100
-wr_req({14'h003,13'h007,3'h3,2'h0},4'b1111,32'h99999999,v); //i7 000->110
-wr_req({14'h000,13'h002,3'h2,2'h0},4'b1111,32'haaaaaaaa,v); //i2 100->000
-wr_req({14'h001,13'h003,3'h1,2'h0},4'b1111,32'hbbbbbbbb,v); //i3 000->001
-wr_req({14'h000,13'h003,3'h6,2'h0},4'b1111,32'hcccccccc,v); //i3 001->000
-wr_req({14'h001,13'h003,3'h7,2'h0},4'b1111,32'hdddddddd,v); //i3 000->001
-wr_req({14'h003,13'h006,3'h4,2'h0},4'b1111,32'heeeeeeee,v); //i6 000->110
-wr_req({14'h000,13'h006,3'h3,2'h0},4'b1111,32'hffffffff,v); //i6 110->010
-wr_req({14'h000,13'h002,3'h0,2'h0},4'b1111,32'h01020304,v); //i2 000->000
-wr_req({14'h001,13'h000,3'h1,2'h0},4'b1111,32'h50607080,v); //i0 110->011
-  nop(2);
+  //      //tag/way index   word                      --wpWpii
+  wr_req({14'h003,13'h000,3'h3,2'h0},4'b0011,32'h22221111,v); //i0 000->110
+  wr_req({14'h001,13'h001,3'h7,2'h0},4'b1100,32'h3333xxxx,v); //i1 000->001
+  wr_req({14'h002,13'h002,3'h6,2'h0},4'b0001,32'hxxxxxx44,v); //i2 000->100
+  wr_req({14'h000,13'h003,3'h5,2'h0},4'b0100,32'hxx55xxxx,v); //i3 000->000
+  wr_req({14'h000,13'h004,3'h2,2'h0},4'b0010,32'hxxxx66xx,v); //i4 000->000
+  wr_req({14'h001,13'h001,3'h1,2'h0},4'b1000,32'h77xxxxxx,v); //i1 001->001
+  wr_req({14'h002,13'h005,3'h5,2'h0},4'b1111,32'h88888888,v); //i5 000->100
+  wr_req({14'h003,13'h007,3'h3,2'h0},4'b1111,32'h99999999,v); //i7 000->110
+  wr_req({14'h000,13'h002,3'h2,2'h0},4'b1111,32'haaaaaaaa,v); //i2 100->000
+  wr_req({14'h001,13'h003,3'h1,2'h0},4'b1111,32'hbbbbbbbb,v); //i3 000->001
+  wr_req({14'h000,13'h003,3'h6,2'h0},4'b1111,32'hcccccccc,v); //i3 001->000
+  wr_req({14'h001,13'h003,3'h7,2'h0},4'b1111,32'hdddddddd,v); //i3 000->001
+  wr_req({14'h003,13'h006,3'h4,2'h0},4'b1111,32'heeeeeeee,v); //i6 000->110
+  wr_req({14'h000,13'h006,3'h3,2'h0},4'b1111,32'hffffffff,v); //i6 110->010
+  wr_req({14'h000,13'h002,3'h0,2'h0},4'b1111,32'h01020304,v); //i2 000->000
+  wr_req({14'h001,13'h000,3'h1,2'h0},4'b1111,32'h50607080,v); //i0 110->011
 
   load_expect_dary_data("./golden/basicWrHit.d0.cfg1.memh",
                         "./golden/basicWrHit.d1.cfg1.memh",
@@ -321,16 +357,13 @@ wr_req({14'h001,13'h000,3'h1,2'h0},4'b1111,32'h50607080,v); //i0 110->011
   load_expect_tags("./golden/basicWrHit.t.cfg1.memh",1);
   load_expect_bits("./golden/basicWrHit.b.cfg1.memb",1); //NOTE B file
 
-  @(posedge clk);
-  @(posedge clk);
-  @(posedge clk);
-  @(posedge clk);
+  nop(4);
 
   check_data_arrays (errs,0,16,0); 
   check_tb_tags_bits(errs,0,16,1);
+
   endTestMsg(testName,errs);
-//  show_tb_add_data (0,16,1); //EXP_DATA_ENTRIES);
-//  show_tb_tags_bits(0,16,1); //EXP_DATA_ENTRIES);
+  nop(4);
 end
 endtask
 // --------------------------------------------------------------------------

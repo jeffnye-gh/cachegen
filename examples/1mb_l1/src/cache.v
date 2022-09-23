@@ -373,20 +373,73 @@ generate for(WAYVAR=0;WAYVAR<4;WAYVAR=WAYVAR+1) begin : tags
   ); 
 end
 endgenerate  
+
 // --------------------------------------------------------------------------
-// FIXME: DATA ARRAYS
+// DATA ARRAYS
+//
+// I removed the generate statement as part of debugging an initialization 
+// problem in the test bench. The problem was state from a previous test 
+// remained in the data arrays even when the current test's readmemh's 
+// should have cleared the state from the previous test.
+//
+// The path to these modules is everywhere so I'm not going to change it back.
 // --------------------------------------------------------------------------
-generate for(WAYVAR=0;WAYVAR<4;WAYVAR=WAYVAR+1) begin : data
-  dsram #(.ADDR_WIDTH(IDX_BITS)) dsram (
+//generate for(WAYVAR=0;WAYVAR<4;WAYVAR=WAYVAR+1) begin : data
+//  dsram #(.ADDR_WIDTH(IDX_BITS)) dsram (
+//    .a     (pe_index_d),
+//    .aq    (pe_index),
+//    .wd    (line_wd),
+//    .be    (line_be),
+//    .rd    (dary_out[WAYVAR]),
+//    .write (dary_write[WAYVAR]),
+//    .read  (cache_read_d),
+//    .clk   (clk)
+//  );
+//end
+//endgenerate
+// --------------------------------------------------------------------------
+dsram #(.ADDR_WIDTH(IDX_BITS)) dsram0 (
     .a     (pe_index_d),
     .aq    (pe_index),
     .wd    (line_wd),
     .be    (line_be),
-    .rd    (dary_out[WAYVAR]),
-    .write (dary_write[WAYVAR]),
+    .rd    (dary_out[0]),
+    .write (dary_write[0]),
     .read  (cache_read_d),
     .clk   (clk)
-  );
-end
-endgenerate
+);
+
+dsram #(.ADDR_WIDTH(IDX_BITS)) dsram1 (
+    .a     (pe_index_d),
+    .aq    (pe_index),
+    .wd    (line_wd),
+    .be    (line_be),
+    .rd    (dary_out[1]),
+    .write (dary_write[1]),
+    .read  (cache_read_d),
+    .clk   (clk)
+);
+
+dsram #(.ADDR_WIDTH(IDX_BITS)) dsram2 (
+    .a     (pe_index_d),
+    .aq    (pe_index),
+    .wd    (line_wd),
+    .be    (line_be),
+    .rd    (dary_out[2]),
+    .write (dary_write[2]),
+    .read  (cache_read_d),
+    .clk   (clk)
+);
+
+dsram #(.ADDR_WIDTH(IDX_BITS)) dsram3 (
+    .a     (pe_index_d),
+    .aq    (pe_index),
+    .wd    (line_wd),
+    .be    (line_be),
+    .rd    (dary_out[3]),
+    .write (dary_write[3]),
+    .read  (cache_read_d),
+    .clk   (clk)
+);
+
 endmodule

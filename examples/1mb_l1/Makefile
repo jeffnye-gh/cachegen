@@ -23,6 +23,7 @@ TARGET = bin/cachesim
 default: run
 
 $(TARGET): $(ALL_SRC) $(ALL_INC)
+	-mkdir -p bin
 	$(IVL) $(IVL_OPTS)	$(VLG_SRC) -o $@
 
 run: $(TARGET)

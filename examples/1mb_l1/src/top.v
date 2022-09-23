@@ -18,8 +18,8 @@ localparam integer EXP_DATA_ENTRIES = 256;
 localparam _bypass_test = 1'b0;
 localparam _tag_rw_test = 1'b0;
 localparam _basic_tests      = 1'b1;
-localparam   _bt_lru_test    = 1'b0;
-localparam   _bt_rd_hit_test = 1'b0;
+localparam   _bt_lru_test    = 1'b1;
+localparam   _bt_rd_hit_test = 1'b1;
 localparam   _bt_wr_hit_test = 1'b1;
 
 // ----------------------------------------------------------------------
@@ -159,9 +159,9 @@ always @(count) begin
     if(_bypass_test) bypassTest(8); 
     if(_tag_rw_test) tagRwTest(8); 
     if(_basic_tests) begin
-      if(_bt_lru_test)    basicLruTest(lru_errs,1);
-      if(_bt_rd_hit_test) basicRdHitTest(basic_rd_hit_errs,1);
-      if(_bt_wr_hit_test) basicWrHitTest(basic_wr_hit_errs,1);
+      if(_bt_lru_test)    basicLruTest(lru_errs,0);
+      if(_bt_rd_hit_test) basicRdHitTest(basic_rd_hit_errs,0);
+      if(_bt_wr_hit_test) basicWrHitTest(basic_wr_hit_errs,0);
     end
     terminate();
   end

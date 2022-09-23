@@ -23,8 +23,9 @@ localparam ENTRIES = 2 ** ADDR_WIDTH;
 
 reg [255:0] ram[0:ENTRIES-1];
 reg [255:0] rd_tmp;
+reg read_q;
 
-assign rd = read  ? rd_tmp : {256{1'bx}};
+assign rd = read_q ? rd_tmp : {256{1'bz}};
 
 // -----------------------------------------------------------------------
 // FIXME: figure out how to write a generate statement icarus verilog likes
@@ -41,7 +42,8 @@ assign rd = read  ? rd_tmp : {256{1'bx}};
 
 //For now a little bit of python , see hacks.py
 always @(posedge clk) begin
-  rd_tmp = ram[a];
+  read_q <= read;
+  rd_tmp <= ram[a];
 
   ram[aq][  7:  0] <= write & be[0]  ? wd[  7:  0] : ram[aq][  7:  0];
   ram[aq][ 15:  8] <= write & be[1]  ? wd[ 15:  8] : ram[aq][ 15:  8];

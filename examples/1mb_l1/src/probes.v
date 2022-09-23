@@ -75,68 +75,68 @@ wire [13:0]  p_tag3_ram_2 = top.dut0.tags[3].tag.ram[2];
 wire [13:0]  p_tag3_ram_3 = top.dut0.tags[3].tag.ram[3];
 
 //Data array probes, 4 ways, 1st 4 indexes
-wire [255:0] p_d0_ram_0 = top.dut0.data[0].dsram.ram[0];
-wire [255:0] p_d0_ram_1 = top.dut0.data[0].dsram.ram[1];
-wire [255:0] p_d0_ram_2 = top.dut0.data[0].dsram.ram[2];
-wire [255:0] p_d0_ram_3 = top.dut0.data[0].dsram.ram[3];
-
-wire [255:0] p_d1_ram_0 = top.dut0.data[1].dsram.ram[0];
-wire [255:0] p_d1_ram_1 = top.dut0.data[1].dsram.ram[1];
-wire [255:0] p_d1_ram_2 = top.dut0.data[1].dsram.ram[2];
-wire [255:0] p_d1_ram_3 = top.dut0.data[1].dsram.ram[3];
-
-wire [255:0] p_d2_ram_0 = top.dut0.data[2].dsram.ram[0];
-wire [255:0] p_d2_ram_1 = top.dut0.data[2].dsram.ram[1];
-wire [255:0] p_d2_ram_2 = top.dut0.data[2].dsram.ram[2];
-wire [255:0] p_d2_ram_3 = top.dut0.data[2].dsram.ram[3];
-
-wire [255:0] p_d3_ram_0 = top.dut0.data[3].dsram.ram[0];
-wire [255:0] p_d3_ram_1 = top.dut0.data[3].dsram.ram[1];
-wire [255:0] p_d3_ram_2 = top.dut0.data[3].dsram.ram[2];
-wire [255:0] p_d3_ram_3 = top.dut0.data[3].dsram.ram[3];
+wire [255:0] p_d0_ram_0 = top.dut0.dsram0.ram[0];
+wire [255:0] p_d0_ram_1 = top.dut0.dsram0.ram[1];
+wire [255:0] p_d0_ram_2 = top.dut0.dsram0.ram[2];
+wire [255:0] p_d0_ram_3 = top.dut0.dsram0.ram[3];
+                                         
+wire [255:0] p_d1_ram_0 = top.dut0.dsram1.ram[0];
+wire [255:0] p_d1_ram_1 = top.dut0.dsram1.ram[1];
+wire [255:0] p_d1_ram_2 = top.dut0.dsram1.ram[2];
+wire [255:0] p_d1_ram_3 = top.dut0.dsram1.ram[3];
+                                         
+wire [255:0] p_d2_ram_0 = top.dut0.dsram2.ram[0];
+wire [255:0] p_d2_ram_1 = top.dut0.dsram2.ram[1];
+wire [255:0] p_d2_ram_2 = top.dut0.dsram2.ram[2];
+wire [255:0] p_d2_ram_3 = top.dut0.dsram2.ram[3];
+                                         
+wire [255:0] p_d3_ram_0 = top.dut0.dsram3.ram[0];
+wire [255:0] p_d3_ram_1 = top.dut0.dsram3.ram[1];
+wire [255:0] p_d3_ram_2 = top.dut0.dsram3.ram[2];
+wire [255:0] p_d3_ram_3 = top.dut0.dsram3.ram[3];
 // ---------------------------------------------------------------------
 // Words of way 0, index 0
 //                                    way           index  bits
 // ---------------------------------------------------------------------
-wire [31:0] p_w0_i0_wd00 = top.dut0.data[0].dsram.ram[0][ 31:  0];
-wire [31:0] p_w0_i0_wd01 = top.dut0.data[0].dsram.ram[0][ 63: 32];
-wire [31:0] p_w0_i0_wd02 = top.dut0.data[0].dsram.ram[0][ 95: 64];
-wire [31:0] p_w0_i0_wd03 = top.dut0.data[0].dsram.ram[0][127: 96];
-wire [31:0] p_w0_i0_wd04 = top.dut0.data[0].dsram.ram[0][159:128];
-wire [31:0] p_w0_i0_wd05 = top.dut0.data[0].dsram.ram[0][191:160];
-wire [31:0] p_w0_i0_wd06 = top.dut0.data[0].dsram.ram[0][223:192];
-wire [31:0] p_w0_i0_wd07 = top.dut0.data[0].dsram.ram[0][255:224];
+wire [31:0] p_w0_i0_wd00 = top.dut0.dsram0.ram[0][ 31:  0];
+wire [31:0] p_w0_i0_wd01 = top.dut0.dsram0.ram[0][ 63: 32];
+wire [31:0] p_w0_i0_wd02 = top.dut0.dsram0.ram[0][ 95: 64];
+wire [31:0] p_w0_i0_wd03 = top.dut0.dsram0.ram[0][127: 96];
+wire [31:0] p_w0_i0_wd04 = top.dut0.dsram0.ram[0][159:128];
+wire [31:0] p_w0_i0_wd05 = top.dut0.dsram0.ram[0][191:160];
+wire [31:0] p_w0_i0_wd06 = top.dut0.dsram0.ram[0][223:192];
+wire [31:0] p_w0_i0_wd07 = top.dut0.dsram0.ram[0][255:224];
 
-//wire [3:0] p_d0_ram_0_be00 = top.dut0.data[0].dsram.be[ 3: 0];
-//wire [3:0] p_d0_ram_0_be01 = top.dut0.data[0].dsram.be[ 7: 4];
-//wire [3:0] p_d0_ram_0_be02 = top.dut0.data[0].dsram.be[11: 8];
-//wire [3:0] p_d0_ram_0_be03 = top.dut0.data[0].dsram.be[15:12];
-//wire [3:0] p_d0_ram_0_be04 = top.dut0.data[0].dsram.be[19:16];
-//wire [3:0] p_d0_ram_0_be05 = top.dut0.data[0].dsram.be[23:20];
-//wire [3:0] p_d0_ram_0_be06 = top.dut0.data[0].dsram.be[27:24];
-//wire [3:0] p_d0_ram_0_be07 = top.dut0.data[0].dsram.be[31:28];
+//wire [3:0] p_d0_ram_0_be00 = top.dut0.dsram0.be[ 3: 0];
+//wire [3:0] p_d0_ram_0_be01 = top.dut0.dsram0.be[ 7: 4];
+//wire [3:0] p_d0_ram_0_be02 = top.dut0.dsram0.be[11: 8];
+//wire [3:0] p_d0_ram_0_be03 = top.dut0.dsram0.be[15:12];
+//wire [3:0] p_d0_ram_0_be04 = top.dut0.dsram0.be[19:16];
+//wire [3:0] p_d0_ram_0_be05 = top.dut0.dsram0.be[23:20];
+//wire [3:0] p_d0_ram_0_be06 = top.dut0.dsram0.be[27:24];
+//wire [3:0] p_d0_ram_0_be07 = top.dut0.dsram0.be[31:28];
 //
 // ---------------------------------------------------------------------
 // Words of way 0, index 1
 //                                    way           index  bits
 // ---------------------------------------------------------------------
-wire [31:0] p_w0_i1_wd00 = top.dut0.data[0].dsram.ram[1][ 31:  0];
-wire [31:0] p_w0_i1_wd01 = top.dut0.data[0].dsram.ram[1][ 63: 32];
-wire [31:0] p_w0_i1_wd02 = top.dut0.data[0].dsram.ram[1][ 95: 64];
-wire [31:0] p_w0_i1_wd03 = top.dut0.data[0].dsram.ram[1][127: 96];
-wire [31:0] p_w0_i1_wd04 = top.dut0.data[0].dsram.ram[1][159:128];
-wire [31:0] p_w0_i1_wd05 = top.dut0.data[0].dsram.ram[1][191:160];
-wire [31:0] p_w0_i1_wd06 = top.dut0.data[0].dsram.ram[1][223:192];
-wire [31:0] p_w0_i1_wd07 = top.dut0.data[0].dsram.ram[1][255:224];
+wire [31:0] p_w0_i1_wd00 = top.dut0.dsram0.ram[1][ 31:  0];
+wire [31:0] p_w0_i1_wd01 = top.dut0.dsram0.ram[1][ 63: 32];
+wire [31:0] p_w0_i1_wd02 = top.dut0.dsram0.ram[1][ 95: 64];
+wire [31:0] p_w0_i1_wd03 = top.dut0.dsram0.ram[1][127: 96];
+wire [31:0] p_w0_i1_wd04 = top.dut0.dsram0.ram[1][159:128];
+wire [31:0] p_w0_i1_wd05 = top.dut0.dsram0.ram[1][191:160];
+wire [31:0] p_w0_i1_wd06 = top.dut0.dsram0.ram[1][223:192];
+wire [31:0] p_w0_i1_wd07 = top.dut0.dsram0.ram[1][255:224];
 
-//wire [3:0] p_w0_ram_0_be00 = top.dut0.data[0].dsram.be[ 3: 0];
-//wire [3:0] p_w0_ram_0_be01 = top.dut0.data[0].dsram.be[ 7: 4];
-//wire [3:0] p_w0_ram_0_be02 = top.dut0.data[0].dsram.be[11: 8];
-//wire [3:0] p_w0_ram_0_be03 = top.dut0.data[0].dsram.be[15:12];
-//wire [3:0] p_w0_ram_0_be04 = top.dut0.data[0].dsram.be[19:16];
-//wire [3:0] p_w0_ram_0_be05 = top.dut0.data[0].dsram.be[23:20];
-//wire [3:0] p_w0_ram_0_be06 = top.dut0.data[0].dsram.be[27:24];
-//wire [3:0] p_w0_ram_0_be07 = top.dut0.data[0].dsram.be[31:28];
+//wire [3:0] p_w0_ram_0_be00 = top.dut0.dsram0.be[ 3: 0];
+//wire [3:0] p_w0_ram_0_be01 = top.dut0.dsram0.be[ 7: 4];
+//wire [3:0] p_w0_ram_0_be02 = top.dut0.dsram0.be[11: 8];
+//wire [3:0] p_w0_ram_0_be03 = top.dut0.dsram0.be[15:12];
+//wire [3:0] p_w0_ram_0_be04 = top.dut0.dsram0.be[19:16];
+//wire [3:0] p_w0_ram_0_be05 = top.dut0.dsram0.be[23:20];
+//wire [3:0] p_w0_ram_0_be06 = top.dut0.dsram0.be[27:24];
+//wire [3:0] p_w0_ram_0_be07 = top.dut0.dsram0.be[31:28];
 
 //First 4 locations for each main memory bank, by word
 wire [31:0] p_mm_ram0_0 = top.dut0.mm0.ram0[0];
