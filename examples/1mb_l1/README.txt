@@ -126,3 +126,13 @@
 //        FIXME: add the rest
 //      mm       main memory
 // ----------------------------------------------------------------------
+// LRU truth table
+//
+// To save duplicating this every where, the truth table for LRU is below:
+//
+// access to way0    b2=0  b1=b1  b0=0
+// access to way1    b2=0  b1=b1  b0=1  
+// access to way2    b2=1  b1=0   b0=b0    
+// access to way3    b2=1  b1=1   b0=b0
+//
+// ----------------------------------------------------------------------

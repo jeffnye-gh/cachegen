@@ -1,6 +1,6 @@
 // ---------------------------------------------------------------------------
-// More or less generic single port ram model, similar to compiled rams
-// found in std cell libs. There are no byte enables.
+// Data array model, one for each way
+// This supports single cycle fills and byte writes
 //
 // 1 cycle load/use
 // ---------------------------------------------------------------------------
@@ -8,41 +8,73 @@ module dsram #(
   parameter ADDR_WIDTH = 13
 )
 (
-  output reg  [255:0] rd,
+  output wire [255:0] rd,
 
   input  wire [ADDR_WIDTH-1:0] a,
-  input  wire [3:0]    be,
-  input  wire [255:0]  wd,
-  input  wire          fill,
-  input  wire          write,
-  input  wire          read,
-  input  wire          clk
+  input  wire [ADDR_WIDTH-1:0] aq,
+  input  wire [31:0]  be,
+  input  wire [255:0] wd,
+  input  wire         write,
+  input  wire         read,
+  input  wire         clk
 );
-
-//initial begin
-//  ram[0] = {32'h00000000, 32'h01111111, 32'h02222222, 32'h03333333,
-//            32'h04444444, 32'h05555555, 32'h06666666, 32'h07777777 };
-//
-//  ram[1] = {32'h10000000, 32'h11111111, 32'h12222222, 32'h13333333,
-//            32'h14444444, 32'h15555555, 32'h16666666, 32'h17777777 };
-//
-//  ram[2] = {32'h20000000, 32'h21111111, 32'h22222222, 32'h23333333,
-//            32'h24444444, 32'h25555555, 32'h26666666, 32'h27777777 };
-//
-//  ram[3] = {32'h30000000, 32'h31111111, 32'h32222222, 32'h33333333,
-//            32'h34444444, 32'h35555555, 32'h36666666, 32'h37777777 };
-//end
 
 localparam ENTRIES = 2 ** ADDR_WIDTH;
 
 reg [255:0] ram[0:ENTRIES-1];
+reg [255:0] rd_tmp;
 
-reg [255:0] rd_d;
-always @(posedge clk) rd     <= read  ? rd_d : {256{1'bx}};
-always @(a)           rd_d    = ram[a];
+assign rd = read  ? rd_tmp : {256{1'bx}};
+
 // -----------------------------------------------------------------------
+// FIXME: figure out how to write a generate statement icarus verilog likes
+//        it does not like my multidimension syntax
+// -----------------------------------------------------------------------
+//genvar i;
+//generate 
+//  for(i=0;i<8;i=i+1) begin : ramwrite
+//    always @(posedge clk) begin
+//      ram[a][(i*8)-1: i*0] <= write & be[i] ? wd : ram[a][(i*8)-1: i*0];
+//    end
+//  end
+//endgenerate
+
+//For now a little bit of python , see hacks.py
 always @(posedge clk) begin
-  ram[a] <= write ? wd   : ram[a];
+  rd_tmp = ram[a];
+
+  ram[aq][  7:  0] <= write & be[0]  ? wd[  7:  0] : ram[aq][  7:  0];
+  ram[aq][ 15:  8] <= write & be[1]  ? wd[ 15:  8] : ram[aq][ 15:  8];
+  ram[aq][ 23: 16] <= write & be[2]  ? wd[ 23: 16] : ram[aq][ 23: 16];
+  ram[aq][ 31: 24] <= write & be[3]  ? wd[ 31: 24] : ram[aq][ 31: 24];
+  ram[aq][ 39: 32] <= write & be[4]  ? wd[ 39: 32] : ram[aq][ 39: 32];
+  ram[aq][ 47: 40] <= write & be[5]  ? wd[ 47: 40] : ram[aq][ 47: 40];
+  ram[aq][ 55: 48] <= write & be[6]  ? wd[ 55: 48] : ram[aq][ 55: 48];
+  ram[aq][ 63: 56] <= write & be[7]  ? wd[ 63: 56] : ram[aq][ 63: 56];
+  ram[aq][ 71: 64] <= write & be[8]  ? wd[ 71: 64] : ram[aq][ 71: 64];
+  ram[aq][ 79: 72] <= write & be[9]  ? wd[ 79: 72] : ram[aq][ 79: 72];
+  ram[aq][ 87: 80] <= write & be[10] ? wd[ 87: 80] : ram[aq][ 87: 80];
+  ram[aq][ 95: 88] <= write & be[11] ? wd[ 95: 88] : ram[aq][ 95: 88];
+  ram[aq][103: 96] <= write & be[12] ? wd[103: 96] : ram[aq][103: 96];
+  ram[aq][111:104] <= write & be[13] ? wd[111:104] : ram[aq][111:104];
+  ram[aq][119:112] <= write & be[14] ? wd[119:112] : ram[aq][119:112];
+  ram[aq][127:120] <= write & be[15] ? wd[127:120] : ram[aq][127:120];
+  ram[aq][135:128] <= write & be[16] ? wd[135:128] : ram[aq][135:128];
+  ram[aq][143:136] <= write & be[17] ? wd[143:136] : ram[aq][143:136];
+  ram[aq][151:144] <= write & be[18] ? wd[151:144] : ram[aq][151:144];
+  ram[aq][159:152] <= write & be[19] ? wd[159:152] : ram[aq][159:152];
+  ram[aq][167:160] <= write & be[20] ? wd[167:160] : ram[aq][167:160];
+  ram[aq][175:168] <= write & be[21] ? wd[175:168] : ram[aq][175:168];
+  ram[aq][183:176] <= write & be[22] ? wd[183:176] : ram[aq][183:176];
+  ram[aq][191:184] <= write & be[23] ? wd[191:184] : ram[aq][191:184];
+  ram[aq][199:192] <= write & be[24] ? wd[199:192] : ram[aq][199:192];
+  ram[aq][207:200] <= write & be[25] ? wd[207:200] : ram[aq][207:200];
+  ram[aq][215:208] <= write & be[26] ? wd[215:208] : ram[aq][215:208];
+  ram[aq][223:216] <= write & be[27] ? wd[223:216] : ram[aq][223:216];
+  ram[aq][231:224] <= write & be[28] ? wd[231:224] : ram[aq][231:224];
+  ram[aq][239:232] <= write & be[29] ? wd[239:232] : ram[aq][239:232];
+  ram[aq][247:240] <= write & be[30] ? wd[247:240] : ram[aq][247:240];
+  ram[aq][255:248] <= write & be[31] ? wd[255:248] : ram[aq][255:248];
 end
 // -----------------------------------------------------------------------
 // debug Probes

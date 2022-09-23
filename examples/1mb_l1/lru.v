@@ -104,24 +104,17 @@
 // ???  | 1110       | way 0
 //
 // ----------------------------------------------------------------------------
-module bitarray #(
+module regfile #(
   parameter IDX_BITS=13
 )
 (
-  output reg  [3:0] val_out,
-  output reg  [3:0] mod_out,
-  output reg  [2:0] lru_out,
-  output reg        lru_wr,
+  output reg  [2:0] readdata,
 
-  input wire [IDX_BITS-1:0] pe_index_d,
-  input wire [IDX_BITS-1:0] pe_index_q,
-  input wire [3:0] way_hit,
+  input wire [IDX_BITS-1:0] read_address,
+  input wire [IDX_BITS-1:0] write_address,
 
-  input wire pe_read_d,
-  input wire pe_write_d,
-
-  input wire [3:0] cmd,
-  input wire       cmd_valid,
+  input wire read,
+  input wire write,
 
   input wire reset,
   input wire clk
@@ -138,7 +131,7 @@ localparam [1:0] WAY3 = 2'b11;
 // Probes
 // ----------------------------------------------------------------------
 //synthesis translate_off
-//wire [2:0] _lru_0 = lbits[0];
+wire [2:0] _lru_0 = lbits[0];
 //synthesis translate_on
 // ======================================================================
 // FIXME: save typing, not synthesizable, fix it later
@@ -149,14 +142,14 @@ integer i;
 begin for(i=0;i<ENTRIES;++i) vbits[i] = 4'b0; end
 endtask
 // ----------------------------------------------------------------------
-//task clearlru;
-//integer i;
-//begin for(i=0;i<ENTRIES;++i) lbits[i] = 4'b0; end
-//endtask
+task clearlru;
+integer i;
+begin for(i=0;i<ENTRIES;++i) lbits[i] = 4'b0; end
+endtask
 // ----------------------------------------------------------------------
 // FIXME: save typing, not synthesizable, fix it later
 // ----------------------------------------------------------------------
-always @(posedge reset) begin invalidate(); end
+always @(posedge reset) begin invalidate(); clearlru(); end
 // ======================================================================
 // begin design
 // ======================================================================
@@ -166,18 +159,18 @@ always @(posedge reset) begin invalidate(); end
 // ----------------------------------------------------------------------
 reg [3:0] vbits[0:ENTRIES-1];
 reg [3:0] mbits[0:ENTRIES-1];
-//reg [2:0] lbits[0:ENTRIES-1];
+reg [2:0] lbits[0:ENTRIES-1];
 // ----------------------------------------------------------------------
 // Raw bit data, shared
 // ----------------------------------------------------------------------
 wire [3:0] val_bits_d = vbits[pe_index_d];
 wire [3:0] mod_bits_d = mbits[pe_index_d];
-//wire [3:0] lru_bits_d = lbits[pe_index_d];
+wire [3:0] lru_bits_d = lbits[pe_index_d];
 // ----------------------------------------------------------------------
 reg [1:0] victim;           //way selected for fill or eviction by lru
 reg [1:0] invalid_victim;   //way selected for fill by (in)valid bits
 // ----------------------------------------------------------------------
-reg val_wr,val_wd,mod_wr,mod_wd;
+reg val_wr,val_wd,mod_wr,mod_wd,lru_wr;
 reg  [2:0] lru_wd;
 reg  [3:0] cmd_q;
 reg  access_q;
@@ -187,32 +180,32 @@ wire all_valid_d = &vbits[pe_index_d];
 // ----------------------------------------------------------------------
 // Invalid 'victim' determination
 // ----------------------------------------------------------------------
-//always @* begin
-//  casez(val_bits_d)
-//    4'b0???: invalid_victim = WAY3;
-//    4'b10??: invalid_victim = WAY2;
-//    4'b110?: invalid_victim = WAY1;
-//    4'b1110: invalid_victim = WAY0;
-//    default: begin
-//      invalid_victim = 2'bx;
-//      //synthesis translate off
-//      //if(access) $display("-E: fall through in invalid_victim case");
-//      //synthesis translate on
-//    end
-//  endcase
-//end
+always @* begin
+  casez(val_bits_d)
+    4'b0???: invalid_victim = WAY3;
+    4'b10??: invalid_victim = WAY2;
+    4'b110?: invalid_victim = WAY1;
+    4'b1110: invalid_victim = WAY0;
+    default: begin
+      invalid_victim = 2'bx;
+      //synthesis translate off
+      //if(access) $display("-E: fall through in invalid_victim case");
+      //synthesis translate on
+    end
+  endcase
+end
 // ----------------------------------------------------------------------
 // Victim select
 // ----------------------------------------------------------------------
-//always @* begin
-//  casez(lru_bits_d) 
-//    3'b?00:  victim = all_valid_d ? WAY3 : invalid_victim;
-//    3'b?10:  victim = all_valid_d ? WAY2 : invalid_victim;
-//    3'b0?1:  victim = all_valid_d ? WAY1 : invalid_victim;
-//    3'b1?1:  victim = all_valid_d ? WAY0 : invalid_victim;
-//    default: victim = 2'bx;
-//  endcase
-//end
+always @* begin
+  casez(lru_bits_d) 
+    3'b?00:  victim = all_valid_d ? WAY3 : invalid_victim;
+    3'b?10:  victim = all_valid_d ? WAY2 : invalid_victim;
+    3'b0?1:  victim = all_valid_d ? WAY1 : invalid_victim;
+    3'b1?1:  victim = all_valid_d ? WAY0 : invalid_victim;
+    default: victim = 2'bx;
+  endcase
+end
 // ----------------------------------------------------------------------
 // LRU update data
 //
@@ -231,36 +224,36 @@ wire all_valid_d = &vbits[pe_index_d];
 // access to way2    b2=1  b1=0   b0=b0
 // access to way3    b2=1  b1=1   b0=b0
 // ----------------------------------------------------------------------
-//wire bypass_lru;
-//reg access_q2;
-//reg  [2:0] last_lru_wd;
-//reg  [IDX_BITS-1:0] pe_index_q2;
-//assign bypass_lru = access_q2 & access_q & (pe_index_q == pe_index_q2);
-//
-//wire [2:0] lru_byp = bypass_lru ? last_lru_wd : lru_out; 
-//
-//always @(way_hit or lru_out) begin
-//  casez(way_hit)
-//    4'b???1: lru_wd =  { 1'b0, lru_byp[1], 1'b0       }; //WAY0
-//    4'b??1?: lru_wd =  { 1'b0, lru_byp[1], 1'b1       }; //WAY1
-//    4'b?1??: lru_wd =  { 1'b1, 1'b0,       lru_byp[0] }; //WAY2
-//    4'b1???: lru_wd =  { 1'b1, 1'b1,       lru_byp[0] }; //WAY3
-//    default: lru_wd = 3'bx;
-//  endcase
-//end
-//
-//// ----------------------------------------------------------------------
+wire bypass_lru;
+reg access_q2;
+reg  [2:0] last_lru_wd;
+reg  [IDX_BITS-1:0] pe_index_q2;
+assign bypass_lru = access_q2 & access_q & (pe_index_q == pe_index_q2);
+
+wire [2:0] lru_byp = bypass_lru ? last_lru_wd : lru_out; 
+
+always @(way_hit or lru_out) begin
+  casez(way_hit)
+    4'b???1: lru_wd =  { 1'b0, lru_byp[1], 1'b0       }; //WAY0
+    4'b??1?: lru_wd =  { 1'b0, lru_byp[1], 1'b1       }; //WAY1
+    4'b?1??: lru_wd =  { 1'b1, 1'b0,       lru_byp[0] }; //WAY2
+    4'b1???: lru_wd =  { 1'b1, 1'b1,       lru_byp[0] }; //WAY3
+    default: lru_wd = 3'bx;
+  endcase
+end
+
+// ----------------------------------------------------------------------
 always @(posedge clk) begin
-//  last_lru_wd <= lru_wd;
-//
-//  pe_index_q2 <= pe_index_q;
-//
+  last_lru_wd <= lru_wd;
+
+  pe_index_q2 <= pe_index_q;
+
   val_out <= {4{access_d}} & vbits[pe_index_d];
   mod_out <= {4{access_d}} & mbits[pe_index_d];
-//  lru_out <= {3{access_d}} & lbits[pe_index_d];
+  lru_out <= {3{access_d}} & lbits[pe_index_d];
  
   access_q <= access_d; 
-//  access_q2 <= access_q; 
+  access_q2 <= access_q; 
   cmd_q <= cmd;
 
   vbits[pe_index_d][0] <= val_wr & way_hit[0] ? val_wd : vbits[pe_index_d][0];
@@ -273,6 +266,7 @@ always @(posedge clk) begin
   mbits[pe_index_d][2] <= mod_wr & way_hit[2] ? mod_wd : mbits[pe_index_d][2];
   mbits[pe_index_d][3] <= mod_wr & way_hit[3] ? mod_wd : mbits[pe_index_d][3];
 
+  lbits[pe_index_q] <= lru_wr ? lru_wd : lbits[pe_index_q];
 end
 // ----------------------------------------------------------------------
 // ----------------------------------------------------------------------
@@ -285,13 +279,8 @@ always @* begin
   mod_wd = 1'bx;
 
   case(cmd)
-    B_CMD_LRU_UP: begin 
+    B_CMD_LRU_UP: begin //get/check the values of the bits, and so update lru
       lru_wr = 1'b1;
-    end
-
-    B_CMD_LRU_MOD_UP: begin 
-      lru_wr = 1'b1;
-      mod_wr = 1'b1;
     end
 
     B_CMD_READ: begin //get/check the values of the bits, and so update lru
@@ -340,7 +329,7 @@ always @* begin
 
     B_CMD_INVAL_ALL: begin //gang invalidate
       invalidate();
-      //clearlru();
+      clearlru();
     end
 
     default: begin

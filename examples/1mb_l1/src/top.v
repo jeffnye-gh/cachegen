@@ -18,9 +18,9 @@ localparam integer EXP_DATA_ENTRIES = 256;
 localparam _bypass_test = 1'b0;
 localparam _tag_rw_test = 1'b0;
 localparam _basic_tests      = 1'b1;
-localparam   _bt_lru_test    = 1'b1;
+localparam   _bt_lru_test    = 1'b0;
 localparam   _bt_rd_hit_test = 1'b0;
-localparam   _bt_wr_hit_test = 1'b0;
+localparam   _bt_wr_hit_test = 1'b1;
 
 // ----------------------------------------------------------------------
 integer count;
@@ -58,12 +58,16 @@ wire [255:0] xmm_cc_readdata;
 wire         mm_cc_readdatavalid;
 
 // ------------------------------------------------------------------------
-//reg  [127:0] mm_tmp_data[0:EXP_DATA_ENTRIES];
-reg  [31:0] mm_expect_data[0:EXP_DATA_ENTRIES];
-reg  [31:0] mm_expect_addr[0:EXP_DATA_ENTRIES];
+reg  [255:0] mm_expect_dary_0[0:EXP_DATA_ENTRIES];
+reg  [255:0] mm_expect_dary_1[0:EXP_DATA_ENTRIES];
+reg  [255:0] mm_expect_dary_2[0:EXP_DATA_ENTRIES];
+reg  [255:0] mm_expect_dary_3[0:EXP_DATA_ENTRIES];
 
-reg  [31:0] mm_capture_data[0:EXP_DATA_ENTRIES];
-reg  [31:0] mm_capture_addr[0:EXP_DATA_ENTRIES];
+reg  [31:0] mm_expect_capture_data[0:EXP_DATA_ENTRIES];
+reg  [31:0] mm_expect_capture_addr[0:EXP_DATA_ENTRIES];
+
+reg  [31:0] mm_actual_capture_data[0:EXP_DATA_ENTRIES];
+reg  [31:0] mm_actual_capture_addr[0:EXP_DATA_ENTRIES];
 
 // tag expect data is combined 4x 14b  {way3[13:0],way2 etc ,way1,way0}
 reg  [(4*14)-1:0] mm_expect_tags[0:EXP_DATA_ENTRIES];
@@ -102,20 +106,20 @@ always @(posedge clk) count <= count + 1;
 // ------------------------------------------------------------------------
 //reg [31:0] capture_addr;
 integer capture_a_index,capture_d_index;
-wire [31:0] mm_capture_addr_0 = mm_capture_addr[0];
-wire [31:0] mm_capture_addr_1 = mm_capture_addr[1];
+wire [31:0] mm_capture_addr_0 = mm_actual_capture_addr[0];
+wire [31:0] mm_capture_addr_1 = mm_actual_capture_addr[1];
 reg  [31:0] tb_cc_address_q;
 // ------------------------------------------------------------------------
 always @(posedge clk) begin
 
   if(tb_cc_read) begin
-    mm_capture_addr[capture_a_index] <= tb_cc_address;
+    mm_actual_capture_addr[capture_a_index] <= tb_cc_address;
     capture_a_index <= capture_a_index + 1;
   end
 
   if(cc_tb_readdata_valid) begin
     //$display("-I: capturing data : a:%08x:%08x",capture_addr,cc_tb_readdata);
-    mm_capture_data[capture_d_index] <= cc_tb_readdata;
+    mm_actual_capture_data[capture_d_index] <= cc_tb_readdata;
     capture_d_index <= capture_d_index+1;
   end
 end
@@ -155,7 +159,6 @@ always @(count) begin
     if(_bypass_test) bypassTest(8); 
     if(_tag_rw_test) tagRwTest(8); 
     if(_basic_tests) begin
-      //cfgBasicTest(0);
       if(_bt_lru_test)    basicLruTest(lru_errs,1);
       if(_bt_rd_hit_test) basicRdHitTest(basic_rd_hit_errs,1);
       if(_bt_wr_hit_test) basicWrHitTest(basic_wr_hit_errs,1);

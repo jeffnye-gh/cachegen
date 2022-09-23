@@ -103,8 +103,9 @@ module fsm #(
 //  output reg  fsm_pe_readdata_valid,  // to CPU
 //  output reg  fsm_pe_req_hit,         // to CPU
 
-  output reg  [3:0]          fsm_bit_cmd,
-  output reg                 fsm_bit_cmd_valid,
+  output reg  [3:0] fsm_bit_cmd,
+  output reg        fsm_bit_cmd_valid,
+  output reg        fsm_cc_ary_write,
 //
 ////  output reg  [TAG_BITS-1:0] fsm_cc_tag,
 ////  output reg  [IDX_BITS-1:0] fsm_cc_index,
@@ -116,7 +117,6 @@ module fsm #(
 //  output wire [3:0]          fsm_cc_tag_write,
 //
 ////  output wire                fsm_cc_ary_read,
-//  output wire [3:0]          fsm_cc_ary_write,
 //
 //  output reg  [3:0]          fsm_cc_way_match_q,
 //
@@ -158,7 +158,6 @@ localparam [3:0] TST_WRITE  = 4'hb;
 wire FIXME_mm_readdata_valid = 1'b1;
 //assign fsm_bit_cmd = B_CMD_NOP;
 //assign fsm_bit_cmd_valid = 1'b0;
-assign fsm_cc_ary_write = 4'b0;
 assign fsm_cc_tag_write = 4'b0;
 assign fsm_cc_fill = 4'b0;
 // ----------------------------------------------------------------------
@@ -281,10 +280,12 @@ end
 // ----------------------------------------------------------------------
 // ----------------------------------------------------------------------
 always @* begin
-  fsm_readdata_valid_d = 1'b0;
 
-  fsm_bit_cmd       = B_CMD_NOP;
-  fsm_bit_cmd_valid = 1'b0;
+  fsm_readdata_valid_d = 1'b0;
+  fsm_cc_ary_write     = 1'b0;
+
+  fsm_bit_cmd          = B_CMD_NOP;
+  fsm_bit_cmd_valid    = 1'b0;
 
   next = IDLE;
 
@@ -300,8 +301,9 @@ always @* begin
 
       // WRITE HIT
       else if(pe_write & pe_req_hit)  begin
-        fsm_bit_cmd = B_CMD_LRU_UP;
+        fsm_bit_cmd = B_CMD_LRU_UP; //B_CMD_LRU_MOD_UP;
         fsm_bit_cmd_valid = 1'b1;
+        fsm_cc_ary_write  = 1'b1;
         next = IDLE;
       end
 

@@ -1,0 +1,24 @@
+{ signal: [
+  { name: "clk",              wave: 'p......' },
+  { name: "count",  wave: '=======', data: [8,9,10,11,12,13,14] },
+  [ "PE",
+   { name: "tb_cc_write",  wave: '11110..' },
+   { name: "tb_cc_a",      wave: '=====x.', data: ["0000","0004","0008","000C","0010"] },
+   { name: "tb_cc_be",     wave: '=====x.', data: ["1111","0001","0010","0100","1000"] },
+   { name: "tb_cc_wd",     wave: '=====x.', data: ["1111",".22.",".33.",".44.",".55."] },
+   ],
+  [ "CC", 
+    { name: "pe_index",     wave: 'x=....x',  data: ["0"] },
+    { name: "pe_offset",    wave: 'x=====x',  data: ["0",   "1", "2", "3", "4"] },
+    { name: "pe_be",        wave: 'x=====x',  data: ["1111","0001", "0010", "0100","1000"] },
+    { name: "dary_write",   wave: 'x=....x', data: ["001",  "i2", "i3"] },
+    { name: "way_hit",      wave: 'x=....x', data:  ["0001",  "rdt2", "rdt3"] }
+  ],
+  [ "RAM", 
+    { name: "way0_wrd0",    wave: '0.=....', data: ["11111111"] },
+    { name: "way0_wrd1",    wave: '0..=...', data: ["00000022"] },
+    { name: "way0_wrd2",    wave: '0...=..', data: ["00003300"] },
+    { name: "way0_wrd3",    wave: '0....=.', data: ["00440000"] },
+    { name: "way0_wrd4",    wave: '0.....=', data: ["55000000"] },
+  ]
+  ]}

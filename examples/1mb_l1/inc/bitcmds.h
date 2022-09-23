@@ -11,5 +11,6 @@ localparam [3:0] B_CMD_ALLOC     = 4'h6;
 localparam [3:0] B_CMD_VAL_MOD   = 4'h7;
 localparam [3:0] B_CMD_READ      = 4'h8;
 localparam [3:0] B_CMD_LRU_UP    = 4'h9;
+localparam [3:0] B_CMD_LRU_MOD_UP= 4'ha;
 
 //`endif

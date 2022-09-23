@@ -80,30 +80,21 @@ wire [TAG_BITS-1:0] tag_out[3:0];
 wire [3:0] tag_write;
 
 wire [3:0] val_out,mod_out;
-wire [2:0] lru_out;
 
-wire [3:0]          fsm_bit_cmd;
-wire                fsm_bit_cmd_valid;
+wire [3:0] fsm_bit_cmd;
+wire       fsm_bit_cmd_valid;
 
-//wire [TAG_BITS-1:0] fsm_cc_tag;
-//wire [IDX_BITS-1:0] fsm_cc_index;
-//wire [2:0]          fsm_cc_offset; //word within a line
-//wire [3:0]          fsm_cc_be;
-
-wire [3:0]          fsm_cc_fill;
-wire [3:0]          fsm_cc_ary_write = 4'b0;
-//wire                fsm_cc_ary_read;
-//wire                fsm_cc_tag_read;
-wire [3:0]          fsm_cc_tag_write = 4'b0;
-
-//wire pe_req_mod;
+wire       fsm_cc_fill = 1'b0;
+wire [3:0] fsm_cc_tag_write = 4'b0;
+wire       fsm_cc_ary_write;
 
 wire pe_flush;
 wire pe_flush_all;
 wire pe_invalidate;
 wire pe_invalidate_all;
 
-//wire [3:0] fsm_cc_way_match_q;
+wire [3:0] way_hit;
+wire [3:0] pe_compare;
 // --------------------------------------------------------------------------
 // Fix up the names so it's clear what pipe stage they are in
 // --------------------------------------------------------------------------
@@ -113,7 +104,9 @@ wire  [2:0]          pe_offset_d  = a[4:2];
 wire  [3:0]          pe_be_d      = be;
 wire                 pe_read_d    = read;
 wire                 pe_write_d   = write;
+wire  [31:0]         pe_wd_d      = wd;
 wire                 cache_read_d = !reset & (pe_read_d | pe_write_d);
+// --------------------------------------------------------------------------
 //The index is applied to the rams directly, because the rams contain
 //the flops on the address
 //
@@ -131,6 +124,7 @@ reg  [TAG_BITS-1:0] pe_tag;
 reg  [IDX_BITS-1:0] pe_index;
 reg  [2:0]          pe_offset;
 reg  [3:0]          pe_be;
+reg  [31:0]         pe_wd;
 reg pe_read,pe_write,pe_access;
 
 always @(posedge clk) begin
@@ -140,12 +134,12 @@ always @(posedge clk) begin
   pe_be     <= pe_be_d;
   pe_read   <= pe_read_d;
   pe_write  <= pe_write_d;
-  pe_access <= (pe_read_d | pe_write_d) & !reset;
+  pe_access <= #1 (pe_read_d | pe_write_d) & !reset;
+  pe_wd     <= pe_wd_d;
 end
 // --------------------------------------------------------------------------
-wire [3:0] way_hit;
-
-wire [3:0] pe_compare;
+// select logic
+// --------------------------------------------------------------------------
 assign pe_compare[0] = val_out[0] & (tag_out[0] == pe_tag);
 assign pe_compare[1] = val_out[1] & (tag_out[1] == pe_tag);
 assign pe_compare[2] = val_out[2] & (tag_out[2] == pe_tag);
@@ -161,6 +155,75 @@ assign way_hit[3] = pe_access ? pe_compare[3] : 1'bx;
 assign req_hit  = pe_access & |way_hit;
 //(D) this is 2 LLs(B) + 2LLs(C) + 1LL(D) + 14b compare +tco
 assign rd_valid = req_hit & pe_read;
+// --------------------------------------------------------------------------
+// write logic
+//
+//  way selects line
+//    offset selects word
+//      be selects byte
+//  
+// write data is aligned to a cache line
+// the byte enables are active only for the selected word/byte
+//
+// word data is aligned to position in a cache line
+// --------------------------------------------------------------------------
+// 
+// --------------------------------------------------------------------------
+// WRITE DATA ALIGNMENT MUX
+//
+// FIXME: once it works create a wrapper and push down a level of hierarchy.
+// --------------------------------------------------------------------------
+reg [255:0] pe_line_wd;
+reg [31:0]  pe_line_be;
+
+reg [3:0] dary_write;
+always @* begin
+
+  pe_line_wd = 256'bx;
+  pe_line_be =  32'b0;
+
+  case(pe_offset)
+    3'b000: pe_line_wd[ 31:  0] = pe_wd;
+    3'b001: pe_line_wd[ 63: 32] = pe_wd;
+    3'b010: pe_line_wd[ 95: 64] = pe_wd;
+    3'b011: pe_line_wd[127: 96] = pe_wd;
+    3'b100: pe_line_wd[159:128] = pe_wd;
+    3'b101: pe_line_wd[191:160] = pe_wd;
+    3'b110: pe_line_wd[223:192] = pe_wd;
+    3'b111: pe_line_wd[255:224] = pe_wd;
+  endcase
+
+  case(pe_offset)
+    3'b000: pe_line_be[ 3: 0] = pe_be;
+    3'b001: pe_line_be[ 7: 4] = pe_be;
+    3'b010: pe_line_be[11: 8] = pe_be;
+    3'b011: pe_line_be[15:12] = pe_be;
+    3'b100: pe_line_be[19:16] = pe_be;
+    3'b101: pe_line_be[23:20] = pe_be;
+    3'b110: pe_line_be[27:24] = pe_be;
+    3'b111: pe_line_be[31:28] = pe_be;
+  endcase
+end
+// --------------------------------------------------------------------------
+// Mux in FILL data if active
+// --------------------------------------------------------------------------
+wire  [255:0] line_wd;
+wire  [31:0]  line_be;
+//assign line_wd = fsm_cc_fill ? mm_rd        : pe_line_wd; 
+//assign line_be = fsm_cc_fill ? 32'hFFFFFFFF : pe_line_be; 
+//reg  [255:0] line_wd;
+//reg  [31:0]  line_be;
+//always @(posedge clk) begin
+assign line_wd  = fsm_cc_fill ? mm_rd        : pe_line_wd; 
+assign line_be  = fsm_cc_fill ? 32'hFFFFFFFF : pe_line_be; 
+//end
+// --------------------------------------------------------------------------
+always @* begin
+  dary_write[0] = way_hit[0] & fsm_cc_ary_write;
+  dary_write[1] = way_hit[1] & fsm_cc_ary_write;
+  dary_write[2] = way_hit[2] & fsm_cc_ary_write;
+  dary_write[3] = way_hit[3] & fsm_cc_ary_write;
+end
 // --------------------------------------------------------------------------
 reg [255:0] line_data;
 
@@ -226,7 +289,7 @@ fsm #(.IDX_BITS(IDX_BITS),.TAG_BITS(TAG_BITS)) fsm0 (
 //  .fsm_tag_write(fsm_tag_write),
 //
 ////  .fsm_cc_ary_read(fsm_cc_ary_read),
-//  .fsm_cc_ary_write(fsm_cc_ary_write),
+  .fsm_cc_ary_write(fsm_cc_ary_write),
 //
 //  .fsm_cc_way_match_q(fsm_cc_way_match_q),
 //
@@ -249,11 +312,16 @@ fsm #(.IDX_BITS(IDX_BITS),.TAG_BITS(TAG_BITS)) fsm0 (
 // --------------------------------------------------------------------------
 // STATUS BITS
 // --------------------------------------------------------------------------
+wire lru_wr,mod_wr;
+//wire [3:0]  dirty;
+wire [2:0]  lru;
 
 bitarray #(.IDX_BITS(IDX_BITS)) bits0(
   .val_out(val_out),
   .mod_out(mod_out),
-  .lru_out(lru_out),
+  .lru_wr(lru_wr),
+//  .mod_wr(mod_wr),
+//  .lru_out(lru_out),
 
   .pe_index_d(pe_index_d),
   .pe_index_q(pe_index),
@@ -264,6 +332,28 @@ bitarray #(.IDX_BITS(IDX_BITS)) bits0(
 
   .cmd(fsm_bit_cmd),
   .cmd_valid(bit_cmd_valid),
+  .reset(reset),
+  .clk(clk)
+);
+// --------------------------------------------------------------------------
+//dirty dirty0
+//(
+//  .rd(dirty),
+//  .wa(pe_index),
+//  .way_hit(way_hit),
+//  .ra(pe_index),
+//  .wr(mod_wr),
+//  .reset(reset),
+//  .clk(clk)
+//);
+// --------------------------------------------------------------------------
+lrurf lrurf0
+(
+  .rd(lru),
+  .wa(pe_index),
+  .way_hit(way_hit),
+  .ra(pe_index),
+  .wr(lru_wr),
   .reset(reset),
   .clk(clk)
 );
@@ -289,11 +379,11 @@ endgenerate
 generate for(WAYVAR=0;WAYVAR<4;WAYVAR=WAYVAR+1) begin : data
   dsram #(.ADDR_WIDTH(IDX_BITS)) dsram (
     .a     (pe_index_d),
-    .wd    (fsm_cc_wd),
-    .be    (pe_be_d),
+    .aq    (pe_index),
+    .wd    (line_wd),
+    .be    (line_be),
     .rd    (dary_out[WAYVAR]),
-    .fill  (fsm_cc_fill[WAYVAR]),
-    .write (fsm_cc_ary_write[WAYVAR]),
+    .write (dary_write[WAYVAR]),
     .read  (cache_read_d),
     .clk   (clk)
   );

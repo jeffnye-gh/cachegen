@@ -1,26 +1,29 @@
 [*]
 [*] GTKWave Analyzer v3.3.103 (w)1999-2019 BSI
-[*] Tue Sep 20 01:52:21 2022
+[*] Thu Sep 22 20:08:51 2022
 [*]
 [dumpfile] "/home/jeff/Development/gitbox/cachegen/examples/1mb_l1/csim.vcd"
-[dumpfile_mtime] "Tue Sep 20 01:49:06 2022"
-[dumpfile_size] 45281
+[dumpfile_mtime] "Thu Sep 22 19:59:05 2022"
+[dumpfile_size] 30958
 [savefile] "/home/jeff/Development/gitbox/cachegen/examples/1mb_l1/csim.gtkw"
-[timestart] 0
-[size] 1918 831
+[timestart] 1019
+[size] 1725 831
 [pos] -1 -1
-*-9.308528 1850 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+*-9.251697 2965 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
 [treeopen] top.
 [treeopen] top.dut0.
+[treeopen] top.dut0.data[0].
 [treeopen] top.dut0.fsm0.
 [sst_width] 255
-[signals_width] 318
+[signals_width] 424
 [sst_expanded] 1
 [sst_vpaned_height] 224
 @28
 top.clk
 @420
 top.count
+@28
+top.dut0.reset
 @820
 top.testName[128:0]
 @28
@@ -28,11 +31,104 @@ top.tb_cc_read
 top.tb_cc_write
 @22
 top.tb_cc_address[31:0]
+top.tb_cc_writedata[31:0]
+@28
 top.tb_cc_byteenable[3:0]
+@22
 top.cc_tb_readdata[31:0]
 @28
 top.cc_tb_readdata_valid
+top.dut0.way_hit[3:0]
 top.cc_tb_req_hit
+@22
+top.dut0.pe_tag[13:0]
+top.dut0.pe_index_d[12:0]
+top.dut0.pe_index[12:0]
+@28
+top.dut0.pe_offset[2:0]
+top.dut0.pe_write
+top.dut0.pe_access
+@800200
+-DROM
+@420
+top.count
+@28
+top.tb_cc_write
+@22
+top.tb_cc_address[31:0]
+@28
+top.tb_cc_byteenable[3:0]
+@22
+top.tb_cc_writedata[31:0]
+top.dut0.pe_index[12:0]
+top.dut0.pe_offset[2:0]
+@28
+top.dut0.pe_be[3:0]
+@22
+top.dut0.dary_write[3:0]
+@28
+top.dut0.way_hit[3:0]
+@22
+top._prb.p_d0_ram_0_w00[31:0]
+top._prb.p_d0_ram_0_w01[31:0]
+top._prb.p_d0_ram_0_w02[31:0]
+top._prb.p_d0_ram_0_w03[31:0]
+top._prb.p_d0_ram_0_w04[31:0]
+@1000200
+-DROM
+@c00200
+-LRURF
+@28
+top._prb.p_lru_2[2:0]
+top._prb.p_lru_6[2:0]
+top.dut0.bits0.lru_wr
+@22
+top.dut0.lrurf0.wa[12:0]
+@24
+top.dut0.lrurf0.way_hit[3:0]
+@820
+top._prb.p_str_way[31:0]
+@28
+top.dut0.lrurf0.wd[2:0]
+@1401200
+-LRURF
+@800200
+-MM_CNTRL
+@201
+-
+@22
+top._prb.p_d0_ram_0_w00[31:0]
+top._prb.p_d0_ram_0_w01[31:0]
+top._prb.p_d0_ram_0_w02[31:0]
+top._prb.p_d0_ram_0_w03[31:0]
+top._prb.p_d0_ram_0_w04[31:0]
+top._prb.p_d0_ram_0_w05[31:0]
+top._prb.p_d0_ram_0_w06[31:0]
+top._prb.p_d0_ram_0_w07[31:0]
+@200
+-
+@22
+top._prb.p_d0_ram_0_wd00[31:0]
+top._prb.p_d0_ram_0_wd01[31:0]
+top._prb.p_d0_ram_0_wd02[31:0]
+top._prb.p_d0_ram_0_wd03[31:0]
+top._prb.p_d0_ram_0_wd04[31:0]
+top._prb.p_d0_ram_0_wd05[31:0]
+top._prb.p_d0_ram_0_wd06[31:0]
+top._prb.p_d0_ram_0_wd07[31:0]
+@200
+-
+@22
+top._prb.p_d0_ram_0_be00[3:0]
+top._prb.p_d0_ram_0_be01[3:0]
+top._prb.p_d0_ram_0_be02[3:0]
+top._prb.p_d0_ram_0_be03[3:0]
+top._prb.p_d0_ram_0_be04[3:0]
+top._prb.p_d0_ram_0_be05[3:0]
+top._prb.p_d0_ram_0_be06[3:0]
+top._prb.p_d0_ram_0_be07[3:0]
+@1000200
+-MM_CNTRL
 @c00200
 -TB
 @22
@@ -69,16 +165,9 @@ top.dut0.be[3:0]
 @c00200
 -BITS
 @28
-top.dut0.bits0.lru_wd[2:0]
-top.dut0.bits0.lru_byp[2:0]
-top.dut0.lru_out[2:0]
-top.dut0.bits0.last_lru_wd[2:0]
-top.dut0.bits0.bypass_lru
 top.dut0.bits0.access_q
 top.dut0.bits0.access_d
 top.dut0.bits0.lru_wr
-top.dut0.bits0.lru_wd[2:0]
-top.dut0.bits0._lru_0[2:0]
 top.dut0.bits0.way_hit[3:0]
 @1401200
 -BITS
@@ -92,22 +181,19 @@ top.tb_cc_read
 -TAGS
 @1401200
 -TAGS
-@c00200
--MM_CNTRL
-@28
-top.mm0.bypass
-@22
-top.mm0.byp_be[3:0]
-top.mm0.byp_writedata[31:0]
-@1401200
--MM_CNTRL
-@c00201
+@800200
 -ARRAY PROBES
+@22
+top._prb.p_d0_ram_0[255:0]
 @28
 top._prb.p_lru_0[2:0]
 top._prb.p_lru_1[2:0]
 top._prb.p_lru_2[2:0]
 top._prb.p_lru_3[2:0]
+top._prb.p_lru_4[2:0]
+top._prb.p_lru_5[2:0]
+top._prb.p_lru_6[2:0]
+top._prb.p_lru_7[2:0]
 @200
 -
 @22
@@ -186,7 +272,7 @@ top._prb.p_mm_ram0_2[31:0]
 top._prb.p_mm_ram0_3[31:0]
 @200
 -
-@1401201
+@1000200
 -ARRAY PROBES
 [pattern_trace] 1
 [pattern_trace] 0

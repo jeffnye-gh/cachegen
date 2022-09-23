@@ -4,6 +4,40 @@
 // =================================================================
 // FUNCTIONS
 // =================================================================
+function int check_word;
+input [31:0] a;
+input [31:0] exp;
+reg [13:0] tagway;
+reg [12:0] index;
+reg [ 2:0] offset;
+reg [31:0] act;
+begin
+  tagway = a[31:18];
+  index  = a[17:5];
+  offset = a[4:2];
+  if(tagway == 14'h000) begin
+    act = top.dut0.data[0].dsram.ram[index] >> offset*32;
+  end else if(tagway == 14'h001) begin
+    act = top.dut0.data[1].dsram.ram[index] >> offset*32;
+  end else if(tagway == 14'h002) begin
+    act = top.dut0.data[2].dsram.ram[index] >> offset*32;
+  end else if(tagway == 14'h003) begin
+    act = top.dut0.data[3].dsram.ram[index] >> offset*32;
+  end
+
+  if(act !== exp) begin
+    $display("-E: way:%0d idx:%04x wrd:%03x exp:%08x act:%08x m:0",
+             tagway,index,offset,exp,act);
+    check_word = 1;
+  end else begin
+    $display("-I: way:%0d idx:%04x wrd:%03x exp:%08x act:%08x m:1",
+             tagway,index,offset,exp,act);
+    check_word = 0;
+  end
+end
+endfunction
+// -----------------------------------------------------------------
+// -----------------------------------------------------------------
 function [255:0] formLine;
 input integer ram;
 input integer addr;
@@ -22,9 +56,16 @@ end
 endfunction
 // -----------------------------------------------------------------
 // -----------------------------------------------------------------
-function compare(input [31:0] lhs,rhs);
+function compare32(input [31:0] lhs,rhs);
 begin
-  compare = lhs === rhs;
+  compare32 = lhs === rhs;
+end
+endfunction
+// -----------------------------------------------------------------
+// -----------------------------------------------------------------
+function compare256(input [255:0] lhs,rhs);
+begin
+  compare256 = lhs === rhs;
 end
 endfunction
 // -----------------------------------------------------------------
