@@ -11,49 +11,44 @@
 // -----------------------------------------------------------------------
 module dirty
 (
-  output reg  [2:0]  rd,
+  output reg  [3:0]  rd,
 
   input  wire [12:0] wa,
   input  wire [3:0]  way_hit,
 
   input  wire [12:0] ra,
   input  wire        wr,
+  input  wire        in,
   input  wire        reset,
   input  wire        clk
 );
 // ----------------------------------------------------------------------
 localparam int ENTRIES = 8192;
 // ----------------------------------------------------------------------
-task clearmod;
+task clearregs;
 integer i;
 begin for(i=0;i<ENTRIES;++i) regs[i] = 4'b0; end
 endtask
 // ---------------------------------------------------------------------------
 reg  [3:0] regs[0:8192];
-reg  [2:0]  wd;
+reg  [3:0] wd;
 // ---------------------------------------------------------------------------
 assign rd = regs[ra];
 // ---------------------------------------------------------------------------
-// LRU rules
-// access to way0    b2=0  b1=b1  b0=0
-// access to way1    b2=0  b1=b1  b0=1 
-// access to way2    b2=1  b1=0   b0=b0
-// access to way3    b2=1  b1=1   b0=b0
-// ---------------------------------------------------------------------------
 always @* begin
   casez(way_hit)
-    4'b???1: wd =  { 1'b0, rd[1], 1'b0       }; //WAY0
-    4'b??1?: wd =  { 1'b0, rd[1], 1'b1       }; //WAY1
-    4'b?1??: wd =  { 1'b1, 1'b0,  rd[0] }; //WAY2
-    4'b1???: wd =  { 1'b1, 1'b1,  rd[0] }; //WAY3
-    default: wd = 3'bx;
+    4'b???1: wd = { rd[3], rd[2], rd[1], in    };
+    4'b??1?: wd = { rd[3], rd[2], in,    rd[0] };
+    4'b?1??: wd = { rd[3], in,    rd[1], rd[0] };
+    4'b1???: wd = { in,    rd[2], rd[1], rd[0] };
+    default: wd = 4'bx;
   endcase
 end
 // ---------------------------------------------------------------------------
 always @(posedge clk) begin
-  if(reset) clearlru;
+  if(reset) clearregs;
 end
-
+// ---------------------------------------------------------------------------
 always @(posedge clk) begin
   regs[wa] <= wr ? wd : regs[wa];
 end

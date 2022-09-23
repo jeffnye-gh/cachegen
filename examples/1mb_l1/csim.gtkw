@@ -1,18 +1,17 @@
 [*]
 [*] GTKWave Analyzer v3.3.103 (w)1999-2019 BSI
-[*] Fri Sep 23 17:33:59 2022
+[*] Fri Sep 23 20:21:03 2022
 [*]
 [dumpfile] "/home/jeff/Development/gitbox/cachegen/examples/1mb_l1/csim.vcd"
-[dumpfile_mtime] "Fri Sep 23 17:33:01 2022"
-[dumpfile_size] 218810
+[dumpfile_mtime] "Fri Sep 23 20:20:52 2022"
+[dumpfile_size] 221016
 [savefile] "/home/jeff/Development/gitbox/cachegen/examples/1mb_l1/csim.gtkw"
-[timestart] 10963
+[timestart] 2332
 [size] 1725 831
 [pos] -1 -1
-*-9.182201 11650 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+*-9.051261 4118 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
 [treeopen] top.
 [treeopen] top.dut0.
-[treeopen] top.dut0.data[0].
 [treeopen] top.dut0.fsm0.
 [sst_width] 255
 [signals_width] 424
@@ -34,7 +33,7 @@ top.tb_cc_address[31:0]
 top.tb_cc_writedata[31:0]
 @28
 top.tb_cc_byteenable[3:0]
-@23
+@22
 top.cc_tb_readdata[31:0]
 @28
 top.cc_tb_readdata_valid
@@ -48,7 +47,7 @@ top.dut0.pe_index[12:0]
 top.dut0.pe_offset[2:0]
 top.dut0.pe_write
 top.dut0.pe_access
-@800200
+@c00200
 -DROM
 @420
 top.count
@@ -68,7 +67,7 @@ top.dut0.pe_be[3:0]
 top.dut0.dary_write[3:0]
 @28
 top.dut0.way_hit[3:0]
-@1000200
+@1401200
 -DROM
 @c00200
 -LRURF
@@ -87,13 +86,24 @@ top.dut0.lrurf0.wd[2:0]
 @1401200
 -LRURF
 @800200
--MM_CNTRL
-@200
--
--
--
+-DIRTY
+@28
+top.dut0.dirty0.clk
+@22
+top.dut0.dirty0.wa[12:0]
+@28
+top.dut0.dirty0.wr
+top.dut0.dirty0.in
+top.dut0.dirty0.wd[3:0]
+top.dut0.dirty0.way_hit[3:0]
+@23
+top._prb.p_mod_0[3:0]
+@22
+top._prb.p_mod_1[3:0]
+top._prb.p_mod_2[3:0]
+top._prb.p_mod_3[3:0]
 @1000200
--MM_CNTRL
+-DIRTY
 @c00200
 -TB
 @22
@@ -110,9 +120,6 @@ top.capture_a_index
 top.capture_d_index
 @22
 top.cc_tb_readdata[31:0]
-top.dut0.data[0].dsram.a[12:0]
-top.dut0.data[0].dsram.ram0[255:0]
-top.dut0.data[0].dsram.ram1[255:0]
 @1000200
 -CAPTURE
 @1401200

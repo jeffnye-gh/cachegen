@@ -108,6 +108,7 @@ module fsm #(
   output wire       fsm_cc_ary_write,
   output wire       fsm_cc_lru_write,
   output wire       fsm_cc_mod_write,
+  output wire       fsm_cc_is_mod,
 //
 ////  output reg  [TAG_BITS-1:0] fsm_cc_tag,
 ////  output reg  [IDX_BITS-1:0] fsm_cc_index,
@@ -167,10 +168,12 @@ assign fsm_cc_fill = 4'b0;
 reg fsm_cc_ary_write_d;
 reg fsm_cc_lru_write_d;
 reg fsm_cc_mod_write_d;
+reg fsm_cc_is_mod_d;
 
 assign fsm_cc_ary_write = fsm_cc_ary_write_d;
 assign fsm_cc_lru_write = fsm_cc_lru_write_d;
 assign fsm_cc_mod_write = fsm_cc_mod_write_d;
+assign fsm_cc_is_mod    = fsm_cc_is_mod_d;
 // ----------------------------------------------------------------------
 // ----------------------------------------------------------------------
 reg [3:0] state,next;
@@ -186,6 +189,7 @@ always @* begin
   fsm_cc_ary_write_d   = 1'b0;
   fsm_cc_lru_write_d   = 1'b0;
   fsm_cc_mod_write_d   = 1'b0;
+  fsm_cc_is_mod_d      = 1'bx;
 
   fsm_bit_cmd          = B_CMD_NOP;
   fsm_bit_cmd_valid    = 1'b0;
@@ -207,9 +211,10 @@ always @* begin
       else if(pe_write & pe_req_hit)  begin
         //fsm_bit_cmd = B_CMD_LRU_UP; //B_CMD_LRU_MOD_UP;
         //fsm_bit_cmd_valid = 1'b1;
-        fsm_cc_ary_write_d  = 1'b1;
+        fsm_cc_ary_write_d = 1'b1;
         fsm_cc_lru_write_d = 1'b1;
         fsm_cc_mod_write_d = 1'b1;
+        fsm_cc_is_mod_d    = 1'b1;
         next = IDLE;
       end
 

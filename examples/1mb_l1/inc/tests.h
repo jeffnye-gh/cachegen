@@ -150,8 +150,12 @@ begin
 
   nop(4);
 
+  //FIXME: there is a problem somewhere, where the readmemh calls
+  //above do not reset index 0 of the lru/dirty bits. I have not found
+  //the problem yet.
   @(posedge clk);
   top.dut0.lrurf0.regs[0] = 3'b0;
+  top.dut0.dirty0.regs[0] = 4'b0;
   @(posedge clk);
 
 
@@ -187,7 +191,7 @@ begin
   load_expect_tags("./golden/basicRdHit.t.cfg0.memh",v);
   load_expect_bits("./golden/basicRdHit.b.cfg0.memb",v); //NOTE B file
 
-  nop(4,1); //let state propagate
+  nop(4); //let state propagate
 
   check_tb_add_data (errs,0,16,v); //EXP_DATA_ENTRIES);
   check_tb_tags_bits(errs,0,16,v); //EXP_DATA_ENTRIES);
@@ -243,7 +247,7 @@ begin
 
   v = verbose;
 
-  clear_tb_data(0,EXP_DATA_ENTRIES,1);
+  clear_tb_data(0,EXP_DATA_ENTRIES,v);
   nop(4);
 
   if(verbose) $display("-I: setting initial configuration ");
@@ -253,8 +257,8 @@ begin
   $readmemh("data/dsramN.cfg1.memh",top.dut0.dsram2.ram);
   $readmemh("data/dsramN.cfg1.memh",top.dut0.dsram3.ram);
 
-  load_initial_tags("data/tags.cfg1.memh");
-  load_initial_bits("data/bits.cfg1.memb",1);
+  load_initial_tags("data/tags.cfg1.memh",v);
+  load_initial_bits("data/bits.cfg1.memb",v);
 
   //FIXME: I have not found why the readmemh's above are not working.
   //I see left over state from the previous read test. Uncomment to
@@ -360,15 +364,15 @@ begin
   load_expect_dary_data("./golden/basicWrHit.d0.cfg1.memh",
                         "./golden/basicWrHit.d1.cfg1.memh",
                         "./golden/basicWrHit.d2.cfg1.memh",
-                        "./golden/basicWrHit.d3.cfg1.memh",1);
+                        "./golden/basicWrHit.d3.cfg1.memh",v);
 
-  load_expect_tags("./golden/basicWrHit.t.cfg1.memh",1);
-  load_expect_bits("./golden/basicWrHit.b.cfg1.memb",1); //NOTE B file
+  load_expect_tags("./golden/basicWrHit.t.cfg1.memh",v);
+  load_expect_bits("./golden/basicWrHit.b.cfg1.memb",v); //NOTE B file
 
   nop(4);
 
-  check_data_arrays (errs,0,16,0); 
-  check_tb_tags_bits(errs,0,16,1);
+  check_data_arrays (errs,0,16,v); 
+  check_tb_tags_bits(errs,0,16,v);
 
   endTestMsg(testName,errs);
   nop(4);

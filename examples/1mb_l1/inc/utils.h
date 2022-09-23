@@ -87,7 +87,7 @@ begin
     $display("%0d : v:%04b m:%04b lru:%03b",
       i,
       top.dut0.bits0.vbits[i],
-      top.dut0.bits0.mbits[i],
+      top.dut0.dirty0.regs[i],
       top.dut0.lrurf0.regs[i]);
   end
 end
@@ -101,7 +101,7 @@ int i;
 begin
   for(i=0;i<EXP_DATA_ENTRIES;i=i+1) begin
     top.dut0.lrurf0.regs[i] = 3'bx;
-    top.dut0.bits0.mbits[i] = 4'bx;
+    top.dut0.dirty0.regs[i] = 4'bx;
     top.dut0.bits0.vbits[i] = 4'bx; 
   end
 end
@@ -117,7 +117,7 @@ begin
   $readmemb(fn,local_bits);
   for(i=0;i<EXP_DATA_ENTRIES;i=i+1) begin
     top.dut0.lrurf0.regs[i] = local_bits[i][2:0];
-    top.dut0.bits0.mbits[i] = local_bits[i][6:3];
+    top.dut0.dirty0.regs[i] = local_bits[i][6:3];
     top.dut0.bits0.vbits[i] = local_bits[i][10:7];
   end
 end
@@ -367,7 +367,7 @@ begin
                         top.dut0.tags[0].tag.ram[i] };
 
       vbits = top.dut0.bits0.vbits[i];
-      mbits = top.dut0.bits0.mbits[i];
+      mbits = top.dut0.dirty0.regs[i];
       lbits = top.dut0.lrurf0.regs[i];
       local_bits[i] = { vbits, mbits, lbits }; 
     end

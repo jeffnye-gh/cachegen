@@ -89,6 +89,7 @@ wire       fsm_bit_cmd_valid;
 wire fsm_cc_ary_write;
 wire fsm_cc_lru_write;
 wire fsm_cc_mod_write;
+wire fsm_cc_is_mod;
 
 wire pe_flush;
 wire pe_flush_all;
@@ -294,6 +295,7 @@ fsm #(.IDX_BITS(IDX_BITS),.TAG_BITS(TAG_BITS)) fsm0 (
   .fsm_cc_ary_write(fsm_cc_ary_write),
   .fsm_cc_lru_write(fsm_cc_lru_write),
   .fsm_cc_mod_write(fsm_cc_mod_write),
+  .fsm_cc_is_mod   (fsm_cc_is_mod),
 //
 //  .fsm_cc_way_match_q(fsm_cc_way_match_q),
 //
@@ -322,8 +324,8 @@ wire [2:0]  lru;
 
 bitarray #(.IDX_BITS(IDX_BITS)) bits0(
   .val_out(val_out),
-  .mod_out(mod_out),
-  .lru_wr(lru_wr),
+//  .mod_out(mod_out),
+//  .lru_wr(lru_wr),
 //  .mod_wr(mod_wr),
 //  .lru_out(lru_out),
 
@@ -340,16 +342,17 @@ bitarray #(.IDX_BITS(IDX_BITS)) bits0(
   .clk(clk)
 );
 // --------------------------------------------------------------------------
-//dirty dirty0
-//(
-//  .rd(dirty),
-//  .wa(pe_index),
-//  .way_hit(way_hit),
-//  .ra(pe_index),
-//  .wr(mod_wr),
-//  .reset(reset),
-//  .clk(clk)
-//);
+dirty dirty0
+(
+  .rd(dirty),
+  .wa(pe_index),
+  .way_hit(way_hit),
+  .ra(pe_index),
+  .wr(fsm_cc_mod_write),
+  .in(fsm_cc_is_mod),
+  .reset(reset),
+  .clk(clk)
+);
 // --------------------------------------------------------------------------
 lrurf lrurf0
 (
