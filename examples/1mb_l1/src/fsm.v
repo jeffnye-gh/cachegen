@@ -105,7 +105,9 @@ module fsm #(
 
   output reg  [3:0] fsm_bit_cmd,
   output reg        fsm_bit_cmd_valid,
-  output reg        fsm_cc_ary_write,
+  output wire       fsm_cc_ary_write,
+  output wire       fsm_cc_lru_write,
+  output wire       fsm_cc_mod_write,
 //
 ////  output reg  [TAG_BITS-1:0] fsm_cc_tag,
 ////  output reg  [IDX_BITS-1:0] fsm_cc_index,
@@ -161,128 +163,29 @@ wire FIXME_mm_readdata_valid = 1'b1;
 assign fsm_cc_tag_write = 4'b0;
 assign fsm_cc_fill = 4'b0;
 // ----------------------------------------------------------------------
-// Probes
-// ----------------------------------------------------------------------
-////synthesis off
-//wire [31:0] line_data0 = line_data[ 31:  0];
-//wire [31:0] line_data1 = line_data[ 63: 32];
-//wire [31:0] line_data2 = line_data[ 95: 64];
-//wire [31:0] line_data3 = line_data[127: 96];
-//wire [31:0] line_data4 = line_data[159:128];
-//wire [31:0] line_data5 = line_data[191:160];
-//wire [31:0] line_data6 = line_data[223:192];
-//wire [31:0] line_data7 = line_data[255:224];
-//
-//wire [TAG_BITS-1:0] cc_tag_read_data_0 = cc_tag_readdata[0];
-//wire [TAG_BITS-1:0] cc_tag_read_data_1 = cc_tag_readdata[1];
-//wire [TAG_BITS-1:0] cc_tag_read_data_2 = cc_tag_readdata[2];
-//wire [TAG_BITS-1:0] cc_tag_read_data_3 = cc_tag_readdata[3];
-//wire [255:0]        cc_ary_readdata_0  = cc_ary_readdata[0];
-//wire [255:0]        cc_ary_readdata_1  = cc_ary_readdata[1];
-//wire [255:0]        cc_ary_readdata_2  = cc_ary_readdata[2];
-//wire [255:0]        cc_ary_readdata_3  = cc_ary_readdata[3];
-////synthesis on
-//// ----------------------------------------------------------------------
-//// Extract bits and rename
-//// ----------------------------------------------------------------------
-////wire  [TAG_BITS-1:0] fsm_cc_tag_d    = pe_a[31:18];
-////wire  [IDX_BITS-1:0] fsm_cc_index_d  = pe_a[17:5];
-////wire  [2:0]          fsm_cc_offset_d = pe_a[4:2];
-////wire  [3:0]          fsm_cc_be_d     = pe_be;
-//// ----------------------------------------------------------------------
-//reg   [TAG_BITS-1:0] fsm_cc_tag;
-//// ----------------------------------------------------------------------
-//wire pe_access;
-reg fsm_readdata_valid_d,fsm_readdata_valid;
+//reg fsm_readdata_valid_d;fsm_readdata_valid;
+reg fsm_cc_ary_write_d;
+reg fsm_cc_lru_write_d;
+reg fsm_cc_mod_write_d;
+
+assign fsm_cc_ary_write = fsm_cc_ary_write_d;
+assign fsm_cc_lru_write = fsm_cc_lru_write_d;
+assign fsm_cc_mod_write = fsm_cc_mod_write_d;
 // ----------------------------------------------------------------------
 // ----------------------------------------------------------------------
 reg [3:0] state,next;
-//// ----------------------------------------------------------------------
-//// Intercepting these, I will need to override them for index walks
-//// ----------------------------------------------------------------------
-//assign fsm_cc_tag_read = pe_read | pe_write;
-//assign fsm_cc_ary_read = pe_read | pe_write;
-//// ----------------------------------------------------------------------
-//// HIT indication
-//// ----------------------------------------------------------------------
-////wire pe_access_d = !reset & (pe_read | pe_write);
-//assign pe_access = pe_read | pe_write;
-////there is at least 1 valid hit in a matching way
-//assign fsm_pe_req_hit = pe_access & |way_hit;
-//
-////read + hit | from fsm(miss/fill timing)
-//assign fsm_pe_readdata_valid = (pe_read & |way_hit) | fsm_readdata_valid;
-//
-//wire [3:0] fsm_cc_way_match;
-//assign fsm_cc_way_match[0] = cc_tag_readdata[0] == fsm_cc_tag;
-//assign fsm_cc_way_match[1] = cc_tag_readdata[1] == fsm_cc_tag;
-//assign fsm_cc_way_match[2] = cc_tag_readdata[2] == fsm_cc_tag;
-//assign fsm_cc_way_match[3] = cc_tag_readdata[3] == fsm_cc_tag;
-//
-//wire [3:0] way_hit;
-//assign way_hit[0] = cc_val_bits[0] & fsm_cc_way_match[0];
-//assign way_hit[1] = cc_val_bits[1] & fsm_cc_way_match[1];
-//assign way_hit[2] = cc_val_bits[2] & fsm_cc_way_match[2];
-//assign way_hit[3] = cc_val_bits[3] & fsm_cc_way_match[3];
-//
-//// ----------------------------------------------------------------------
-//// MOD indication
-//// ----------------------------------------------------------------------
-//wire [3:0] way_mod;
-//assign way_mod[0] = cc_mod_bits[0] & way_hit[0];
-//assign way_mod[1] = cc_mod_bits[1] & way_hit[1];
-//assign way_mod[2] = cc_mod_bits[2] & way_hit[2];
-//assign way_mod[3] = cc_mod_bits[3] & way_hit[3];
-//
-////there is at least 1 valid dirty bit in a matching way
-//wire pe_req_mod = pe_access & |way_mod;
-//
-//// ----------------------------------------------------------------------
-//// read mux
-//// ----------------------------------------------------------------------
-//reg [255:0] line_data;
-//
-//always @* begin
-//  casez(fsm_cc_way_match)
-//    4'b???1: line_data = cc_ary_readdata[0];
-//    4'b??1?: line_data = cc_ary_readdata[1];
-//    4'b?1??: line_data = cc_ary_readdata[2];
-//    4'b1???: line_data = cc_ary_readdata[3];
-//    default: line_data = 256'bx;
-//  endcase
-//
-//  case(fsm_cc_offset)
-//    3'b000: fsm_pe_readdata = line_data[ 31:  0];
-//    3'b001: fsm_pe_readdata = line_data[ 63: 32];
-//    3'b010: fsm_pe_readdata = line_data[ 95: 64];
-//    3'b011: fsm_pe_readdata = line_data[127: 96];
-//    3'b100: fsm_pe_readdata = line_data[159:128];
-//    3'b101: fsm_pe_readdata = line_data[191:160];
-//    3'b110: fsm_pe_readdata = line_data[223:192];
-//    3'b111: fsm_pe_readdata = line_data[255:224];
-//  endcase
-//end
 // ----------------------------------------------------------------------
 always @(posedge clk) begin
   state <= reset ? IDLE : next;
-////  fsm_pe_readdata_valid <= reset ? 1'b0 : fsm_pe_readdata_valid_d;
-//
-//  fsm_pe_read  <= !reset & pe_read_d;
-//  fsm_pe_write <= !reset & pe_write_d;
-//  fsm_cc_way_match_q <= fsm_cc_way_match;
-//  fsm_readdata_valid <= fsm_readdata_valid_d;
-//
-//  fsm_cc_tag    <= fsm_cc_tag_d;
-//  fsm_cc_index  <= fsm_cc_index_d;
-//  fsm_cc_offset <= fsm_cc_offset_d;
-//  fsm_cc_be     <= fsm_cc_be_d;
 end
 // ----------------------------------------------------------------------
 // ----------------------------------------------------------------------
 always @* begin
 
-  fsm_readdata_valid_d = 1'b0;
-  fsm_cc_ary_write     = 1'b0;
+  //fsm_readdata_valid_d = 1'b0;
+  fsm_cc_ary_write_d   = 1'b0;
+  fsm_cc_lru_write_d   = 1'b0;
+  fsm_cc_mod_write_d   = 1'b0;
 
   fsm_bit_cmd          = B_CMD_NOP;
   fsm_bit_cmd_valid    = 1'b0;
@@ -294,16 +197,19 @@ always @* begin
       // READ HIT
       if(pe_read & pe_req_hit) begin //&  fsm_pe_req_hit)  begin
         //fsm_pe_readdata_valid_d = 1'b1;
-        fsm_bit_cmd = B_CMD_LRU_UP;
-        fsm_bit_cmd_valid = 1'b1;
+        //fsm_bit_cmd = B_CMD_LRU_UP;
+        //fsm_bit_cmd_valid = 1'b1;
+        fsm_cc_lru_write_d = 1'b1;
         next = IDLE; //RD_HIT;
       end
 
       // WRITE HIT
       else if(pe_write & pe_req_hit)  begin
-        fsm_bit_cmd = B_CMD_LRU_UP; //B_CMD_LRU_MOD_UP;
-        fsm_bit_cmd_valid = 1'b1;
-        fsm_cc_ary_write  = 1'b1;
+        //fsm_bit_cmd = B_CMD_LRU_UP; //B_CMD_LRU_MOD_UP;
+        //fsm_bit_cmd_valid = 1'b1;
+        fsm_cc_ary_write_d  = 1'b1;
+        fsm_cc_lru_write_d = 1'b1;
+        fsm_cc_mod_write_d = 1'b1;
         next = IDLE;
       end
 

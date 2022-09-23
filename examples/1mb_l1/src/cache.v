@@ -55,6 +55,8 @@ localparam integer WAYS =  4;
 // ------------------------------------------------------------------------
 assign mm_read  = 1'b0;
 assign mm_write = 1'b0;
+wire       fsm_cc_fill = 1'b0;
+wire [3:0] fsm_cc_tag_write = 4'b0;
 // ------------------------------------------------------------------------
 // Probes
 // iverilog/gtfw will not show the 2d buses
@@ -84,9 +86,9 @@ wire [3:0] val_out,mod_out;
 wire [3:0] fsm_bit_cmd;
 wire       fsm_bit_cmd_valid;
 
-wire       fsm_cc_fill = 1'b0;
-wire [3:0] fsm_cc_tag_write = 4'b0;
-wire       fsm_cc_ary_write;
+wire fsm_cc_ary_write;
+wire fsm_cc_lru_write;
+wire fsm_cc_mod_write;
 
 wire pe_flush;
 wire pe_flush_all;
@@ -290,6 +292,8 @@ fsm #(.IDX_BITS(IDX_BITS),.TAG_BITS(TAG_BITS)) fsm0 (
 //
 ////  .fsm_cc_ary_read(fsm_cc_ary_read),
   .fsm_cc_ary_write(fsm_cc_ary_write),
+  .fsm_cc_lru_write(fsm_cc_lru_write),
+  .fsm_cc_mod_write(fsm_cc_mod_write),
 //
 //  .fsm_cc_way_match_q(fsm_cc_way_match_q),
 //
@@ -353,7 +357,8 @@ lrurf lrurf0
   .wa(pe_index),
   .way_hit(way_hit),
   .ra(pe_index),
-  .wr(lru_wr),
+//  .wr(lru_wr),
+  .wr(fsm_cc_lru_write),
   .reset(reset),
   .clk(clk)
 );
