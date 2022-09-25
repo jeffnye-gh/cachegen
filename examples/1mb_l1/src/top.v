@@ -10,54 +10,51 @@ module top;
 `include "locals.h"   //other enum like vars
 
 localparam integer MAX = 5000;
-localparam integer MM_MEM_RANGE = 256;
+localparam integer MM_ADDR_WIDTH    = 20;
+localparam integer EXP_MM_ENTRIES   = 1024;
 localparam integer EXP_DATA_ENTRIES = 256;
 // ------------------------------------------------------------------------
 // Test controls
 // ------------------------------------------------------------------------
-localparam _bypass_test = 1'b0;
-localparam _tag_rw_test = 1'b0;
-localparam _basic_tests      = 1'b1;
-localparam   _bt_lru_test    = 1'b1;
-localparam   _bt_rd_hit_test = 1'b1;
-localparam   _bt_wr_hit_test = 1'b1;
-
+//localparam _bypass_test = 1'b0;
+//localparam _tag_rw_test = 1'b0;
+localparam _basic_tests        = 1'b1;
+localparam   _bt_lru_test      = 1'b1;
+localparam   _bt_rd_hit_test   = 1'b1;
+localparam   _bt_wr_hit_test   = 1'b1;
+localparam   _bt_rd_alloc_test = 1'b0;
+localparam   _bt_wr_alloc_test = 1'b0;
 // ----------------------------------------------------------------------
 integer count;
 integer lru_errs,basic_rd_hit_errs,basic_wr_hit_errs;
+integer basic_rd_alloc_errs,basic_wr_alloc_errs;
 reg master_clk,clk,reset;
-reg [8*16:0] testName;
+string testName;
 // ----------------------------------------------------------------------
 reg [3:0] tb_cmd;
 reg tb_cc_ram_test;
-wire bypass = (tb_cmd == TB_CMD_BYPASS) & !reset;
-// ----------------------------------------------------------------------
-wire [31:0]  by_mm_address;
-wire [255:0] by_mm_writedata;
-wire         by_mm_write;
-wire         by_mm_read;
-wire [3:0]   by_mm_byteenable;
 // ----------------------------------------------------------------------
 reg  [31:0]  tb_cc_address;
 reg  [3:0]   tb_cc_byteenable;
 reg          tb_cc_read;
 reg          tb_cc_write;
 reg  [31:0]  tb_cc_writedata;
-reg  [255:0] tb_cc_wide_writedata;
 wire [31:0]  cc_tb_readdata;
 
 wire cc_tb_readdata_valid;
-wire cc_tb_req_hit;
+wire cc_tb_req_hit,cc_tb_req_miss,cc_tb_req_mod;
 // ----------------------------------------------------------------------
 wire [31:0]  cc_mm_address;
 wire [255:0] cc_mm_writedata;
 wire         cc_mm_write;
 wire         cc_mm_read;
+wire [31:0]  cc_mm_byteenable;
 wire [255:0] mm_cc_readdata;
 wire [255:0] xmm_cc_readdata;
 wire         mm_cc_readdatavalid;
 
 // ------------------------------------------------------------------------
+reg  [255:0] mm_expect_mm[0:EXP_MM_ENTRIES];
 reg  [255:0] mm_expect_dary_0[0:EXP_DATA_ENTRIES];
 reg  [255:0] mm_expect_dary_1[0:EXP_DATA_ENTRIES];
 reg  [255:0] mm_expect_dary_2[0:EXP_DATA_ENTRIES];
@@ -90,10 +87,13 @@ initial begin
   tb_cc_read     = 1'b0;
   tb_cc_write    = 1'b0;
 
-  lru_errs = 0;
-  basic_rd_hit_errs = 0;
-  basic_wr_hit_errs = 0;
   count = 0;
+
+  lru_errs = 0;
+  basic_rd_hit_errs   = 0;
+  basic_wr_hit_errs   = 0;
+  basic_rd_alloc_errs = 0;
+  basic_wr_alloc_errs = 0;
 
   $dumpfile("csim.vcd");
   $dumpvars(0,top);
@@ -120,11 +120,13 @@ always @(posedge clk) begin
   if(cc_tb_readdata_valid) begin
     //$display("-I: capturing data : a:%08x:%08x",capture_addr,cc_tb_readdata);
     mm_actual_capture_data[capture_d_index] <= cc_tb_readdata;
+//    mm_actual_capture_addr[capture_a_index] <= tb_cc_address;
     capture_d_index <= capture_d_index+1;
+//    capture_a_index <= capture_a_index+1;
   end
 end
 // ------------------------------------------------------------------------
-reg [8*8:0] tb_cmd_txt;
+string tb_cmd_txt;
 always @(tb_cmd or reset) begin
   if(reset) tb_cmd_txt = "RST "; 
   else begin
@@ -156,12 +158,14 @@ always @(count) begin
   if(count > 2) begin
 
     initState();
-    if(_bypass_test) bypassTest(8); 
-    if(_tag_rw_test) tagRwTest(8); 
+//    if(_bypass_test) bypassTest(8); 
+//    if(_tag_rw_test) tagRwTest(8); 
     if(_basic_tests) begin
-      if(_bt_lru_test)    basicLruTest(lru_errs,0);
-      if(_bt_rd_hit_test) basicRdHitTest(basic_rd_hit_errs,0);
-      if(_bt_wr_hit_test) basicWrHitTest(basic_wr_hit_errs,0);
+      if(_bt_lru_test)      basicLruTest(lru_errs,0);
+      if(_bt_rd_hit_test)   basicRdHitTest(basic_rd_hit_errs,0);
+      if(_bt_wr_hit_test)   basicWrHitTest(basic_wr_hit_errs,0);
+      if(_bt_rd_alloc_test) basicRdAllocTest(basic_rd_alloc_errs,1);
+      if(_bt_wr_alloc_test) basicWrAllocTest(basic_wr_alloc_errs,0);
     end
     terminate();
   end
@@ -170,11 +174,14 @@ always @(count) begin
 end
 // ----------------------------------------------------------------
 _probes _prb();
+// ----------------------------------------------------------------
 cache dut0(
   //outputs
   .rd      (cc_tb_readdata),
   .rd_valid(cc_tb_readdata_valid),
   .req_hit (cc_tb_req_hit),
+  .req_miss(cc_tb_req_miss),
+  .req_mod (cc_tb_req_mod),
 
   //from TB 
   .a    (tb_cc_address),
@@ -190,36 +197,30 @@ cache dut0(
   .mm_wd   (cc_mm_writedata),
   .mm_write(cc_mm_write),
   .mm_read (cc_mm_read),
+  .mm_be   (cc_mm_byteenable),
 
   //from main to L1, fill
-  .mm_rd   (mm_cc_readdata),
-  .mm_valid(mm_cc_readdatavalid),
+  .mm_rd (mm_cc_readdata),
+  .mm_readdata_valid(mm_cc_readdatavalid),
 
   .reset(reset),
   .clk(clk)
 );
 // ----------------------------------------------------------------------
 // ----------------------------------------------------------------------
-assign by_mm_address    = bypass ? tb_cc_address        : cc_mm_address;
-assign by_mm_writedata  = bypass ? tb_cc_wide_writedata : cc_mm_writedata;
-assign by_mm_write      = bypass ? tb_cc_write          : cc_mm_write;
-assign by_mm_read       = bypass ? tb_cc_read           : cc_mm_read;
-assign by_mm_byteenable = bypass ? tb_cc_byteenable     : 4'bx;
-// ----------------------------------------------------------------------
-mainmemory #(.MEM_RANGE(MM_MEM_RANGE)) mm0(
+//mainmemory #(.MEM_RANGE(MM_MEM_RANGE)) mm0(
+mainmemory #(.ENTRIES(EXP_MM_ENTRIES)) mm0(
+
   .rd   (mm_cc_readdata),
   .valid(mm_cc_readdatavalid),
 
   //from CC/TB control
-  .a     (by_mm_address),
-  .be    (by_mm_byteenable),
-  .read  (by_mm_write),
-  .write (by_mm_read),
-  .wd    (by_mm_writedata),
+  .a     (cc_mm_address),
+  .be    (cc_mm_byteenable),
+  .wd    (cc_mm_writedata),
+  .write (cc_mm_read),
+  .read  (cc_mm_write),
 
-  .bypass(bypass),
-
-  .reset(reset),
   .clk(clk)
 );
 

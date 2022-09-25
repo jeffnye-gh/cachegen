@@ -1,15 +1,15 @@
 [*]
 [*] GTKWave Analyzer v3.3.103 (w)1999-2019 BSI
-[*] Fri Sep 23 20:21:03 2022
+[*] Sun Sep 25 22:10:13 2022
 [*]
 [dumpfile] "/home/jeff/Development/gitbox/cachegen/examples/1mb_l1/csim.vcd"
-[dumpfile_mtime] "Fri Sep 23 20:20:52 2022"
-[dumpfile_size] 221016
+[dumpfile_mtime] "Sun Sep 25 22:09:56 2022"
+[dumpfile_size] 76827
 [savefile] "/home/jeff/Development/gitbox/cachegen/examples/1mb_l1/csim.gtkw"
-[timestart] 2332
-[size] 1725 831
+[timestart] 2844
+[size] 1536 831
 [pos] -1 -1
-*-9.051261 4118 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+*-9.638456 4451 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
 [treeopen] top.
 [treeopen] top.dut0.
 [treeopen] top.dut0.fsm0.
@@ -23,9 +23,6 @@ top.clk
 top.count
 @28
 top.dut0.reset
-@820
-top.testName[128:0]
-@28
 top.tb_cc_read
 top.tb_cc_write
 @22
@@ -35,8 +32,9 @@ top.tb_cc_writedata[31:0]
 top.tb_cc_byteenable[3:0]
 @22
 top.cc_tb_readdata[31:0]
-@28
+@29
 top.cc_tb_readdata_valid
+@28
 top.dut0.way_hit[3:0]
 top.cc_tb_req_hit
 @22
@@ -47,6 +45,21 @@ top.dut0.pe_index[12:0]
 top.dut0.pe_offset[2:0]
 top.dut0.pe_write
 top.dut0.pe_access
+top.dut0.req_hit
+top.dut0.req_miss
+top.dut0.req_mod
+@22
+top.dut0.pe_compare[3:0]
+@28
+top.dut0.val_out[3:0]
+top.dut0.rd_valid_d
+top.dut0.fsm_cc_readdata_valid
+@c00200
+-FSM
+@820
+top._prb.ps_fsm_st[79:0]
+@1401200
+-FSM
 @c00200
 -DROM
 @420
@@ -79,13 +92,11 @@ top.dut0.bits0.lru_wr
 top.dut0.lrurf0.wa[12:0]
 @24
 top.dut0.lrurf0.way_hit[3:0]
-@820
-top._prb.p_str_way[31:0]
 @28
 top.dut0.lrurf0.wd[2:0]
 @1401200
 -LRURF
-@800200
+@c00200
 -DIRTY
 @28
 top.dut0.dirty0.clk
@@ -96,23 +107,13 @@ top.dut0.dirty0.wr
 top.dut0.dirty0.in
 top.dut0.dirty0.wd[3:0]
 top.dut0.dirty0.way_hit[3:0]
-@23
-top._prb.p_mod_0[3:0]
 @22
+top._prb.p_mod_0[3:0]
 top._prb.p_mod_1[3:0]
 top._prb.p_mod_2[3:0]
 top._prb.p_mod_3[3:0]
-@1000200
+@1401200
 -DIRTY
-@c00200
--TB
-@22
-top.dut0.tag_out_0[13:0]
-top.dut0.tag_out_1[13:0]
-top.dut0.tag_out_2[13:0]
-top.dut0.tag_out_3[13:0]
-top.dut0.bits0.pe_index_d[12:0]
-top.dut0.bits0.pe_index_q[12:0]
 @800200
 -CAPTURE
 @420
@@ -120,8 +121,40 @@ top.capture_a_index
 top.capture_d_index
 @22
 top.cc_tb_readdata[31:0]
+top.tb_cc_address[31:0]
+top._prb.p_cap_a_00[31:0]
+top._prb.p_cap_a_01[31:0]
+top._prb.p_cap_d_00[31:0]
+top._prb.p_cap_d_01[31:0]
 @1000200
 -CAPTURE
+@c00200
+-TB
+@c00022
+top.dut0.tag_out_0[13:0]
+@28
+(0)top.dut0.tag_out_0[13:0]
+(1)top.dut0.tag_out_0[13:0]
+(2)top.dut0.tag_out_0[13:0]
+(3)top.dut0.tag_out_0[13:0]
+(4)top.dut0.tag_out_0[13:0]
+(5)top.dut0.tag_out_0[13:0]
+(6)top.dut0.tag_out_0[13:0]
+(7)top.dut0.tag_out_0[13:0]
+(8)top.dut0.tag_out_0[13:0]
+(9)top.dut0.tag_out_0[13:0]
+(10)top.dut0.tag_out_0[13:0]
+(11)top.dut0.tag_out_0[13:0]
+(12)top.dut0.tag_out_0[13:0]
+(13)top.dut0.tag_out_0[13:0]
+@1401200
+-group_end
+@22
+top.dut0.tag_out_1[13:0]
+top.dut0.tag_out_2[13:0]
+top.dut0.tag_out_3[13:0]
+top.dut0.bits0.pe_index_d[12:0]
+top.dut0.bits0.pe_index_q[12:0]
 @1401200
 -TB
 @c00200
@@ -143,12 +176,6 @@ top.dut0.bits0.lru_wr
 top.dut0.bits0.way_hit[3:0]
 @1401200
 -BITS
-@c00200
--FSM
-@28
-top.tb_cc_read
-@1401200
--FSM
 @c00200
 -TAGS
 @1401200

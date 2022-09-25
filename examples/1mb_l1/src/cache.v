@@ -18,8 +18,11 @@ module cache
 (
   //Back to PE/TB
   output reg   [31:0]  rd,
-  output wire         rd_valid,
-  output wire         req_hit,
+  output wire          rd_valid,
+
+  output wire         req_hit,   //status output
+  output wire         req_miss,
+  output wire         req_mod,
 
   //From PE/TB
   input  wire [31:0]  a,
@@ -33,12 +36,13 @@ module cache
 
   //From cache to main memory
   output wire [31:0]   mm_a,
-  output wire [255:0]  mm_wd, // line eviction data
+  output wire [31:0]   mm_be,    //to MM, byte enables, FIXME: needed?
+  output wire [255:0]  mm_wd,    // line eviction data
   output wire          mm_write, //to MM, write command
   output wire          mm_read,  //to MM, read command
 
   input  wire [255:0]  mm_rd,    // line fill data
-  input  wire          mm_valid, //fill data valid
+  input  wire          mm_readdata_valid, //fill data valid
 
   input  wire          reset,
   input  wire          clk
@@ -53,10 +57,11 @@ localparam integer WAYS =  4;
 // ------------------------------------------------------------------------
 // FIXME: temp
 // ------------------------------------------------------------------------
-assign mm_read  = 1'b0;
-assign mm_write = 1'b0;
 wire       fsm_cc_fill = 1'b0;
 wire [3:0] fsm_cc_tag_write = 4'b0;
+assign mm_be = 32'hFFFFFFFF;
+
+assign mm_a = a;  
 // ------------------------------------------------------------------------
 // Probes
 // iverilog/gtfw will not show the 2d buses
@@ -81,15 +86,19 @@ wire [TAG_BITS-1:0] tag_out[3:0];
 
 wire [3:0] tag_write;
 
-wire [3:0] val_out,mod_out;
-
 wire [3:0] fsm_bit_cmd;
 wire       fsm_bit_cmd_valid;
+
+wire lru_wr,mod_wr;
+wire [3:0] val_out;
+wire [3:0] mod_out;
+wire [2:0] lru_out;
 
 wire fsm_cc_ary_write;
 wire fsm_cc_lru_write;
 wire fsm_cc_mod_write;
 wire fsm_cc_is_mod;
+wire fsm_cc_readdata_valid;
 
 wire pe_flush;
 wire pe_flush_all;
@@ -97,6 +106,7 @@ wire pe_invalidate;
 wire pe_invalidate_all;
 
 wire [3:0] way_hit;
+wire [3:0] way_mod;
 wire [3:0] pe_compare;
 // --------------------------------------------------------------------------
 // Fix up the names so it's clear what pipe stage they are in
@@ -123,6 +133,7 @@ wire                 cache_read_d = !reset & (pe_read_d | pe_write_d);
 //For reads  pe_be is used to align sub word read data to the LSBs
 //
 //pe_read_d is applied to the rams
+// --------------------------------------------------------------------------
 reg  [TAG_BITS-1:0] pe_tag;
 reg  [IDX_BITS-1:0] pe_index;
 reg  [2:0]          pe_offset;
@@ -143,21 +154,37 @@ end
 // --------------------------------------------------------------------------
 // select logic
 // --------------------------------------------------------------------------
-assign pe_compare[0] = val_out[0] & (tag_out[0] == pe_tag);
-assign pe_compare[1] = val_out[1] & (tag_out[1] == pe_tag);
-assign pe_compare[2] = val_out[2] & (tag_out[2] == pe_tag);
-assign pe_compare[3] = val_out[3] & (tag_out[3] == pe_tag);
+wire [3:0] tag_compare;
+assign tag_compare[0] = tag_out[0] == pe_tag;
+assign tag_compare[1] = tag_out[1] == pe_tag;
+assign tag_compare[2] = tag_out[2] == pe_tag;
+assign tag_compare[3] = tag_out[3] == pe_tag;
 
-//(B) way_hit is 2LLs(B) + 14b compare + tco
-assign way_hit[0] = pe_access ? pe_compare[0] : 1'bx;
-assign way_hit[1] = pe_access ? pe_compare[1] : 1'bx;
-assign way_hit[2] = pe_access ? pe_compare[2] : 1'bx; 
-assign way_hit[3] = pe_access ? pe_compare[3] : 1'bx;
+assign pe_compare[0] = val_out[0] & tag_compare[0];
+assign pe_compare[1] = val_out[1] & tag_compare[1];
+assign pe_compare[2] = val_out[2] & tag_compare[2];
+assign pe_compare[3] = val_out[3] & tag_compare[3];
 
-//(C) req_hit is 2 LLs(B) + 2LLs(C) + 14b compare + tco
-assign req_hit  = pe_access & |way_hit;
-//(D) this is 2 LLs(B) + 2LLs(C) + 1LL(D) + 14b compare +tco
-assign rd_valid = req_hit & pe_read;
+assign way_hit[0] = pe_access & pe_compare[0];
+assign way_hit[1] = pe_access & pe_compare[1];
+assign way_hit[2] = pe_access & pe_compare[2]; 
+assign way_hit[3] = pe_access & pe_compare[3];
+
+assign way_mod[0] = way_hit[0] & mod_out[0];
+assign way_mod[1] = way_hit[1] & mod_out[1];
+assign way_mod[2] = way_hit[2] & mod_out[2];
+assign way_mod[3] = way_hit[3] & mod_out[3];
+
+assign req_hit   = |way_hit;
+assign req_miss  = ~req_hit & pe_access;
+assign req_mod   = |way_mod & pe_access;
+
+wire rd_valid_d = (req_hit & pe_read);// | fsm_cc_readdata_valid;
+//assign rd_valid   = rd_valid_q & (pe_read_d;
+reg rd_valid_q;
+always @(posedge clk) rd_valid_q <= rd_valid_d;
+//assign rd_valid = rd_valid_q & pe_read_d;
+assign rd_valid = rd_valid_d;
 // --------------------------------------------------------------------------
 // write logic
 //
@@ -278,7 +305,9 @@ fsm #(.IDX_BITS(IDX_BITS),.TAG_BITS(TAG_BITS)) fsm0 (
 
 //  .fsm_pe_readdata(rd),
 //  .fsm_pe_readdata_valid(rd_valid),
-  .pe_req_hit(req_hit),
+  .pe_req_hit (req_hit),
+  .pe_req_miss(req_miss),
+  .pe_req_mod (req_mod),
 
 //  .fsm_cc_tag   (fsm_cc_tag),
 //  .fsm_cc_index (fsm_cc_index),
@@ -296,7 +325,10 @@ fsm #(.IDX_BITS(IDX_BITS),.TAG_BITS(TAG_BITS)) fsm0 (
   .fsm_cc_lru_write(fsm_cc_lru_write),
   .fsm_cc_mod_write(fsm_cc_mod_write),
   .fsm_cc_is_mod   (fsm_cc_is_mod),
+  .fsm_cc_readdata_valid(fsm_cc_readdata_valid),
 //
+  .fsm_mm_read(mm_read),
+  .fsm_mm_write(mm_write),
 //  .fsm_cc_way_match_q(fsm_cc_way_match_q),
 //
 //  .cc_val_bits(val_out),
@@ -310,7 +342,7 @@ fsm #(.IDX_BITS(IDX_BITS),.TAG_BITS(TAG_BITS)) fsm0 (
 //  .pe_invalidate(pe_invalidate),
 //  .pe_invalidate_all(pe_invalidate_all),
 //
-//  .mm_readdata_valid(mm_valid),
+  .mm_readdata_valid(mm_readdata_valid),
 
   .reset(reset),
   .clk(clk)
@@ -318,9 +350,6 @@ fsm #(.IDX_BITS(IDX_BITS),.TAG_BITS(TAG_BITS)) fsm0 (
 // --------------------------------------------------------------------------
 // STATUS BITS
 // --------------------------------------------------------------------------
-wire lru_wr,mod_wr;
-//wire [3:0]  dirty;
-wire [2:0]  lru;
 
 bitarray #(.IDX_BITS(IDX_BITS)) bits0(
   .val_out(val_out),
@@ -344,7 +373,7 @@ bitarray #(.IDX_BITS(IDX_BITS)) bits0(
 // --------------------------------------------------------------------------
 dirty dirty0
 (
-  .rd(dirty),
+  .rd(mod_out),
   .wa(pe_index),
   .way_hit(way_hit),
   .ra(pe_index),
@@ -356,7 +385,7 @@ dirty dirty0
 // --------------------------------------------------------------------------
 lrurf lrurf0
 (
-  .rd(lru),
+  .rd(lru_out),
   .wa(pe_index),
   .way_hit(way_hit),
   .ra(pe_index),

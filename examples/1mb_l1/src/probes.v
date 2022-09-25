@@ -1,33 +1,58 @@
 module _probes;
 //synthesis translate_off
 `include "bitcmds.h"
+`include "fsm_state.h"
 
-reg [(4*8)-1:0] p_str_way;
-always @(top.dut0.lrurf0.way_hit) begin
-  case(top.dut0.way_hit)
-    4'b0001: p_str_way = "WAY0";
-    4'b0010: p_str_way = "WAY1";
-    4'b0100: p_str_way = "WAY2";
-    4'b1000: p_str_way = "WAY3";
-    default: p_str_way = "x";
+// ---------------------------------------------------------------------
+// Icarus verilog does not dump strings to the vcd
+// ---------------------------------------------------------------------
+reg [10*8-1:0] ps_fsm_st;
+//string ps_fsm_st;
+always @(top.dut0.fsm0.state) begin
+  case(top.dut0.fsm0.state)
+    IDLE:      ps_fsm_st = "IDLE";
+    WR_ALLOC:  ps_fsm_st = "WR_ALLOC";
+    RD_ALLOC:  ps_fsm_st = "RD_ALLOC";
+    WR_EVICT:  ps_fsm_st = "WR_EVICT";
+    RD_EVICT:  ps_fsm_st = "RD_EVICT";
+    FLUSH_ALL: ps_fsm_st = "FLUSH_ALL";
+    INVAL_ALL: ps_fsm_st = "INVAL_ALL";
+    TEMP:      ps_fsm_st = "TEMP";
+    RD_HIT:    ps_fsm_st = "RD_HIT";
+    WR_HIT:    ps_fsm_st = "WR_HIT";
+    TST_READ:  ps_fsm_st = "TST_READ";
+    TST_WRITE: ps_fsm_st = "TST_WRITE";
   endcase
 end
-
-reg [(11*8)-1:0] p_bit_cmd;
+// ---------------------------------------------------------------------
+// ---------------------------------------------------------------------
+string ps_way_hit;
+always @(top.dut0.lrurf0.way_hit) begin
+  case(top.dut0.way_hit)
+    4'b0001: ps_way_hit = "WAY0";
+    4'b0010: ps_way_hit = "WAY1";
+    4'b0100: ps_way_hit = "WAY2";
+    4'b1000: ps_way_hit = "WAY3";
+    default: ps_way_hit = "x";
+  endcase
+end
+// ---------------------------------------------------------------------
+// ---------------------------------------------------------------------
+string ps_bit_cmd;
 always @(top.dut0.fsm_bit_cmd) begin
   case(top.dut0.fsm_bit_cmd)
-    B_CMD_NOP:        p_bit_cmd = "NOP";
-    B_CMD_VAL:        p_bit_cmd = "VAL";
-    B_CMD_INVAL:      p_bit_cmd = "INVAL";
-    B_CMD_MOD:        p_bit_cmd = "MOD";
-    B_CMD_CLEAN:      p_bit_cmd = "CLEAN";
-    B_CMD_INVAL_ALL:  p_bit_cmd = "INVAL_ALL";
-    B_CMD_ALLOC:      p_bit_cmd = "ALLOC";
-    B_CMD_VAL_MOD:    p_bit_cmd = "VAL_MOD";
-    B_CMD_READ:       p_bit_cmd = "READ";
-    B_CMD_LRU_UP:     p_bit_cmd = "LRU_UP";
-    B_CMD_LRU_MOD_UP: p_bit_cmd = "LRU_MOD_UP";
-    default: p_str_way = "x";
+    B_CMD_NOP:        ps_bit_cmd = "NOP";
+    B_CMD_VAL:        ps_bit_cmd = "VAL";
+    B_CMD_INVAL:      ps_bit_cmd = "INVAL";
+    B_CMD_MOD:        ps_bit_cmd = "MOD";
+    B_CMD_CLEAN:      ps_bit_cmd = "CLEAN";
+    B_CMD_INVAL_ALL:  ps_bit_cmd = "INVAL_ALL";
+    B_CMD_ALLOC:      ps_bit_cmd = "ALLOC";
+    B_CMD_VAL_MOD:    ps_bit_cmd = "VAL_MOD";
+    B_CMD_READ:       ps_bit_cmd = "READ";
+    B_CMD_LRU_UP:     ps_bit_cmd = "LRU_UP";
+    B_CMD_LRU_MOD_UP: ps_bit_cmd = "LRU_MOD_UP";
+    default: ps_bit_cmd = "x";
   endcase
 end
 
@@ -136,7 +161,42 @@ wire [31:0] p_mm_ram0_0 = top.dut0.mm0.ram0[0];
 wire [31:0] p_mm_ram0_1 = top.dut0.mm0.ram0[1];
 wire [31:0] p_mm_ram0_2 = top.dut0.mm0.ram0[2];
 wire [31:0] p_mm_ram0_3 = top.dut0.mm0.ram0[3];
+// ---------------------------------------------------------------------
+// Capture data and address
+// ---------------------------------------------------------------------
+wire [31:0] p_cap_a_00 = top.mm_actual_capture_addr[ 0];
+wire [31:0] p_cap_a_01 = top.mm_actual_capture_addr[ 1];
+wire [31:0] p_cap_a_02 = top.mm_actual_capture_addr[ 2];
+wire [31:0] p_cap_a_03 = top.mm_actual_capture_addr[ 3];
+wire [31:0] p_cap_a_04 = top.mm_actual_capture_addr[ 4];
+wire [31:0] p_cap_a_05 = top.mm_actual_capture_addr[ 5];
+wire [31:0] p_cap_a_06 = top.mm_actual_capture_addr[ 6];
+wire [31:0] p_cap_a_07 = top.mm_actual_capture_addr[ 7];
+wire [31:0] p_cap_a_08 = top.mm_actual_capture_addr[ 8];
+wire [31:0] p_cap_a_09 = top.mm_actual_capture_addr[ 9];
+wire [31:0] p_cap_a_10 = top.mm_actual_capture_addr[10];
+wire [31:0] p_cap_a_11 = top.mm_actual_capture_addr[11];
+wire [31:0] p_cap_a_12 = top.mm_actual_capture_addr[12];
+wire [31:0] p_cap_a_13 = top.mm_actual_capture_addr[13];
+wire [31:0] p_cap_a_14 = top.mm_actual_capture_addr[14];
+wire [31:0] p_cap_a_15 = top.mm_actual_capture_addr[15];
 
+wire [31:0] p_cap_d_00 = top.mm_actual_capture_data[ 0];
+wire [31:0] p_cap_d_01 = top.mm_actual_capture_data[ 1];
+wire [31:0] p_cap_d_02 = top.mm_actual_capture_data[ 2];
+wire [31:0] p_cap_d_03 = top.mm_actual_capture_data[ 3];
+wire [31:0] p_cap_d_04 = top.mm_actual_capture_data[ 4];
+wire [31:0] p_cap_d_05 = top.mm_actual_capture_data[ 5];
+wire [31:0] p_cap_d_06 = top.mm_actual_capture_data[ 6];
+wire [31:0] p_cap_d_07 = top.mm_actual_capture_data[ 7];
+wire [31:0] p_cap_d_08 = top.mm_actual_capture_data[ 8];
+wire [31:0] p_cap_d_09 = top.mm_actual_capture_data[ 9];
+wire [31:0] p_cap_d_10 = top.mm_actual_capture_data[10];
+wire [31:0] p_cap_d_11 = top.mm_actual_capture_data[11];
+wire [31:0] p_cap_d_12 = top.mm_actual_capture_data[12];
+wire [31:0] p_cap_d_13 = top.mm_actual_capture_data[13];
+wire [31:0] p_cap_d_14 = top.mm_actual_capture_data[14];
+wire [31:0] p_cap_d_15 = top.mm_actual_capture_data[15];
 
 //synthesis translate_on
 endmodule

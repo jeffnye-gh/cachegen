@@ -12,9 +12,16 @@ begin
   top.tb_cc_read       = 1'b1;
   top.tb_cc_write      = 1'b0;
   @(posedge clk);
+//  while(!cc_tb_readdata_valid) begin
+//    @(posedge clk);
+//    top.tb_cc_address    = a;
+//    top.tb_cc_byteenable = be;
+//    top.tb_cc_read       = 1'b1;
+//    top.tb_cc_write      = 1'b0;
+//  end
   //#1 so the signal has enough hold for the simulator to catch it
-//  top.tb_cc_read       = #1 1'b0;
-//  top.tb_cc_write      = #1 1'b0;
+  top.tb_cc_read       = #1 1'b0;
+  top.tb_cc_write      = #1 1'b0;
 //  top.tb_cc_address    = #1 31'bx;
 end
 endtask
@@ -198,6 +205,15 @@ end
 endtask
 // -----------------------------------------------------------------
 // -----------------------------------------------------------------
+task load_expect_main_memory(input string df0,
+                             input int verbose=0);
+begin
+  if(verbose) $display("-I: loading expect main memory data");
+  $readmemh(df0,top.mm_expect_mm);
+end
+endtask
+// -----------------------------------------------------------------
+// -----------------------------------------------------------------
 task clear_tb_data(input int start,input int stop,input int verbose=0);
 integer i;
 begin
@@ -226,7 +242,7 @@ endtask
 // -----------------------------------------------------------------
 // Compare the expected capture a/d to the actual capture a/d
 // -----------------------------------------------------------------
-task check_tb_add_data(inout integer errs,input int start,stop,verbose=0);
+task check_tb_capture_info(inout integer errs,input int start,stop,verbose=0);
 integer i;
 reg matcha,matchd,match;
 string prefix;
@@ -263,6 +279,35 @@ begin
 end
 endtask
 // -----------------------------------------------------------------
+task check_main_memory(inout integer errs,input int start,stop,verbose=0);
+integer i,j,match;
+string pfx;
+begin
+  if(verbose) $display("-I: showing main memory expect values:");
+  if(start > EXP_MM_ENTRIES || stop > EXP_MM_ENTRIES) begin
+    $display("-E: in check_main_memory(), array range exceeded");
+  end else begin
+
+    for(i=start;i<stop;i+=1) begin
+      match = compare256(top.mm_expect_mm[i],top.dut0.mm0.ram[i]);
+
+      pfx = "-I:";
+      if(!match) pfx = "-E:";
+
+      if(!match) begin
+        $display("%0s index %0d mismatch",pfx,i);
+        $display("%0s exp:%032x ",     pfx,top.mm_expect_mm[i]);
+        $display("%0s act:%032x m:%0d",pfx,top.dut0.mm0.ram[i],match);
+        errs = errs + 1;
+      end else if(verbose) begin
+        $display("%0s exp:%032x ",     pfx,top.mm_expect_mm[i]);
+        $display("%0s act:%032x m:%0d",pfx,top.dut0.mm0.ram[i],match);
+      end
+    end
+  end
+end
+endtask
+// -----------------------------------------------------------------
 // This tests the state of the data arrays against expected data.
 // This is not used for read only tests, but used in most other tests
 // that modify the data array state. There is a separate check_() 
@@ -275,7 +320,7 @@ reg [3:0] matchd;
 begin
   if(verbose) $display("-I: showing addr/data expect values:");
   if(start > EXP_DATA_ENTRIES || stop > EXP_DATA_ENTRIES) begin
-    $display("-E: in show_tb_add_data(), array range exceeded");
+    $display("-E: in check_data_arrays(), array range exceeded");
   end else begin
   
     for(i=start;i<stop;i+=1) begin
@@ -409,6 +454,65 @@ begin
 end
 endtask
 // -----------------------------------------------------------------
+// FIXME: Make this general
+// -----------------------------------------------------------------
+task dbl_check_init(inout int errs,input int sel,input string fn,
+                    input int verbose=0);
+reg [255:0] _local[0:8192-1];
+integer i,start,stop,lerr,matchd;
+string pfx;
+begin
+  lerr = 0;
+  start = 0;
+  stop  = 16;
+  pfx   = "-I:";
+
+  $readmemh(fn,_local);
+
+  for(i=start;i<stop;i=i+1) begin
+    case(sel) 
+      0: if(_local[i] !== top.dut0.dsram0.ram[i]) lerr = lerr + 1;
+      1: if(_local[i] !== top.dut0.dsram1.ram[i]) lerr = lerr + 1;
+      2: if(_local[i] !== top.dut0.dsram2.ram[i]) lerr = lerr + 1;
+      3: if(_local[i] !== top.dut0.dsram3.ram[i]) lerr = lerr + 1;
+      default: begin
+        $display("-E: unknown selector in DDD");
+        lerr += 1;
+      end
+    endcase
+
+    if(lerr >0) begin
+      pfx = "-E:"; 
+      $display("%0s dbl_check_init() mismatch",pfx);
+    end
+
+    if(lerr > 0 | verbose) begin
+
+      if(lerr == 0) matchd = 1;
+      else          matchd = 0;
+
+      $display("%0s0 i:%0d e:%032x ", pfx,i,_local[i]);
+
+      case(sel)
+        0: $display("%0s0 i:%0d a:%032x m:%0d",
+                    pfx,i,top.dut0.dsram0.ram[i],matchd);
+        1: $display("%0s1 i:%0d a:%032x m:%0d",
+                    pfx,i,top.dut0.dsram1.ram[i],matchd);
+        2: $display("%0s2 i:%0d a:%032x m:%0d",
+                    pfx,i,top.dut0.dsram2.ram[i],matchd);
+        3: $display("%0s3 i:%0d a:%032x m:%0d",
+                    pfx,i,top.dut0.dsram3.ram[i],matchd);
+        default: begin
+          $display("-E: unknown selector in DDD");
+          lerr += 1;
+        end
+      endcase
+    end
+  end
+  errs = errs + lerr;
+end
+endtask
+// -----------------------------------------------------------------
 // -----------------------------------------------------------------
 task nop(input int count,input int verbose=0);
 integer i;
@@ -426,20 +530,35 @@ endtask
 // -----------------------------------------------------------------
 // -----------------------------------------------------------------
 task terminate;
-string msg,prefix;
+string msg,pfx;
+integer total_errs;
 begin
+  total_errs = lru_errs
+             + basic_rd_hit_errs
+             + basic_wr_hit_errs
+             + basic_rd_alloc_errs
+             + basic_wr_alloc_errs
+             ;
 
-  $display("-I: basic lru errors    %0d",lru_errs);
-  $display("-I: basic rd hit errors %0d",basic_rd_hit_errs);
-  $display("-I: basic wr hit errors %0d",basic_wr_hit_errs);
-  imsg("CACHE SIM END");
-  prefix = "-I: ";
+  pfx = "-I:";
   msg = "PASS";
-  if(lru_errs + basic_rd_hit_errs + basic_wr_hit_errs > 0) begin
-    prefix = "-E: ";
-    msg    = "FAIL";
+
+  if(total_errs > 0) begin
+    pfx = "-E: ";
+    msg = "FAIL";
   end
-  $display("%sTERMINATE %s",prefix,msg);
+  $display("==================================================");
+  $display("%0s basic lru errors      : %0d",pfx,lru_errs);
+  $display("%0s basic rd hit errors   : %0d",pfx,basic_rd_hit_errs);
+  $display("%0s basic wr hit errors   : %0d",pfx,basic_wr_hit_errs);
+  $display("%0s basic rd alloc errors : %0d",pfx,basic_rd_alloc_errs);
+  $display("%0s basic wr alloc errors : %0d",pfx,basic_wr_alloc_errs);
+  $display("");
+  $display("%0s Total errors          : %0d",pfx,total_errs);
+  $display("==================================================");
+
+  imsg("CACHE SIM END");
+  $display("%sTERMINATE %s",pfx,msg);
   tb_cmd = TB_CMD_TERM;
   @(posedge clk);
   @(posedge clk);
@@ -465,17 +584,11 @@ end
 endtask
 // -----------------------------------------------------------------
 // -----------------------------------------------------------------
-task imsg;
-input [50*8-1:0] m;
-begin
-  $display("-I: %0s",m);
-end
+task imsg( input string m);
+  begin $display("-I: %0s",m); end
 endtask
 // -----------------------------------------------------------------
 // -----------------------------------------------------------------
-task emsg;
-input [50*8-1:0] m;
-begin
-  $display("-E: %0s",m);
-end
+task emsg( input string m);
+  begin $display("-E: %0s",m); end
 endtask

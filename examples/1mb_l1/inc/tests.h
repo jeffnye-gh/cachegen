@@ -3,6 +3,204 @@
 `include "bitcmds.h"
 `include "functions.h"
 // --------------------------------------------------------------------------
+// Read miss allocate to invalid way
+//
+// Reads to invalid ways should allocate from main memory and return 
+// the critical word in parallel. 
+//
+// LRU bits are arbitrarily set
+// Mod bits are also arbitrarily set
+// Tags are same as basicRdHit, this is to test invalid overriding tag match.
+//
+// index invalid way  mod    lru
+//   0       0        0111   010
+//   1       1        0100   100
+//   2       2        0010   000
+//   3       3        1111   111
+//   4       3        0111   000
+//   5       -        0000   000
+//   6       2        0100   010
+//   7       1        1110   001
+//   8       -        0010   111
+//   9       0        1001   101
+//  10       -        1100   010
+//  11       1        0111   001
+//  12       2        1100   010
+//  13       2        0101   110
+//  14       3        0010   011
+//  15       2        0100   000
+//
+// --------------------------------------------------------------------------
+task basicRdAllocTest(inout int errs,input int verbose);
+integer i,j,mod,lclerrs;
+int v;
+reg [2:0] lru_exp,lru_act;
+reg [31:0] addr;
+begin
+  nop(4);
+
+  testName = "basicRdAllocTest";
+  beginTestMsg(testName);
+
+  v = verbose;
+
+  clear_tb_data(0,EXP_DATA_ENTRIES,v);
+
+  nop(4);
+
+  if(verbose) $display("-I: setting initial configuration ");
+  //load main memory
+  $readmemh("data/mm.basicRdAlloc.memh",top.mm0.ram);
+  //load data arrays
+  $readmemh("data/dsram0.basicRdAlloc.memh",top.dut0.dsram0.ram);
+  $readmemh("data/dsram1.basicRdAlloc.memh",top.dut0.dsram1.ram);
+  $readmemh("data/dsram2.basicRdAlloc.memh",top.dut0.dsram2.ram);
+  $readmemh("data/dsram3.basicRdAlloc.memh",top.dut0.dsram3.ram);
+  //load tags
+  load_initial_tags("data/tags.basicRdAlloc.memh",v);
+  //load control bits
+  load_initial_bits("data/bits.basicRdAlloc.memb",v);
+
+  nop(4);
+
+  //some arbitrary nops inserted just for simple state test
+
+          //tag/way index   word                  --wpWpii
+  rd_req({14'h000,13'h000,3'h3,2'h0},4'b1111,v);//
+
+//  rd_req({14'h003,13'h000,3'h3,2'h0},4'b1111,v);//00303000
+//  rd_req({14'h001,13'h001,3'h7,2'h0},4'b1111,v);//00107001
+//  nop(4);
+//  rd_req({14'h002,13'h002,3'h6,2'h0},4'b1111,v);//00206002
+//  nop(1);
+//  rd_req({14'h000,13'h003,3'h5,2'h0},4'b1111,v);//00005003
+//  rd_req({14'h000,13'h004,3'h2,2'h0},4'b1111,v);//00002004
+//  nop(4);
+//  rd_req({14'h001,13'h001,3'h1,2'h0},4'b1111,v);//00101001
+//  rd_req({14'h002,13'h005,3'h5,2'h0},4'b1111,v);//00205005
+//  rd_req({14'h003,13'h007,3'h3,2'h0},4'b1111,v);//00303007
+//  nop(2);
+//  rd_req({14'h000,13'h002,3'h2,2'h0},4'b1111,v);//00002002
+//  rd_req({14'h001,13'h003,3'h1,2'h0},4'b1111,v);//00101003
+//  rd_req({14'h000,13'h003,3'h6,2'h0},4'b1111,v);//00006003
+//  nop(4);
+//  rd_req({14'h001,13'h003,3'h7,2'h0},4'b1111,v);//00107003
+//  rd_req({14'h003,13'h006,3'h4,2'h0},4'b1111,v);//00304006
+//  rd_req({14'h000,13'h006,3'h3,2'h0},4'b1111,v);//00003006
+//  nop(1);
+//  rd_req({14'h000,13'h002,3'h0,2'h0},4'b1111,v);//00000002
+//  rd_req({14'h001,13'h000,3'h1,2'h0},4'b1111,v);//00101000
+
+  //load expect main memory
+  load_expect_main_memory("./golden/basicRdAlloc.mm.memh",v);
+  //load expect data arrays
+  load_expect_dary_data("./golden/basicRdAlloc.d0.memh",
+                        "./golden/basicRdAlloc.d1.memh",
+                        "./golden/basicRdAlloc.d2.memh",
+                        "./golden/basicRdAlloc.d3.memh",v);
+  //load expect tags
+  load_expect_tags("./golden/basicRdAlloc.tags.memh",v);
+  //load expect control bits
+  load_expect_bits("./golden/basicRdAlloc.bits.memb",v);
+  //load expect tb capture info
+  load_expect_capture_data("./golden/basicRdAlloc.capa.memh",
+                           "./golden/basicRdAlloc.capd.memh",v);
+
+  nop(4); //let state propagate
+
+  check_main_memory (errs,0,1,v);
+  check_data_arrays (errs,0,1,v);
+  //check tags and bits
+  check_tb_tags_bits(errs,0,1,v);
+  //check capture address and data
+  check_tb_capture_info (errs,0,1,v);
+
+  nop(4);
+end
+endtask
+
+// --------------------------------------------------------------------------
+task basicWrAllocTest(inout int errs,input int verbose);
+integer i,j,mod,lclerrs;
+int v;
+reg [2:0] lru_exp,lru_act;
+reg [31:0] addr;
+
+begin
+  nop(4);
+
+  testName = "basicWrAllocTest";
+  beginTestMsg(testName);
+
+  v = verbose;
+  clear_tb_data(0,EXP_DATA_ENTRIES,v);
+
+  nop(4);
+
+//  if(verbose) $display("-I: setting initial configuration ");
+//  $readmemh("data/dsram0.cfg0.memh",top.dut0.dsram0.ram);
+//  $readmemh("data/dsram1.cfg0.memh",top.dut0.dsram1.ram);
+//  $readmemh("data/dsram2.cfg0.memh",top.dut0.dsram2.ram);
+//  $readmemh("data/dsram3.cfg0.memh",top.dut0.dsram3.ram);
+//
+//  load_initial_tags("data/tags.cfg0.memh",v);
+//  load_initial_bits("data/bits.cfg0.memb",v);
+//
+//  nop(4);
+//
+//  //FIXME: there is a problem somewhere, where the readmemh calls
+//  //above do not reset index 0 of the lru/dirty bits. I have not found
+//  //the problem yet.
+//  @(posedge clk);
+//  top.dut0.lrurf0.regs[0] = 3'b0;
+//  top.dut0.dirty0.regs[0] = 4'b0;
+//  @(posedge clk);
+//
+//
+//  //some arbitrary nops inserted just for simple state test
+//
+//          //tag/way index   word                  --wpWpii
+//  rd_req({14'h003,13'h000,3'h3,2'h0},4'b1111,v);//00303000
+//  rd_req({14'h001,13'h001,3'h7,2'h0},4'b1111,v);//00107001
+//  nop(4);
+//  rd_req({14'h002,13'h002,3'h6,2'h0},4'b1111,v);//00206002
+//  nop(1);
+//  rd_req({14'h000,13'h003,3'h5,2'h0},4'b1111,v);//00005003
+//  rd_req({14'h000,13'h004,3'h2,2'h0},4'b1111,v);//00002004
+//  nop(4);
+//  rd_req({14'h001,13'h001,3'h1,2'h0},4'b1111,v);//00101001
+//  rd_req({14'h002,13'h005,3'h5,2'h0},4'b1111,v);//00205005
+//  rd_req({14'h003,13'h007,3'h3,2'h0},4'b1111,v);//00303007
+//  nop(2);
+//  rd_req({14'h000,13'h002,3'h2,2'h0},4'b1111,v);//00002002
+//  rd_req({14'h001,13'h003,3'h1,2'h0},4'b1111,v);//00101003
+//  rd_req({14'h000,13'h003,3'h6,2'h0},4'b1111,v);//00006003
+//  nop(4);
+//  rd_req({14'h000,13'h003,3'h6,2'h0},4'b1111,v);//00006003
+//  nop(4);
+//  rd_req({14'h001,13'h003,3'h7,2'h0},4'b1111,v);//00107003
+//  rd_req({14'h003,13'h006,3'h4,2'h0},4'b1111,v);//00304006
+//  rd_req({14'h000,13'h006,3'h3,2'h0},4'b1111,v);//00003006
+//  nop(1);
+//  rd_req({14'h000,13'h002,3'h0,2'h0},4'b1111,v);//00000002
+//  rd_req({14'h001,13'h000,3'h1,2'h0},4'b1111,v);//00101000
+//
+//
+//  load_expect_capture_data("./golden/basicRdHit.a.cfg0.memh",
+//                           "./golden/basicRdHit.d.cfg0.memh",v);
+//  load_expect_tags("./golden/basicRdHit.t.cfg0.memh",v);
+//  load_expect_bits("./golden/basicRdHit.b.cfg0.memb",v); //NOTE B file
+//
+//  nop(4); //let state propagate
+//
+//  check_tb_capture_info (errs,0,16,v); //EXP_DATA_ENTRIES);
+//  check_tb_tags_bits(errs,0,16,v); //EXP_DATA_ENTRIES);
+
+  endTestMsg(testName,errs);
+  nop(4);
+end
+endtask
+// --------------------------------------------------------------------------
 //  33222222222211 11111111            
 //  10987654321098 7654321098765 432-- 
 //  ------------TT SSSSSSSSSSSSS wwwxx 
@@ -185,6 +383,7 @@ begin
   rd_req({14'h000,13'h002,3'h0,2'h0},4'b1111,v);//00000002
   rd_req({14'h001,13'h000,3'h1,2'h0},4'b1111,v);//00101000
 
+  nop(4); //let state propagate
 
   load_expect_capture_data("./golden/basicRdHit.a.cfg0.memh",
                            "./golden/basicRdHit.d.cfg0.memh",v);
@@ -193,7 +392,7 @@ begin
 
   nop(4); //let state propagate
 
-  check_tb_add_data (errs,0,16,v); //EXP_DATA_ENTRIES);
+  check_tb_capture_info (errs,0,16,v); //EXP_DATA_ENTRIES);
   check_tb_tags_bits(errs,0,16,v); //EXP_DATA_ENTRIES);
 
   endTestMsg(testName,errs);
@@ -378,86 +577,86 @@ begin
   nop(4);
 end
 endtask
-// --------------------------------------------------------------------------
-// FIXME: this test is incomplete and also needs self checking
-// --------------------------------------------------------------------------
-// Assert the ram test signal
-//   this reinterprets the address inputs to this:
+//// --------------------------------------------------------------------------
+//// FIXME: this test is incomplete and also needs self checking
+//// --------------------------------------------------------------------------
+//// Assert the ram test signal
+////   this reinterprets the address inputs to this:
+////
+////  33222222222211 11111111            
+////  10987654321098 7654321098765 432-- 
+////  ------------TT SSSSSSSSSSSSS xxxxx 
+////
+////  Data is 14bits wide, cache.wd[13:0], 
+////    so tag select is derived from a[19:18]
+////  Index is 13 bits wide derived from 17:5;
+////
+////  The tag select is derived from a[19:18]
+////  Control lines read/write directly access the tag sram's
+////
+////  walk each tag in order, writing  incrementing value to each location
+//// --------------------------------------------------------------------------
+//task tagRwTest;
+//input integer maxCount;
+//integer i,j;
+//reg [11:0]  ax;
+//reg [1:0]   ta;
+//reg [12:0]  sidx;
+//begin
+//  testName = "tagRwTest";
+//  ax = 12'bx;
+//  for(j=0;j<4;++j) begin
+//    ta = j[1:0];
+//    for(i=0;i<maxCount;++i) begin
+//      sidx = i[12:0];
+//      tb_cmd          = TB_CMD_NOP;
+//      tb_cc_ram_test  = 1'b1;
+//      tb_cc_address   = { ax,ta,sidx,5'b0 };
+//      tb_cc_writedata = ~i[13:0];
+//      tb_cc_write     = 1'b1;
+//      tb_cc_read      = 1'b0;
+//      @(posedge clk);
+//    end
+//  end
+//  tb_cmd          = TB_CMD_NOP;
+//  tb_cc_ram_test  = 1'b0;
+//  tb_cc_write     = 1'b0;
+//  tb_cc_read      = 1'b0;
+//end
+//endtask
+//// --------------------------------------------------------------------------
+//// FIXME: this test is incomplete and also needs self checking
+//// --------------------------------------------------------------------------
+//// In bypass mode these fields control where the data goes
+////
+////  3322222222221111111111           bbbb
+////  109876543210987654321098765432-- 3210
+////  iiiiiiiiiiiiiiiiiAAAAAAAAAAWWW   bbbb
+//// --------------------------------------------------------------------------
+//task bypassTest;
+//input integer count;
+//integer i,j,err;
+//reg  [1:0]  ba; // byte address not used
+//reg  [8:0]  ea; // row/entry address
+//reg  [3:0]  wa; // word address
+//reg  [16:0] xa; // unused address bits
+//begin
+//  testName = "bypassTest";
+//  xa = 27'bx;
+//  ba =  2'bx;
 //
-//  33222222222211 11111111            
-//  10987654321098 7654321098765 432-- 
-//  ------------TT SSSSSSSSSSSSS xxxxx 
-//
-//  Data is 14bits wide, cache.wd[13:0], 
-//    so tag select is derived from a[19:18]
-//  Index is 13 bits wide derived from 17:5;
-//
-//  The tag select is derived from a[19:18]
-//  Control lines read/write directly access the tag sram's
-//
-//  walk each tag in order, writing  incrementing value to each location
-// --------------------------------------------------------------------------
-task tagRwTest;
-input integer maxCount;
-integer i,j;
-reg [11:0]  ax;
-reg [1:0]   ta;
-reg [12:0]  sidx;
-begin
-  testName = "tagRwTest";
-  ax = 12'bx;
-  for(j=0;j<4;++j) begin
-    ta = j[1:0];
-    for(i=0;i<maxCount;++i) begin
-      sidx = i[12:0];
-      tb_cmd          = TB_CMD_NOP;
-      tb_cc_ram_test  = 1'b1;
-      tb_cc_address   = { ax,ta,sidx,5'b0 };
-      tb_cc_writedata = ~i[13:0];
-      tb_cc_write     = 1'b1;
-      tb_cc_read      = 1'b0;
-      @(posedge clk);
-    end
-  end
-  tb_cmd          = TB_CMD_NOP;
-  tb_cc_ram_test  = 1'b0;
-  tb_cc_write     = 1'b0;
-  tb_cc_read      = 1'b0;
-end
-endtask
-// --------------------------------------------------------------------------
-// FIXME: this test is incomplete and also needs self checking
-// --------------------------------------------------------------------------
-// In bypass mode these fields control where the data goes
-//
-//  3322222222221111111111           bbbb
-//  109876543210987654321098765432-- 3210
-//  iiiiiiiiiiiiiiiiiAAAAAAAAAAWWW   bbbb
-// --------------------------------------------------------------------------
-task bypassTest;
-input integer count;
-integer i,j,err;
-reg  [1:0]  ba; // byte address not used
-reg  [8:0]  ea; // row/entry address
-reg  [3:0]  wa; // word address
-reg  [16:0] xa; // unused address bits
-begin
-  testName = "bypassTest";
-  xa = 27'bx;
-  ba =  2'bx;
-
-  for(i=0;i<count;i=i+1) begin
-    tb_cmd               = TB_CMD_BYPASS;
-    tb_cc_address        = {xa,ea,wa,ba}; //32'h00000000;
-    tb_cc_byteenable     = 4'hF;
-    tb_cc_write          = 1'b1;
-    tb_cc_read           = 1'b0;
-    tb_cc_wide_writedata = { 224'bx,28'h0000000,i[3:0] };
-    @(posedge clk);
-    tb_cc_wide_writedata = 256'bx;
-  end
-end
-endtask
+//  for(i=0;i<count;i=i+1) begin
+//    tb_cmd               = TB_CMD_BYPASS;
+//    tb_cc_address        = {xa,ea,wa,ba}; //32'h00000000;
+//    tb_cc_byteenable     = 4'hF;
+//    tb_cc_write          = 1'b1;
+//    tb_cc_read           = 1'b0;
+//    tb_cc_wide_writedata = { 224'bx,28'h0000000,i[3:0] };
+//    @(posedge clk);
+//    tb_cc_wide_writedata = 256'bx;
+//  end
+//end
+//endtask
 // --------------------------------------------------------------------------
 // --------------------------------------------------------------------------
 task initState;

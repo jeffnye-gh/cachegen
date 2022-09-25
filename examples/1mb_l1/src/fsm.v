@@ -99,6 +99,8 @@ module fsm #(
   input  wire pe_write,
 
   input  wire  pe_req_hit,
+  input  wire  pe_req_miss,
+  input  wire  pe_req_mod,
 //  output reg  [31:0] fsm_pe_readdata, // to CPU
 //  output reg  fsm_pe_readdata_valid,  // to CPU
 //  output reg  fsm_pe_req_hit,         // to CPU
@@ -109,7 +111,11 @@ module fsm #(
   output wire       fsm_cc_lru_write,
   output wire       fsm_cc_mod_write,
   output wire       fsm_cc_is_mod,
-//
+  output wire       fsm_cc_readdata_valid,
+
+  output wire       fsm_mm_read,
+  output wire       fsm_mm_write,
+
 ////  output reg  [TAG_BITS-1:0] fsm_cc_tag,
 ////  output reg  [IDX_BITS-1:0] fsm_cc_index,
 ////  output reg  [2:0]          fsm_cc_offset,
@@ -133,47 +139,37 @@ module fsm #(
 //  input wire pe_invalidate,
 //  input wire pe_invalidate_all,
 //
-//  input  wire mm_readdata_valid,
+  input  wire mm_readdata_valid,
 
   input reset,
   input clk
 );
 `include "bitcmds.h"
-// ----------------------------------------------------------------------
-// States - FIXME: reduce state width as needed once fsm works
-// ----------------------------------------------------------------------
-localparam [3:0] IDLE       = 4'h0;
-localparam [3:0] WR_ALLOC   = 4'h1;
-localparam [3:0] RD_ALLOC   = 4'h2;
-localparam [3:0] WR_EVICT   = 4'h3;
-localparam [3:0] RD_EVICT   = 4'h4;
-localparam [3:0] FLUSH_ALL  = 4'h5;
-localparam [3:0] INVAL_ALL  = 4'h6;
-localparam [3:0] TEMP       = 4'h7;
-//FAKE states for debug
-localparam [3:0] RD_HIT     = 4'h8;
-localparam [3:0] WR_HIT     = 4'h9;
-localparam [3:0] TST_READ   = 4'ha;
-localparam [3:0] TST_WRITE  = 4'hb;
+`include "fsm_state.h"
 // ----------------------------------------------------------------------
 // temps
 // ----------------------------------------------------------------------
-wire FIXME_mm_readdata_valid = 1'b1;
 //assign fsm_bit_cmd = B_CMD_NOP;
 //assign fsm_bit_cmd_valid = 1'b0;
 assign fsm_cc_tag_write = 4'b0;
 assign fsm_cc_fill = 4'b0;
 // ----------------------------------------------------------------------
-//reg fsm_readdata_valid_d;fsm_readdata_valid;
 reg fsm_cc_ary_write_d;
 reg fsm_cc_lru_write_d;
 reg fsm_cc_mod_write_d;
 reg fsm_cc_is_mod_d;
+reg fsm_cc_readdata_valid_d;
+reg fsm_mm_read_d;
+reg fsm_mm_write_d;
 
 assign fsm_cc_ary_write = fsm_cc_ary_write_d;
 assign fsm_cc_lru_write = fsm_cc_lru_write_d;
 assign fsm_cc_mod_write = fsm_cc_mod_write_d;
 assign fsm_cc_is_mod    = fsm_cc_is_mod_d;
+assign fsm_cc_readdata_valid = fsm_cc_readdata_valid_d;
+
+assign fsm_mm_read  = fsm_mm_read_d;
+assign fsm_mm_write = fsm_mm_write_d;
 // ----------------------------------------------------------------------
 // ----------------------------------------------------------------------
 reg [3:0] state,next;
@@ -185,14 +181,18 @@ end
 // ----------------------------------------------------------------------
 always @* begin
 
-  //fsm_readdata_valid_d = 1'b0;
   fsm_cc_ary_write_d   = 1'b0;
   fsm_cc_lru_write_d   = 1'b0;
   fsm_cc_mod_write_d   = 1'b0;
   fsm_cc_is_mod_d      = 1'bx;
+  fsm_cc_readdata_valid_d = 1'b0;
 
-  fsm_bit_cmd          = B_CMD_NOP;
-  fsm_bit_cmd_valid    = 1'b0;
+  fsm_mm_read_d  = 1'b0;
+  fsm_mm_write_d = 1'b0;
+
+
+  fsm_bit_cmd       = B_CMD_NOP;
+  fsm_bit_cmd_valid = 1'b0;
 
   next = IDLE;
 
@@ -200,9 +200,6 @@ always @* begin
     IDLE: begin
       // READ HIT
       if(pe_read & pe_req_hit) begin //&  fsm_pe_req_hit)  begin
-        //fsm_pe_readdata_valid_d = 1'b1;
-        //fsm_bit_cmd = B_CMD_LRU_UP;
-        //fsm_bit_cmd_valid = 1'b1;
         fsm_cc_lru_write_d = 1'b1;
         next = IDLE; //RD_HIT;
       end
@@ -218,10 +215,11 @@ always @* begin
         next = IDLE;
       end
 
-//      // READ MISS CLEAN
-//      else if(pe_read & !fsm_pe_req_hit & !pe_req_mod) begin
-//        next = RD_ALLOC;
-//      end
+      // READ MISS CLEAN
+      else if(pe_read & pe_req_miss & !pe_req_mod) begin
+        fsm_mm_read_d = 1'b1;
+        next = RD_ALLOC;
+      end
 //
 //      // WRITE MISS CLEAN
 //      else if(pe_write & !fsm_pe_req_hit &  pe_req_mod) begin
@@ -275,23 +273,16 @@ always @* begin
 //      end
 //
     end //end of IDLE
-//
-////    RD_HIT: begin
-////      next = IDLE;
-////      fsm_bit_cmd = B_CMD_NOP;
-////      fsm_bit_cmd_valid = 1'b1;
-////    end
-//
-////    WR_HIT: begin next = IDLE; end
-//
-//    RD_ALLOC: begin
-//      if(FIXME_mm_readdata_valid) begin
-//        next = IDLE;
-//      end else begin
-//        next = RD_ALLOC;
-//      end
-//    end
-//
+
+    RD_ALLOC: begin
+      if(mm_readdata_valid) begin
+        fsm_cc_readdata_valid_d = 1'b1;
+        next = IDLE;
+      end else begin
+        next = RD_ALLOC;
+      end
+    end
+
 //    RD_EVICT: begin
 //      if(FIXME_mm_readdata_valid) begin
 //        next = RD_ALLOC;
@@ -337,57 +328,4 @@ always @* begin
   endcase
 
 end
-// ----------------------------------------------------------------------
-// Probes
-// ----------------------------------------------------------------------
-////synthesis translate_off
-//reg [(8*8)-1:0] str_state;
-//always @* begin
-//  case(state)
-//    IDLE:       str_state = "IDLE";
-//    WR_ALLOC:   str_state = "WR_AL";
-//    RD_ALLOC:   str_state = "RD_AL";
-//    WR_EVICT:   str_state = "WR_EV";
-//    RD_EVICT:   str_state = "RD_EV";
-//    FLUSH_ALL:  str_state = "FLUSH";
-//    INVAL_ALL:  str_state = "INVAL";
-//    TEMP:       str_state = "TEMP";
-////debug
-//    RD_HIT:     str_state = "RD_HIT";
-//    WR_HIT:     str_state = "WR_HIT";
-//    TST_READ:   str_state = "TST_RD";
-//    TST_WRITE:  str_state = "TST_WR";
-//    default:    str_state = "UNKWN";
-//  endcase
-//end
-//
-//////$isunknown does not exist in icarus verilog
-//////$onehot does not exist in icarus verilog
-////function isunknown(input [3:0] in);
-////begin isunknown = (^in == 1'bX); end
-////endfunction
-////
-////function onehot(input [3:0] in);
-////integer i;
-////integer cnt;
-////begin 
-////  cnt = 0;
-////  for(i=0;i<4;i=i+1) begin
-////    cnt += in[i];
-////  end
-////  onehot = (cnt === 1);
-////end
-////endfunction
-//
-////reg [(4*8)-1:0] str_way;
-////always @* begin
-////  case(fsm_cc_way_match)
-////    4'b0001: str_way = "WAY0";
-////    4'b0010: str_way = "WAY1";
-////    4'b0100: str_way = "WAY2";
-////    4'b1000: str_way = "WAY3";
-////    default: str_way = "x";
-////  endcase
-////end
-////synthesis translate_on
 endmodule

@@ -357,14 +357,14 @@ end
 // Probes
 // ----------------------------------------------------------------------
 //synthesis translate_off
-reg [(8*8)-1:0] str_bcmd;
-always @* begin
-  case(cmd_q)
-    B_CMD_NOP:     str_bcmd = "NOP";
-    B_CMD_LRU_UP:  str_bcmd = "LRU_UP";
-    default:       str_bcmd = "UNKN";
-  endcase
-end
+//string str_bcmd;
+//always @* begin
+//  case(cmd_q)
+//    B_CMD_NOP:     str_bcmd = "NOP";
+//    B_CMD_LRU_UP:  str_bcmd = "LRU_UP";
+//    default:       str_bcmd = "UNKN";
+//  endcase
+//end
 //B_CMD_VAL:   VAL
 //B_CMD_INVAL: INVAL
 //B_CMD_MOD:   MOD
