@@ -19,10 +19,10 @@ localparam integer EXP_DATA_ENTRIES = 256;
 //localparam _bypass_test = 1'b0;
 //localparam _tag_rw_test = 1'b0;
 localparam _basic_tests        = 1'b1;
-localparam   _bt_lru_test      = 1'b1;
-localparam   _bt_rd_hit_test   = 1'b1;
-localparam   _bt_wr_hit_test   = 1'b1;
-localparam   _bt_rd_alloc_test = 1'b0;
+localparam   _bt_lru_test      = 1'b0;
+localparam   _bt_rd_hit_test   = 1'b0;
+localparam   _bt_wr_hit_test   = 1'b0;
+localparam   _bt_rd_alloc_test = 1'b1;
 localparam   _bt_wr_alloc_test = 1'b0;
 // ----------------------------------------------------------------------
 integer count;

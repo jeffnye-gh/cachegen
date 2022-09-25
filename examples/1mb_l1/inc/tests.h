@@ -50,16 +50,16 @@ begin
 
   if(verbose) $display("-I: setting initial configuration ");
   //load main memory
-  $readmemh("data/mm.basicRdAlloc.memh",top.mm0.ram);
+  $readmemh("data/basicRdAlloc.mm.memh",top.mm0.ram);
   //load data arrays
-  $readmemh("data/dsram0.basicRdAlloc.memh",top.dut0.dsram0.ram);
-  $readmemh("data/dsram1.basicRdAlloc.memh",top.dut0.dsram1.ram);
-  $readmemh("data/dsram2.basicRdAlloc.memh",top.dut0.dsram2.ram);
-  $readmemh("data/dsram3.basicRdAlloc.memh",top.dut0.dsram3.ram);
+  $readmemh("data/basicRdAlloc.dsram0.memh",top.dut0.dsram0.ram);
+  $readmemh("data/basicRdAlloc.dsram1.memh",top.dut0.dsram1.ram);
+  $readmemh("data/basicRdAlloc.dsram2.memh",top.dut0.dsram2.ram);
+  $readmemh("data/basicRdAlloc.dsram3.memh",top.dut0.dsram3.ram);
   //load tags
-  load_initial_tags("data/tags.basicRdAlloc.memh",v);
+  load_initial_tags("data/basicRdAlloc.tags.memh",v);
   //load control bits
-  load_initial_bits("data/bits.basicRdAlloc.memb",v);
+  load_initial_bits("data/basicRdAlloc.bits.memb",v);
 
   nop(4);
 
@@ -249,13 +249,13 @@ begin
   clear_tb_data(0,EXP_DATA_ENTRIES,verbose);
 
   if(verbose) $display("-I: setting initial configuration ");
-  $readmemh("data/dsram0.cfg0.memh",top.dut0.dsram0.ram);
-  $readmemh("data/dsram1.cfg0.memh",top.dut0.dsram1.ram);
-  $readmemh("data/dsram2.cfg0.memh",top.dut0.dsram2.ram);
-  $readmemh("data/dsram3.cfg0.memh",top.dut0.dsram3.ram);
+  $readmemh("data/basicLru.dsram0.memh",top.dut0.dsram0.ram);
+  $readmemh("data/basicLru.dsram1.memh",top.dut0.dsram1.ram);
+  $readmemh("data/basicLru.dsram2.memh",top.dut0.dsram2.ram);
+  $readmemh("data/basicLru.dsram3.memh",top.dut0.dsram3.ram);
 
-  load_initial_tags("data/tags.cfg0.memh",verbose);
-  load_initial_bits("data/bits.cfg0.memb",verbose);
+  load_initial_tags("data/basicLru.tags.memh",verbose);
+  load_initial_bits("data/basicLru.bits.memb",verbose);
 
   nop(4);
 
@@ -338,13 +338,13 @@ begin
   nop(4);
 
   if(verbose) $display("-I: setting initial configuration ");
-  $readmemh("data/dsram0.cfg0.memh",top.dut0.dsram0.ram);
-  $readmemh("data/dsram1.cfg0.memh",top.dut0.dsram1.ram);
-  $readmemh("data/dsram2.cfg0.memh",top.dut0.dsram2.ram);
-  $readmemh("data/dsram3.cfg0.memh",top.dut0.dsram3.ram);
+  $readmemh("data/basicRdHit.dsram0.memh",top.dut0.dsram0.ram);
+  $readmemh("data/basicRdHit.dsram1.memh",top.dut0.dsram1.ram);
+  $readmemh("data/basicRdHit.dsram2.memh",top.dut0.dsram2.ram);
+  $readmemh("data/basicRdHit.dsram3.memh",top.dut0.dsram3.ram);
 
-  load_initial_tags("data/tags.cfg0.memh",v);
-  load_initial_bits("data/bits.cfg0.memb",v);
+  load_initial_tags("data/basicRdHit.tags.memh",v);
+  load_initial_bits("data/basicRdHit.bits.memb",v);
 
   nop(4);
 
@@ -451,13 +451,13 @@ begin
 
   if(verbose) $display("-I: setting initial configuration ");
 
-  $readmemh("data/dsramN.cfg1.memh",top.dut0.dsram0.ram);
-  $readmemh("data/dsramN.cfg1.memh",top.dut0.dsram1.ram);
-  $readmemh("data/dsramN.cfg1.memh",top.dut0.dsram2.ram);
-  $readmemh("data/dsramN.cfg1.memh",top.dut0.dsram3.ram);
+  $readmemh("data/basicWrHit.dsramN.memh",top.dut0.dsram0.ram);
+  $readmemh("data/basicWrHit.dsramN.memh",top.dut0.dsram1.ram);
+  $readmemh("data/basicWrHit.dsramN.memh",top.dut0.dsram2.ram);
+  $readmemh("data/basicWrHit.dsramN.memh",top.dut0.dsram3.ram);
 
-  load_initial_tags("data/tags.cfg1.memh",v);
-  load_initial_bits("data/bits.cfg1.memb",v);
+  load_initial_tags("data/basicWrHit.tags.memh",v);
+  load_initial_bits("data/basicWrHit.bits.memb",v);
 
   //FIXME: I have not found why the readmemh's above are not working.
   //I see left over state from the previous read test. Uncomment to
@@ -577,86 +577,6 @@ begin
   nop(4);
 end
 endtask
-//// --------------------------------------------------------------------------
-//// FIXME: this test is incomplete and also needs self checking
-//// --------------------------------------------------------------------------
-//// Assert the ram test signal
-////   this reinterprets the address inputs to this:
-////
-////  33222222222211 11111111            
-////  10987654321098 7654321098765 432-- 
-////  ------------TT SSSSSSSSSSSSS xxxxx 
-////
-////  Data is 14bits wide, cache.wd[13:0], 
-////    so tag select is derived from a[19:18]
-////  Index is 13 bits wide derived from 17:5;
-////
-////  The tag select is derived from a[19:18]
-////  Control lines read/write directly access the tag sram's
-////
-////  walk each tag in order, writing  incrementing value to each location
-//// --------------------------------------------------------------------------
-//task tagRwTest;
-//input integer maxCount;
-//integer i,j;
-//reg [11:0]  ax;
-//reg [1:0]   ta;
-//reg [12:0]  sidx;
-//begin
-//  testName = "tagRwTest";
-//  ax = 12'bx;
-//  for(j=0;j<4;++j) begin
-//    ta = j[1:0];
-//    for(i=0;i<maxCount;++i) begin
-//      sidx = i[12:0];
-//      tb_cmd          = TB_CMD_NOP;
-//      tb_cc_ram_test  = 1'b1;
-//      tb_cc_address   = { ax,ta,sidx,5'b0 };
-//      tb_cc_writedata = ~i[13:0];
-//      tb_cc_write     = 1'b1;
-//      tb_cc_read      = 1'b0;
-//      @(posedge clk);
-//    end
-//  end
-//  tb_cmd          = TB_CMD_NOP;
-//  tb_cc_ram_test  = 1'b0;
-//  tb_cc_write     = 1'b0;
-//  tb_cc_read      = 1'b0;
-//end
-//endtask
-//// --------------------------------------------------------------------------
-//// FIXME: this test is incomplete and also needs self checking
-//// --------------------------------------------------------------------------
-//// In bypass mode these fields control where the data goes
-////
-////  3322222222221111111111           bbbb
-////  109876543210987654321098765432-- 3210
-////  iiiiiiiiiiiiiiiiiAAAAAAAAAAWWW   bbbb
-//// --------------------------------------------------------------------------
-//task bypassTest;
-//input integer count;
-//integer i,j,err;
-//reg  [1:0]  ba; // byte address not used
-//reg  [8:0]  ea; // row/entry address
-//reg  [3:0]  wa; // word address
-//reg  [16:0] xa; // unused address bits
-//begin
-//  testName = "bypassTest";
-//  xa = 27'bx;
-//  ba =  2'bx;
-//
-//  for(i=0;i<count;i=i+1) begin
-//    tb_cmd               = TB_CMD_BYPASS;
-//    tb_cc_address        = {xa,ea,wa,ba}; //32'h00000000;
-//    tb_cc_byteenable     = 4'hF;
-//    tb_cc_write          = 1'b1;
-//    tb_cc_read           = 1'b0;
-//    tb_cc_wide_writedata = { 224'bx,28'h0000000,i[3:0] };
-//    @(posedge clk);
-//    tb_cc_wide_writedata = 256'bx;
-//  end
-//end
-//endtask
 // --------------------------------------------------------------------------
 // --------------------------------------------------------------------------
 task initState;
