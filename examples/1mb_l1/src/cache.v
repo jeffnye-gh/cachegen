@@ -179,12 +179,14 @@ assign req_hit   = |way_hit;
 assign req_miss  = ~req_hit & pe_access;
 assign req_mod   = |way_mod & pe_access;
 
-wire rd_valid_d = (req_hit & pe_read);// | fsm_cc_readdata_valid;
+//wire rd_valid_d = (req_hit & pe_read);// | fsm_cc_readdata_valid;
+//wire rd_valid_d = fsm_cc_readdata_valid;
 //assign rd_valid   = rd_valid_q & (pe_read_d;
-reg rd_valid_q;
-always @(posedge clk) rd_valid_q <= rd_valid_d;
+//reg rd_valid_q;
+//always @(posedge clk) rd_valid_q <= rd_valid_d;
 //assign rd_valid = rd_valid_q & pe_read_d;
-assign rd_valid = rd_valid_d;
+//assign rd_valid = rd_valid_d;
+assign rd_valid = fsm_cc_readdata_valid;
 // --------------------------------------------------------------------------
 // write logic
 //

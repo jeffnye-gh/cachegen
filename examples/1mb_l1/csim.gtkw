@@ -1,15 +1,15 @@
 [*]
 [*] GTKWave Analyzer v3.3.103 (w)1999-2019 BSI
-[*] Sun Sep 25 22:10:13 2022
+[*] Mon Sep 26 02:29:16 2022
 [*]
 [dumpfile] "/home/jeff/Development/gitbox/cachegen/examples/1mb_l1/csim.vcd"
-[dumpfile_mtime] "Sun Sep 25 22:09:56 2022"
-[dumpfile_size] 76827
+[dumpfile_mtime] "Mon Sep 26 02:22:55 2022"
+[dumpfile_size] 230799
 [savefile] "/home/jeff/Development/gitbox/cachegen/examples/1mb_l1/csim.gtkw"
-[timestart] 2844
+[timestart] 0
 [size] 1536 831
 [pos] -1 -1
-*-9.638456 4451 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+*-11.134391 4451 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
 [treeopen] top.
 [treeopen] top.dut0.
 [treeopen] top.dut0.fsm0.
@@ -32,9 +32,8 @@ top.tb_cc_writedata[31:0]
 top.tb_cc_byteenable[3:0]
 @22
 top.cc_tb_readdata[31:0]
-@29
-top.cc_tb_readdata_valid
 @28
+top.cc_tb_readdata_valid
 top.dut0.way_hit[3:0]
 top.cc_tb_req_hit
 @22
@@ -52,13 +51,12 @@ top.dut0.req_mod
 top.dut0.pe_compare[3:0]
 @28
 top.dut0.val_out[3:0]
-top.dut0.rd_valid_d
 top.dut0.fsm_cc_readdata_valid
-@c00200
+@800200
 -FSM
-@820
+@821
 top._prb.ps_fsm_st[79:0]
-@1401200
+@1000200
 -FSM
 @c00200
 -DROM
@@ -116,6 +114,9 @@ top._prb.p_mod_3[3:0]
 -DIRTY
 @800200
 -CAPTURE
+@28
+top.clk
+top.capture
 @420
 top.capture_a_index
 top.capture_d_index
@@ -123,8 +124,8 @@ top.capture_d_index
 top.cc_tb_readdata[31:0]
 top.tb_cc_address[31:0]
 top._prb.p_cap_a_00[31:0]
-top._prb.p_cap_a_01[31:0]
 top._prb.p_cap_d_00[31:0]
+top._prb.p_cap_a_01[31:0]
 top._prb.p_cap_d_01[31:0]
 @1000200
 -CAPTURE

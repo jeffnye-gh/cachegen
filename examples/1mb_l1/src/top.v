@@ -19,10 +19,10 @@ localparam integer EXP_DATA_ENTRIES = 256;
 //localparam _bypass_test = 1'b0;
 //localparam _tag_rw_test = 1'b0;
 localparam _basic_tests        = 1'b1;
-localparam   _bt_lru_test      = 1'b0;
-localparam   _bt_rd_hit_test   = 1'b0;
-localparam   _bt_wr_hit_test   = 1'b0;
-localparam   _bt_rd_alloc_test = 1'b1;
+localparam   _bt_lru_test      = 1'b1;
+localparam   _bt_rd_hit_test   = 1'b1;
+localparam   _bt_wr_hit_test   = 1'b1;
+localparam   _bt_rd_alloc_test = 1'b0;
 localparam   _bt_wr_alloc_test = 1'b0;
 // ----------------------------------------------------------------------
 integer count;
@@ -110,20 +110,31 @@ wire [31:0] mm_capture_addr_0 = mm_actual_capture_addr[0];
 wire [31:0] mm_capture_addr_1 = mm_actual_capture_addr[1];
 reg  [31:0] tb_cc_address_q;
 // ------------------------------------------------------------------------
-always @(posedge clk) begin
+wire rd_capture = tb_cc_read & cc_tb_req_hit & cc_tb_readdata_valid;
+wire wr_capture = 1'b0; //FIXME
+wire capture = rd_capture | wr_capture;
+// ------------------------------------------------------------------------
 
+always @(posedge clk) begin
+`ifndef EXPERIMENT
   if(tb_cc_read) begin
     mm_actual_capture_addr[capture_a_index] <= tb_cc_address;
     capture_a_index <= capture_a_index + 1;
   end
 
   if(cc_tb_readdata_valid) begin
-    //$display("-I: capturing data : a:%08x:%08x",capture_addr,cc_tb_readdata);
     mm_actual_capture_data[capture_d_index] <= cc_tb_readdata;
-//    mm_actual_capture_addr[capture_a_index] <= tb_cc_address;
     capture_d_index <= capture_d_index+1;
-//    capture_a_index <= capture_a_index+1;
   end
+`else
+  if(capture) begin
+    mm_actual_capture_data[capture_d_index] <= cc_tb_readdata;
+    mm_actual_capture_addr[capture_a_index] <= tb_cc_address;
+    //separate indexes are redundant in this mode
+    capture_a_index <= capture_a_index + 1;
+    capture_d_index <= capture_d_index + 1;
+  end
+`endif
 end
 // ------------------------------------------------------------------------
 string tb_cmd_txt;

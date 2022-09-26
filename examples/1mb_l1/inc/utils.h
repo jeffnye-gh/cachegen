@@ -7,19 +7,37 @@
 task rd_req(input [31:0] a,input [3:0] be,input verbose=0);
 begin
   if(verbose) $display("-I: rd req : a:%08x  be:%04b",a,be);
+`ifdef EXPERIMENT
+  while(!(cc_tb_readdata_valid && cc_tb_req_hit)) begin
+    top.tb_cc_address    = a;
+    top.tb_cc_byteenable = be;
+    top.tb_cc_read       = 1'b1;
+    top.tb_cc_write      = 1'b0;
+    @(posedge clk);
+  end
+`else
   top.tb_cc_address    = a;
   top.tb_cc_byteenable = be;
   top.tb_cc_read       = 1'b1;
   top.tb_cc_write      = 1'b0;
   @(posedge clk);
-//  while(!cc_tb_readdata_valid) begin
-//    @(posedge clk);
-//    top.tb_cc_address    = a;
-//    top.tb_cc_byteenable = be;
-//    top.tb_cc_read       = 1'b1;
-//    top.tb_cc_write      = 1'b0;
-//  end
+`endif
   //#1 so the signal has enough hold for the simulator to catch it
+  top.tb_cc_read       = #1 1'b0;
+  top.tb_cc_write      = #1 1'b0;
+end
+endtask
+// --------------------------------------------------------------------------
+// --------------------------------------------------------------------------
+task wr_req(input [31:0] a,input [3:0] be,input [31:0] wd,input verbose=0);
+begin
+  if(verbose) $display("-I: wr req : a:%08x  be:%04b",a,be);
+  top.tb_cc_address    = a;
+  top.tb_cc_byteenable = be;
+  top.tb_cc_read       = 1'b0;
+  top.tb_cc_write      = 1'b1;
+  top.tb_cc_writedata  = wd;
+  @(posedge clk);
   top.tb_cc_read       = #1 1'b0;
   top.tb_cc_write      = #1 1'b0;
 //  top.tb_cc_address    = #1 31'bx;
@@ -45,22 +63,6 @@ begin
   top.tb_cc_write      = #1 1'b0;
   nop(2);
   lclerr = check_word(a,wd);
-//  top.tb_cc_address    = #1 31'bx;
-end
-endtask
-// --------------------------------------------------------------------------
-// --------------------------------------------------------------------------
-task wr_req(input [31:0] a,input [3:0] be,input [31:0] wd,input verbose=0);
-begin
-  if(verbose) $display("-I: wr req : a:%08x  be:%04b",a,be);
-  top.tb_cc_address    = a;
-  top.tb_cc_byteenable = be;
-  top.tb_cc_read       = 1'b0;
-  top.tb_cc_write      = 1'b1;
-  top.tb_cc_writedata  = wd;
-  @(posedge clk);
-  top.tb_cc_read       = #1 1'b0;
-  top.tb_cc_write      = #1 1'b0;
 //  top.tb_cc_address    = #1 31'bx;
 end
 endtask

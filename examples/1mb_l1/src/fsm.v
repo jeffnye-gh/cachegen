@@ -177,6 +177,9 @@ reg [3:0] state,next;
 always @(posedge clk) begin
   state <= reset ? IDLE : next;
 end
+
+//`define DEBUG_WAIT 1
+
 // ----------------------------------------------------------------------
 // ----------------------------------------------------------------------
 always @* begin
@@ -197,12 +200,27 @@ always @* begin
   next = IDLE;
 
   casez(state) 
+    WAIT0: begin
+    fsm_cc_readdata_valid_d = 1'b1;
+    next = IDLE;
+    end
+
+    WAIT1: begin
+    next = WAIT0; //RD_HIT;
+    end
+
     IDLE: begin
       // READ HIT
       if(pe_read & pe_req_hit) begin //&  fsm_pe_req_hit)  begin
         fsm_cc_lru_write_d = 1'b1;
-        next = IDLE; //RD_HIT;
-      end
+
+`ifndef EXPERIMENT 
+        fsm_cc_readdata_valid_d = 1'b1;
+        next = IDLE;
+`else
+        next = WAIT0; 
+`endif
+      end //end if(pe_read
 
       // WRITE HIT
       else if(pe_write & pe_req_hit)  begin

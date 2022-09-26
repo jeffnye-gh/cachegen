@@ -14,4 +14,7 @@ localparam [3:0] RD_HIT     = 4'h8;
 localparam [3:0] WR_HIT     = 4'h9;
 localparam [3:0] TST_READ   = 4'ha;
 localparam [3:0] TST_WRITE  = 4'hb;
+localparam [3:0] WAIT0      = 4'hc;
+localparam [3:0] WAIT1      = 4'hd;
+localparam [3:0] WAIT2      = 4'he;
 

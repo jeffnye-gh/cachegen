@@ -361,6 +361,7 @@ begin
 
           //tag/way index   word                  --wpWpii
   rd_req({14'h003,13'h000,3'h3,2'h0},4'b1111,v);//00303000
+`ifndef EXERIMENT
   rd_req({14'h001,13'h001,3'h7,2'h0},4'b1111,v);//00107001
   nop(4);
   rd_req({14'h002,13'h002,3'h6,2'h0},4'b1111,v);//00206002
@@ -382,6 +383,7 @@ begin
   nop(1);
   rd_req({14'h000,13'h002,3'h0,2'h0},4'b1111,v);//00000002
   rd_req({14'h001,13'h000,3'h1,2'h0},4'b1111,v);//00101000
+`endif
 
   nop(4); //let state propagate
 
@@ -392,7 +394,7 @@ begin
 
   nop(4); //let state propagate
 
-  check_tb_capture_info (errs,0,16,v); //EXP_DATA_ENTRIES);
+  check_tb_capture_info (errs,0,16,1); //EXP_DATA_ENTRIES);
   check_tb_tags_bits(errs,0,16,v); //EXP_DATA_ENTRIES);
 
   endTestMsg(testName,errs);
