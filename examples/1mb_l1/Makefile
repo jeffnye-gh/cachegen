@@ -10,7 +10,7 @@ IVL      = iverilog
 IVL_DEF  = -DEXPERIMENT=1
 IVL_OPTS = -g2012 -s top -I./inc $(IVL_DEF) $(VLIBS)
 
-WAVE = gtkwave
+WAVE = /usr/local/gtkwave/bin/gtkwave
 WV_VCD_FILE  = -f csim.vcd
 WV_SAVE_FILE = -a csim.gtkw
 #WV_RC_FILE   = -r csim.rc

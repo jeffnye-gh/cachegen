@@ -1,8 +1,0 @@
-cp basicRdHit.a.cfg0.memh  basicRdAlloc.capa.memh
-cp basicRdHit.b.cfg0.memb  basicRdAlloc.bits.memb
-cp basicRdHit.t.cfg0.memh  basicRdAlloc.tags.memh
-cp basicRdHit.d.cfg0.memh  basicRdAlloc.capd.memh
-cp basicWrHit.d0.cfg1.memh basicRdAlloc.d0.memh
-cp basicWrHit.d1.cfg1.memh basicRdAlloc.d1.memh
-cp basicWrHit.d2.cfg1.memh basicRdAlloc.d2.memh
-cp basicWrHit.d3.cfg1.memh basicRdAlloc.d3.memh

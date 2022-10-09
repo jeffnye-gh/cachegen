@@ -29,6 +29,9 @@ localparam   _bt_wr_hit_test   = 1'b1;
 localparam   _bt_rd_alloc_test = 1'b0;
 localparam   _bt_wr_alloc_test = 1'b0;
 // ----------------------------------------------------------------------
+reg lru_flag, basic_rd_hit_flag,basic_wr_hit_flag,basic_rd_alloc_flag,
+    basic_wr_alloc_flag;
+// ----------------------------------------------------------------------
 int count;
 int lru_errs            = -1;
 int basic_rd_hit_errs   = -1;
@@ -37,6 +40,7 @@ int basic_rd_alloc_errs = -1;
 int basic_wr_alloc_errs = -1;
 // ----------------------------------------------------------------------
 reg master_clk,clk,reset;
+//icarus does not report strings in vcd
 string testName;
 // ----------------------------------------------------------------------
 reg [3:0] tb_cmd;
@@ -98,6 +102,12 @@ initial begin
   capture_a_index = 0;
   capture_d_index = 0;
 
+  lru_flag = 1'b0;
+  basic_rd_hit_flag = 1'b0;
+  basic_wr_hit_flag = 1'b0;
+  basic_rd_alloc_flag = 1'b0;
+  basic_wr_alloc_flag = 1'b0;
+
   count = 0;
 
   $dumpfile("csim.vcd");
@@ -138,11 +148,21 @@ begin
   testName = "None";
   nop(1);
   if(_basic_tests) begin
-    if(_bt_lru_test)      basicLruTest(lru_errs,0);
-    if(_bt_rd_hit_test)   basicRdHitTest(basic_rd_hit_errs,0);
-    if(_bt_wr_hit_test)   basicWrHitTest(basic_wr_hit_errs,0);
-    if(_bt_rd_alloc_test) basicRdAllocTest(basic_rd_alloc_errs,1);
-    if(_bt_wr_alloc_test) basicWrAllocTest(basic_wr_alloc_errs,0);
+
+    if(_bt_lru_test)
+      basicLruTest(lru_errs,lru_flag,0);
+
+    if(_bt_rd_hit_test)
+      basicRdHitTest(basic_rd_hit_errs,basic_rd_hit_flag,0);
+
+    if(_bt_wr_hit_test)
+      basicWrHitTest(basic_wr_hit_errs,basic_wr_hit_flag,0);
+
+    if(_bt_rd_alloc_test)
+      basicRdAllocTest(basic_rd_alloc_errs,basic_rd_alloc_flag,1);
+
+    if(_bt_wr_alloc_test)
+      basicWrAllocTest(basic_wr_alloc_errs,basic_wr_alloc_flag,0);
   end
   nop(5);
   terminate();

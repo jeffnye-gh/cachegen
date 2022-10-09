@@ -31,13 +31,13 @@
 //  15       2        0100   000
 //
 // --------------------------------------------------------------------------
-task basicRdAllocTest(inout int errs,input int verbose);
+task basicRdAllocTest(inout int errs,inout flag,input int verbose);
 integer i,j,mod,lclerrs;
 int v;
 reg [2:0] lru_exp,lru_act;
 reg [31:0] addr;
 begin
-  initTest("basicRdAllocTest",errs);
+  beginTestMsg("basicRdAllocTest",errs,flag);
 
 `ifdef EXPERIMENT
   $display("-I: experiment is ON");
@@ -123,14 +123,14 @@ end
 endtask
 
 // --------------------------------------------------------------------------
-task basicWrAllocTest(inout int errs,input int verbose);
+task basicWrAllocTest(inout int errs,inout flag,input int verbose);
 integer i,j,mod,lclerrs;
 int v;
 reg [2:0] lru_exp,lru_act;
 reg [31:0] addr;
 
 begin
-  initTest("basicWrAllocTest",errs);
+  beginTestMsg("basicWrAllocTest",errs,flag);
   v = verbose;
   clear_tb_data(0,EXP_DATA_ENTRIES,v);
 
@@ -195,7 +195,7 @@ begin
 //  check_tb_capture_info (errs,0,16,v); //EXP_DATA_ENTRIES);
 //  check_tb_tags_bits(errs,0,16,v); //EXP_DATA_ENTRIES);
 
-  endTestMsg(testName,errs);
+  endTestMsg(testName,errs,flag);
   nop(4);
 end
 endtask
@@ -232,7 +232,7 @@ endtask
 // This solely an LRU test. It does read/write requests but does not 
 // check data only LRU bits, see basicRdHit, and basicWrHit tests for that.
 // --------------------------------------------------------------------------
-task basicLruTest(inout int errs,input int verbose);
+task basicLruTest(inout int errs,inout flag,input int verbose);
 int i;
 reg [1:0]  _byte;
 reg [2:0]  word;
@@ -244,7 +244,7 @@ reg [2:0]  act_lru,exp_lru;
 string pfx;
 integer n,m;
 begin
-  initTest("basicLruTest",errs);
+  beginTestMsg("basicLruTest",errs,flag);
   clear_tb_data(0,EXP_DATA_ENTRIES,verbose);
 
   if(verbose) $display("-I: setting initial configuration ");
@@ -310,7 +310,7 @@ begin
     $display("%0s basicLruTest : exp:%03b  act:%03b",pfx,exp_lru,act_lru);
   end
 
-  endTestMsg(testName,errs);
+  endTestMsg(testName,errs,flag);
   nop(4);
 end
 endtask
@@ -325,14 +325,14 @@ endtask
 // and README.txt for the LRU update truth table
 //
 // --------------------------------------------------------------------------
-task basicRdHitTest(inout int errs,input int verbose);
+task basicRdHitTest(inout int errs,inout flag,input int verbose);
 integer i,j,mod,lclerrs;
 int v;
 reg [2:0] lru_exp,lru_act;
 reg [31:0] addr;
 
 begin
-  initTest("basicRdHitTest",errs);
+  beginTestMsg("basicRdHitTest",errs,flag);
   v = verbose;
 
   clear_tb_data(0,EXP_DATA_ENTRIES,v);
@@ -397,7 +397,7 @@ begin
   check_tb_capture_info (errs,0,16,v); //EXP_DATA_ENTRIES);
   check_tb_tags_bits(errs,0,16,v); //EXP_DATA_ENTRIES);
 
-  endTestMsg(testName,errs);
+  endTestMsg(testName,errs,flag);
 
   //$display("HERE basicRdHitTest");
   //show_line(0,0);
@@ -429,7 +429,7 @@ endtask
 //  1        0       1
 //
 // --------------------------------------------------------------------------
-task basicWrHitTest(inout int errs,input int verbose);
+task basicWrHitTest(inout int errs,inout flag,input int verbose);
 integer i,j,mod;
 reg [1:0]  _byte;
 reg [2:0]  word;
@@ -442,11 +442,10 @@ reg [2:0]  act_lru,exp_lru;
 int check;
 reg v;
 begin
-  initTest("basicWrHitTest",errs);
+  beginTestMsg("basicWrHitTest",errs,flag);
   v = verbose;
 
   clear_tb_data(0,EXP_DATA_ENTRIES,v);
-  nop(4);
 
   if(verbose) $display("-I: setting initial configuration ");
 
@@ -458,14 +457,16 @@ begin
   load_initial_tags("data/basicWrHit.tags.memh",v);
   load_initial_bits("data/basicWrHit.bits.memb",v);
 
+  nop(4);
+
   //FIXME: I have not found why the readmemh's above are not working.
   //I see left over state from the previous read test. Uncomment to
   //see what I mean
   //  $display("HERE basicWrHit before explicit re-init 1");
-  //  show_line(0,0);
-  //  show_line(1,0);
-  //  show_line(2,0);
-  //  show_line(3,0);
+  //show_line(0,0);
+  //show_line(1,0);
+  //show_line(2,0);
+  //show_line(3,0);
   @(posedge clk);
   top.dut0.dsram0.ram[0] = 256'b0;
   top.dut0.dsram1.ram[0] = 256'b0;
@@ -473,10 +474,10 @@ begin
   top.dut0.dsram3.ram[0] = 256'b0;
   @(posedge clk);
   //  $display("HERE basicWrHit after explicit re-init 1");
-  //  show_line(0,0);
-  //  show_line(1,0);
-  //  show_line(2,0);
-  //  show_line(3,0);
+  //show_line(0,0);
+  //show_line(1,0);
+  //show_line(2,0);
+  //show_line(3,0);
 
 //  way  index word be      value
 // --------------------------------
@@ -502,77 +503,81 @@ begin
 //  0,   6,    3,   1111,   ffffffff done
 //  0,   2,    0,   1111,   01020304 done
 //  1,   0,    1,   1111,   50607080 done
+//
+//00000000_00000000_00000000_00000000_00000000_00000000_00000000_01111111
+//00000000_00000000_00000000_00000000_00000000_00000000_00000022_01111111
+//00000000_00000000_00000000_00000000_00000000_00003300_00000022_01111111
+//00000000_00000000_00000000_00000000_00440000_00003300_00000022_01111111
+//00000000_00000000_00000000_05000000_00440000_00003300_00000022_01111111
+//00000000_00000000_0CACACAC_05000000_00440000_00003300_00000022_01111111
+//00000000_0A4367BC_0CACACAC_05000000_00440000_00003300_00000022_01111111
+//00E1D2C3_0A4367BC_0CACACAC_05000000_00440000_00003300_00000022_01111111
 
   //some random nops added for some variety in sequences
 
-  //        //tag/way index   word                      --wpWpii  LRU     
-  wr_req({14'h000,13'h000,3'h0,2'h0},4'b1111,32'h01111111,v);//i0 000->000
-  wr_req({14'h000,13'h000,3'h1,2'h0},4'b0001,32'h00000022,v); //i0 000->000
+  //        //tag/way index   word                                dirty
+  wr_req({14'h000,13'h000,3'h0,2'h0},4'b1111,32'h01111111,v);//i0 0000 -> 0001
+  wr_req({14'h000,13'h000,3'h1,2'h0},4'b0001,32'h00000022,v);//i0 0001
+  wr_req({14'h000,13'h000,3'h2,2'h0},4'b0010,32'h00003300,v);//i0 0001
+  wr_req({14'h000,13'h000,3'h3,2'h0},4'b0100,32'h00440000,v);//i0 0001
+  wr_req({14'h000,13'h000,3'h4,2'h0},4'b1000,32'h05000000,v);//i0 0001
+  wr_req({14'h000,13'h000,3'h5,2'h0},4'b1111,32'h0CACACAC,v);//i0 0001
+  wr_req({14'h000,13'h000,3'h6,2'h0},4'b1111,32'h0A4367BC,v);//i0 0001
+  wr_req({14'h000,13'h000,3'h7,2'h0},4'b1111,32'h00E1D2C3,v);//i0 0001
 
-  wr_req({14'h000,13'h000,3'h2,2'h0},4'b0010,32'h00003300,v); //i0 000->000
-  wr_req({14'h000,13'h000,3'h3,2'h0},4'b0100,32'h00440000,v); //i0 000->000
-  wr_req({14'h000,13'h000,3'h4,2'h0},4'b1000,32'h05000000,v); //i0 000->000
-  nop(1);
-  wr_req({14'h000,13'h000,3'h5,2'h0},4'b1111,32'h0CACACAC,v); //i0 000->000
-  wr_req({14'h000,13'h000,3'h6,2'h0},4'b1111,32'h0A4367BC,v); //i0 000->000
-  wr_req({14'h000,13'h000,3'h7,2'h0},4'b1111,32'h00E1D2C3,v); //i0 000->000
+          //tag/way index   word                              
+  wr_req({14'h000,13'h001,3'h0,2'h0},4'b1111,32'h11111111,v);//i1 0000 -> 0001
+  wr_req({14'h000,13'h001,3'h1,2'h0},4'b1111,32'h10000022,v);//i1
+  wr_req({14'h000,13'h001,3'h2,2'h0},4'b1111,32'h10003300,v);//i1
+  wr_req({14'h000,13'h001,3'h3,2'h0},4'b1111,32'h10440000,v);//i1
+  wr_req({14'h000,13'h001,3'h4,2'h0},4'b1111,32'h15000000,v);//i1
+  wr_req({14'h000,13'h001,3'h5,2'h0},4'b1111,32'h1CACACAC,v);//i1
+  wr_req({14'h000,13'h001,3'h6,2'h0},4'b1111,32'h1A4367BC,v);//i1
+  wr_req({14'h000,13'h001,3'h7,2'h0},4'b1111,32'h10E1D2C3,v);//i1
 
-  wr_req({14'h000,13'h001,3'h0,2'h0},4'b1111,32'h11111111,v); //i1 000->000
-  wr_req({14'h000,13'h001,3'h1,2'h0},4'b1111,32'h10000022,v); //i1 000->000
-  wr_req({14'h000,13'h001,3'h2,2'h0},4'b1111,32'h10003300,v); //i1 000->000
-  wr_req({14'h000,13'h001,3'h3,2'h0},4'b1111,32'h10440000,v); //i1 000->000
-  nop(1);
-  wr_req({14'h000,13'h001,3'h4,2'h0},4'b1111,32'h15000000,v); //i1 000->000
-  wr_req({14'h000,13'h001,3'h5,2'h0},4'b1111,32'h1CACACAC,v); //i1 000->000
-  wr_req({14'h000,13'h001,3'h6,2'h0},4'b1111,32'h1A4367BC,v); //i1 000->000
-  wr_req({14'h000,13'h001,3'h7,2'h0},4'b1111,32'h10E1D2C3,v); //i1 000->000
+          //tag/way index   word                              
+  wr_req({14'h000,13'h002,3'h0,2'h0},4'b1111,32'h21111111,v);//i2 0000 -> 0001
+  wr_req({14'h000,13'h002,3'h1,2'h0},4'b1111,32'h20000022,v);//i2 
+  wr_req({14'h000,13'h002,3'h2,2'h0},4'b1111,32'h20003300,v);//i2 
+  wr_req({14'h000,13'h002,3'h3,2'h0},4'b1111,32'h20440000,v);//i2 
+  wr_req({14'h000,13'h002,3'h4,2'h0},4'b1111,32'h25000000,v);//i2 
+  wr_req({14'h000,13'h002,3'h5,2'h0},4'b1111,32'h2CACACAC,v);//i2 
+  wr_req({14'h000,13'h002,3'h6,2'h0},4'b1111,32'h2A4367BC,v);//i2 
+  wr_req({14'h000,13'h002,3'h7,2'h0},4'b1111,32'h20E1D2C3,v);//i2 
 
-          //tag/way index   word                      --wpWpii
-  wr_req({14'h000,13'h002,3'h0,2'h0},4'b1111,32'h21111111,v); //i2 000->000
-  wr_req({14'h000,13'h002,3'h1,2'h0},4'b1111,32'h20000022,v); //i2 000->000
-  nop(2);
-  wr_req({14'h000,13'h002,3'h2,2'h0},4'b1111,32'h20003300,v); //i2 000->000
-  wr_req({14'h000,13'h002,3'h3,2'h0},4'b1111,32'h20440000,v); //i2 000->000
-  wr_req({14'h000,13'h002,3'h4,2'h0},4'b1111,32'h25000000,v); //i2 000->000
-  wr_req({14'h000,13'h002,3'h5,2'h0},4'b1111,32'h2CACACAC,v); //i2 000->000
-  wr_req({14'h000,13'h002,3'h6,2'h0},4'b1111,32'h2A4367BC,v); //i2 000->000
-  wr_req({14'h000,13'h002,3'h7,2'h0},4'b1111,32'h20E1D2C3,v); //i2 000->000
+          //      //tag/way index   word                              
+  wr_req({14'h003,13'h000,3'h3,2'h0},4'b0011,32'h22221111,v); //i0 0001 -> 1001
+  wr_req({14'h001,13'h001,3'h7,2'h0},4'b1100,32'h3333xxxx,v); //i1 
+  wr_req({14'h002,13'h002,3'h6,2'h0},4'b0001,32'hxxxxxx44,v); //i2 
+  wr_req({14'h000,13'h003,3'h5,2'h0},4'b0100,32'hxx55xxxx,v); //i3 
+  wr_req({14'h000,13'h004,3'h2,2'h0},4'b0010,32'hxxxx66xx,v); //i4 
+  wr_req({14'h001,13'h001,3'h1,2'h0},4'b1000,32'h77xxxxxx,v); //i1 
+  wr_req({14'h002,13'h005,3'h5,2'h0},4'b1111,32'h88888888,v); //i5 
+  wr_req({14'h003,13'h007,3'h3,2'h0},4'b1111,32'h99999999,v); //i7 
+  wr_req({14'h000,13'h002,3'h2,2'h0},4'b1111,32'haaaaaaaa,v); //i2 
+  wr_req({14'h001,13'h003,3'h1,2'h0},4'b1111,32'hbbbbbbbb,v); //i3 
+  wr_req({14'h000,13'h003,3'h6,2'h0},4'b1111,32'hcccccccc,v); //i3 
+  wr_req({14'h001,13'h003,3'h7,2'h0},4'b1111,32'hdddddddd,v); //i3 
+  wr_req({14'h003,13'h006,3'h4,2'h0},4'b1111,32'heeeeeeee,v); //i6 
+  wr_req({14'h000,13'h006,3'h3,2'h0},4'b1111,32'hffffffff,v); //i6 
+  wr_req({14'h000,13'h002,3'h0,2'h0},4'b1111,32'h01020304,v); //i2 
+  wr_req({14'h001,13'h000,3'h1,2'h0},4'b1111,32'h50607080,v); //i0 1001 -> 1011
+  nop(4);
 
-  //      //tag/way index   word                      --wpWpii
-  wr_req({14'h003,13'h000,3'h3,2'h0},4'b0011,32'h22221111,v); //i0 000->110
-  wr_req({14'h001,13'h001,3'h7,2'h0},4'b1100,32'h3333xxxx,v); //i1 000->001
-  wr_req({14'h002,13'h002,3'h6,2'h0},4'b0001,32'hxxxxxx44,v); //i2 000->100
-  nop(1);
-  wr_req({14'h000,13'h003,3'h5,2'h0},4'b0100,32'hxx55xxxx,v); //i3 000->000
-  wr_req({14'h000,13'h004,3'h2,2'h0},4'b0010,32'hxxxx66xx,v); //i4 000->000
-  wr_req({14'h001,13'h001,3'h1,2'h0},4'b1000,32'h77xxxxxx,v); //i1 001->001
-  wr_req({14'h002,13'h005,3'h5,2'h0},4'b1111,32'h88888888,v); //i5 000->100
-  wr_req({14'h003,13'h007,3'h3,2'h0},4'b1111,32'h99999999,v); //i7 000->110
-  wr_req({14'h000,13'h002,3'h2,2'h0},4'b1111,32'haaaaaaaa,v); //i2 100->000
-  wr_req({14'h001,13'h003,3'h1,2'h0},4'b1111,32'hbbbbbbbb,v); //i3 000->001
-  wr_req({14'h000,13'h003,3'h6,2'h0},4'b1111,32'hcccccccc,v); //i3 001->000
-  nop(2);
-  wr_req({14'h001,13'h003,3'h7,2'h0},4'b1111,32'hdddddddd,v); //i3 000->001
-  wr_req({14'h003,13'h006,3'h4,2'h0},4'b1111,32'heeeeeeee,v); //i6 000->110
-  wr_req({14'h000,13'h006,3'h3,2'h0},4'b1111,32'hffffffff,v); //i6 110->010
-  wr_req({14'h000,13'h002,3'h0,2'h0},4'b1111,32'h01020304,v); //i2 000->000
-  wr_req({14'h001,13'h000,3'h1,2'h0},4'b1111,32'h50607080,v); //i0 110->011
-  nop(1);
+  load_expect_dary_data("./golden/basicWrHit.d0.memh",
+                        "./golden/basicWrHit.d1.memh",
+                        "./golden/basicWrHit.d2.memh",
+                        "./golden/basicWrHit.d3.memh",v);
 
-  load_expect_dary_data("./golden/basicWrHit.d0.cfg1.memh",
-                        "./golden/basicWrHit.d1.cfg1.memh",
-                        "./golden/basicWrHit.d2.cfg1.memh",
-                        "./golden/basicWrHit.d3.cfg1.memh",v);
-
-  load_expect_tags("./golden/basicWrHit.t.cfg1.memh",v);
-  load_expect_bits("./golden/basicWrHit.b.cfg1.memb",v); //NOTE B file
+  load_expect_tags("./golden/basicWrHit.t.memh",v);
+  load_expect_bits("./golden/basicWrHit.b.memb",v); //NOTE B file
 
   nop(4);
 
   check_data_arrays (errs,0,16,v); 
-  check_tb_tags_bits(errs,0,16,v);
+  check_tb_tags_bits(errs,0,2,v);
 
-  endTestMsg(testName,errs);
+  endTestMsg(testName,errs,flag);
   nop(4);
 end
 endtask

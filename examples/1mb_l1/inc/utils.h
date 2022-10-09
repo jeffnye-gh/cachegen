@@ -24,8 +24,9 @@ endtask
 // --------------------------------------------------------------------------
 // --------------------------------------------------------------------------
 task wr_req(input [31:0] a,input [3:0] be,input [31:0] wd,input verbose=0);
-int watchdog=0;
+int watchdog;
 begin
+  watchdog = 0;
   if(verbose) $display("-I: wr req : a:%08x  be:%04b",a,be);
   top.tb_cc_address    = a;
   top.tb_cc_byteenable = be;
@@ -564,29 +565,35 @@ end
 endtask
 // -----------------------------------------------------------------
 // -----------------------------------------------------------------
-task initTest(input string tn,inout errs);
+//task initTest(input string tn,inout errs,inout flag);
+//begin
+//  errs = 0;
+//  nop(4);
+//  testName = tn;
+//  beginTestMsg(testName);
+//
+//end
+//endtask
+// -----------------------------------------------------------------
+// -----------------------------------------------------------------
+task beginTestMsg(input string tn,inout errs,inout flag);
 begin
   errs = 0;
+  flag = 1'b1;
   nop(4);
   testName = tn;
-  beginTestMsg(testName);
-end
-endtask
-// -----------------------------------------------------------------
-// -----------------------------------------------------------------
-task beginTestMsg(input string testName);
-begin
   $display("-I: BEGIN TEST : %014s",testName);
 end
 endtask
 // -----------------------------------------------------------------
 // -----------------------------------------------------------------
-task endTestMsg(input string testName,input int errs);
+task endTestMsg(input string testName,input int errs,inout flag);
 string pf,pre;
 begin
   if(errs > 0) begin pf = "FAIL"; pre = "-E: "; end
   else         begin pf = "PASS"; pre = "-I: "; end
   $display("%0sEND TEST   : %014s : errors %0d : %0s",pre,testName,errs,pf);
+  flag = 1'b0;
 end
 endtask
 // -----------------------------------------------------------------

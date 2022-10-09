@@ -132,17 +132,13 @@ wire                 cache_read_d = !reset & (pe_read_d | pe_write_d);
 //
 //pe_read_d is applied to the rams
 // --------------------------------------------------------------------------
-reg  [TAG_BITS-1:0] pe_tag;
-reg  [IDX_BITS-1:0] pe_index;
 reg  [2:0]          pe_offset;
 reg  [3:0]          pe_be;
 reg  [31:0]         pe_wd;
 
 wire pe_access_d = (pe_read_d | pe_write_d) & !reset;
 always @(posedge clk) begin
-  pe_tag    <= pe_tag_d;
   pe_offset <= pe_offset_d;
-  pe_index  <= pe_index_d;
   pe_be     <= pe_be_d;
   pe_wd     <= pe_wd_d;
   way_hit   <= way_hit_d;
@@ -211,26 +207,26 @@ always @* begin
   pe_line_wd = 256'bx;
   pe_line_be =  32'b0;
 
-  case(pe_offset)
-    3'b000: pe_line_wd[ 31:  0] = pe_wd;
-    3'b001: pe_line_wd[ 63: 32] = pe_wd;
-    3'b010: pe_line_wd[ 95: 64] = pe_wd;
-    3'b011: pe_line_wd[127: 96] = pe_wd;
-    3'b100: pe_line_wd[159:128] = pe_wd;
-    3'b101: pe_line_wd[191:160] = pe_wd;
-    3'b110: pe_line_wd[223:192] = pe_wd;
-    3'b111: pe_line_wd[255:224] = pe_wd;
+  case(pe_offset_d)
+    3'b000: pe_line_wd[ 31:  0] = pe_wd_d;
+    3'b001: pe_line_wd[ 63: 32] = pe_wd_d;
+    3'b010: pe_line_wd[ 95: 64] = pe_wd_d;
+    3'b011: pe_line_wd[127: 96] = pe_wd_d;
+    3'b100: pe_line_wd[159:128] = pe_wd_d;
+    3'b101: pe_line_wd[191:160] = pe_wd_d;
+    3'b110: pe_line_wd[223:192] = pe_wd_d;
+    3'b111: pe_line_wd[255:224] = pe_wd_d;
   endcase
 
-  case(pe_offset)
-    3'b000: pe_line_be[ 3: 0] = pe_be;
-    3'b001: pe_line_be[ 7: 4] = pe_be;
-    3'b010: pe_line_be[11: 8] = pe_be;
-    3'b011: pe_line_be[15:12] = pe_be;
-    3'b100: pe_line_be[19:16] = pe_be;
-    3'b101: pe_line_be[23:20] = pe_be;
-    3'b110: pe_line_be[27:24] = pe_be;
-    3'b111: pe_line_be[31:28] = pe_be;
+  case(pe_offset_d)
+    3'b000: pe_line_be[ 3: 0] = pe_be_d;
+    3'b001: pe_line_be[ 7: 4] = pe_be_d;
+    3'b010: pe_line_be[11: 8] = pe_be_d;
+    3'b011: pe_line_be[15:12] = pe_be_d;
+    3'b100: pe_line_be[19:16] = pe_be_d;
+    3'b101: pe_line_be[23:20] = pe_be_d;
+    3'b110: pe_line_be[27:24] = pe_be_d;
+    3'b111: pe_line_be[31:28] = pe_be_d;
   endcase
 end
 // --------------------------------------------------------------------------
@@ -318,7 +314,7 @@ fsm #(.IDX_BITS(IDX_BITS),
 bitrf valid0
 (
   .rd(val_out_d),
-  .wa(pe_index),
+  .wa(pe_index_d),
   .way_hit(way_hit_d),
   .ra(pe_index_d),
   .wr(fsm_cc_val_write_d),
@@ -330,7 +326,7 @@ bitrf valid0
 bitrf dirty0
 (
   .rd(mod_out_d),
-  .wa(pe_index),
+  .wa(pe_index_d),
   .way_hit(way_hit_d),
   .ra(pe_index_d),
   .wr(fsm_cc_mod_write_d),
@@ -379,7 +375,6 @@ endgenerate
 //generate for(WAYVAR=0;WAYVAR<4;WAYVAR=WAYVAR+1) begin : data
 //  dsram #(.ADDR_WIDTH(IDX_BITS)) dsram (
 //    .a     (pe_index_d),
-//    .aq    (pe_index),
 //    .wd    (line_wd),
 //    .be    (line_be),
 //    .rd    (dary_out[WAYVAR]),
@@ -392,7 +387,6 @@ endgenerate
 // --------------------------------------------------------------------------
 dsram #(.ADDR_WIDTH(IDX_BITS)) dsram0 (
     .a     (pe_index_d),
-    .aq    (pe_index),
     .wd    (line_wd),
     .be    (line_be),
     .rd    (dary_out[0]),
@@ -403,7 +397,6 @@ dsram #(.ADDR_WIDTH(IDX_BITS)) dsram0 (
 
 dsram #(.ADDR_WIDTH(IDX_BITS)) dsram1 (
     .a     (pe_index_d),
-    .aq    (pe_index),
     .wd    (line_wd),
     .be    (line_be),
     .rd    (dary_out[1]),
@@ -414,7 +407,6 @@ dsram #(.ADDR_WIDTH(IDX_BITS)) dsram1 (
 
 dsram #(.ADDR_WIDTH(IDX_BITS)) dsram2 (
     .a     (pe_index_d),
-    .aq    (pe_index),
     .wd    (line_wd),
     .be    (line_be),
     .rd    (dary_out[2]),
@@ -425,7 +417,6 @@ dsram #(.ADDR_WIDTH(IDX_BITS)) dsram2 (
 
 dsram #(.ADDR_WIDTH(IDX_BITS)) dsram3 (
     .a     (pe_index_d),
-    .aq    (pe_index),
     .wd    (line_wd),
     .be    (line_be),
     .rd    (dary_out[3]),
