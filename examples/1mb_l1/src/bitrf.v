@@ -1,6 +1,6 @@
 `include "sim_cntrl.h"
 // -----------------------------------------------------------------------
-// MOD bit regfile
+// Bit regfile
 //
 // FIXME: CHECK IF I NEED THE 2nd rd port
 // 8192 x 12b, 1WR, 2RD port (2nd is internal only)
@@ -9,7 +9,7 @@
 // 12b data
 //
 // -----------------------------------------------------------------------
-module dirty
+module bitrf
 (
   output reg  [3:0]  rd,
 

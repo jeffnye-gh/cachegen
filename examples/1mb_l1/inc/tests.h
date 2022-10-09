@@ -37,10 +37,13 @@ int v;
 reg [2:0] lru_exp,lru_act;
 reg [31:0] addr;
 begin
-  nop(4);
+  initTest("basicRdAllocTest",errs);
 
-  testName = "basicRdAllocTest";
-  beginTestMsg(testName);
+`ifdef EXPERIMENT
+  $display("-I: experiment is ON");
+`else
+  $display("-I: experiment is OFF");
+`endif
 
   v = verbose;
 
@@ -66,7 +69,7 @@ begin
   //some arbitrary nops inserted just for simple state test
 
           //tag/way index   word                  --wpWpii
-  rd_req({14'h000,13'h000,3'h3,2'h0},4'b1111,v);//
+  rd_req({14'h000,13'h000,3'h3,2'h0},4'b1111,1);//
 
 //  rd_req({14'h003,13'h000,3'h3,2'h0},4'b1111,v);//00303000
 //  rd_req({14'h001,13'h001,3'h7,2'h0},4'b1111,v);//00107001
@@ -127,11 +130,7 @@ reg [2:0] lru_exp,lru_act;
 reg [31:0] addr;
 
 begin
-  nop(4);
-
-  testName = "basicWrAllocTest";
-  beginTestMsg(testName);
-
+  initTest("basicWrAllocTest",errs);
   v = verbose;
   clear_tb_data(0,EXP_DATA_ENTRIES,v);
 
@@ -242,10 +241,10 @@ reg [12:0] index;
 reg [31:0] addr;
 reg [31:0] incr;
 reg [2:0]  act_lru,exp_lru;
+string pfx;
+integer n,m;
 begin
-  nop(4);
-
-  errs = 0;
+  initTest("basicLruTest",errs);
   clear_tb_data(0,EXP_DATA_ENTRIES,verbose);
 
   if(verbose) $display("-I: setting initial configuration ");
@@ -259,9 +258,6 @@ begin
 
   nop(4);
 
-  testName = "basicLruTest";
-  beginTestMsg(testName);
-
   _byte = 2'b00;
   word  = 3'b000;
   index = 13'h000;
@@ -270,26 +266,30 @@ begin
   //worked and yet failed when i added a couple nops. good enough for
   //this quick basic test. random testing will fully test this.
 
+  n = 0;
+  m = 0;
   //(read) access way 3 of index 0    plru 000 -> 110
   addr  = {14'h003,index,word,_byte};
   rd_req(addr,4'b1111,verbose);
-  nop(1);
+  nop(m);
 
   //(write) access way 1 of index 0    plru 110 -> 011
   addr  = {14'h001,index,word,_byte};
   wr_req(addr,4'b1111,32'h11111111,verbose);
+  nop(m);
 
-  //(read) access way 2 of index 0     plru 110 -> 101
+  //(read) access way 2 of index 0     plru 011 -> 101
   addr  = {14'h002,index,word,_byte};
   rd_req(addr,4'b1111,verbose);
-  nop(1);
+  nop(n);
 
   //(write) access way 0 of index 0    plru 101 -> 000
   addr  = {14'h000,index,word,_byte};
   wr_req(addr,4'b1111,32'h22222222,verbose);
+  nop(n);
 
-  //(read) access way 3 of index 0     plru 000 -> 011
-  addr  = {14'h003,index,word,_byte};
+  //(read) access way 2 of index 0     plru 000 -> 100
+  addr  = {14'h002,index,word,_byte};
   rd_req(addr,4'b1111,verbose);
 
   //let final state propagate
@@ -298,10 +298,16 @@ begin
   //Manually verify the resulting LRU bits
   //grab the contents of index 0 in the LRU array
   act_lru = top.dut0.lrurf0.regs[0];
-  exp_lru = 3'b110;
+  exp_lru = 3'b100;
 
-  if(verbose) begin
-    $display("-I: basicLruTest : exp:%03b  act:%03b",exp_lru,act_lru);
+  pfx = "-I:";
+  if(act_lru !== exp_lru) begin
+    pfx = "-E:";
+    errs += 1;
+  end
+
+  if(errs > 0 || verbose) begin
+    $display("%0s basicLruTest : exp:%03b  act:%03b",pfx,exp_lru,act_lru);
   end
 
   endTestMsg(testName,errs);
@@ -326,11 +332,7 @@ reg [2:0] lru_exp,lru_act;
 reg [31:0] addr;
 
 begin
-  nop(4);
-
-  testName = "basicRdHitTest";
-  beginTestMsg(testName);
-
+  initTest("basicRdHitTest",errs);
   v = verbose;
 
   clear_tb_data(0,EXP_DATA_ENTRIES,v);
@@ -361,7 +363,6 @@ begin
 
           //tag/way index   word                  --wpWpii
   rd_req({14'h003,13'h000,3'h3,2'h0},4'b1111,v);//00303000
-`ifndef EXERIMENT
   rd_req({14'h001,13'h001,3'h7,2'h0},4'b1111,v);//00107001
   nop(4);
   rd_req({14'h002,13'h002,3'h6,2'h0},4'b1111,v);//00206002
@@ -383,7 +384,6 @@ begin
   nop(1);
   rd_req({14'h000,13'h002,3'h0,2'h0},4'b1111,v);//00000002
   rd_req({14'h001,13'h000,3'h1,2'h0},4'b1111,v);//00101000
-`endif
 
   nop(4); //let state propagate
 
@@ -394,7 +394,7 @@ begin
 
   nop(4); //let state propagate
 
-  check_tb_capture_info (errs,0,16,1); //EXP_DATA_ENTRIES);
+  check_tb_capture_info (errs,0,16,v); //EXP_DATA_ENTRIES);
   check_tb_tags_bits(errs,0,16,v); //EXP_DATA_ENTRIES);
 
   endTestMsg(testName,errs);
@@ -442,10 +442,7 @@ reg [2:0]  act_lru,exp_lru;
 int check;
 reg v;
 begin
-  nop(4);
-  testName = "basicWrHitTest";
-  beginTestMsg(testName);
-
+  initTest("basicWrHitTest",errs);
   v = verbose;
 
   clear_tb_data(0,EXP_DATA_ENTRIES,v);
@@ -585,6 +582,5 @@ task initState;
 begin
   testName = "initState";
   tb_cc_ram_test = 1'b0;
-  nop(5);
 end
 endtask

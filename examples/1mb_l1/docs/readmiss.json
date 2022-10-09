@@ -1,0 +1,23 @@
+{ signal: [
+  { name: "clk", wave: 'p...........' },
+    [ "TOP",
+      { name: "tb_cc_read",          wave: '01.....1110.' },
+      { name: "tb_cc_address",       wave: 'x=.....===xx', data: ["a1","a2","a3","a4"] },
+      { name: "cc_tb_req_hit",       wave: '00000011110.' },
+      { name: "stall",               wave: '===...====xx', data: ["","miss","stall","hit","hit","hit","hit"] },
+      { name: "cc_tb_readdata",      wave: 'xxxxxxx====x', data: ["rd1",  "rd2", "rd3","rd4"] },
+      { name: "cc_tb_readdata_valid",wave: '0......11110', data: ["adt1",  "adt2", "adt3"] },
+
+    ],
+    [ "CC",
+      { name: "tag_out",  wave: 'x=.....===xx', data: ["rdt1",  "rdt2", "rdt3","rdt4"] },
+      { name: "dary_out",  wave: 'xxxxxxx====x', data: ["adt1",  "adt2", "adt3","adt4"] },
+    ],
+    [ "TB",
+      { name: "capture_a", wave: '0.....11110'   },
+      { name: "capture_d", wave: '0......11110'  }
+    ]
+  ],
+  foot: { text: ["tspan", "READ MISS w/ stall"], tock:0 }
+}
+

@@ -1,0 +1,232 @@
+<!doctype html>
+<html>
+  <head>
+  <title>Timing Diagrams</title>
+  <meta name="description" content="Our first page">
+  <meta name="keywords" content="html tutorial template">
+  <meta http-equiv="refresh" content="2">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/wavedrom/2.9.1/skins/default.js" type="text/javascript"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/wavedrom/2.9.1/wavedrom.min.js" type="text/javascript"></script>
+<script type="text/javascript" src="https://livejs.com/live.js"></script>
+  </head>
+
+  <body onload="WaveDrom.ProcessAll()">
+<p>
+<hr>
+<p>
+<script type="WaveDrom">
+{ 
+  head: { text: ['tspan', 'READ HIT/MISS'], tock:0 },
+  signal: [
+{ name: 'clk', wave: 'p..................' },
+  [ 'TOP',
+    { name: 'tb_cc_read',
+            wave: '010.11101.....1110.' },
+    { name: 'tb_cc_address',
+            wave: 'x=xx===x=.....===xx',
+            data: ['a1','a2','a3','a4','a5','a6','a7','a8'] },
+    { name: 'cc_tb_req_hit',
+            wave: '010.1110.....11110.' },
+    { name: 'cc_tb_readdata',
+            wave: 'xx=xx===xxxxxx====x',
+            data: ['rd1','rd2','rd3','rd4','rd5','rd6','rd7','rd8'] },
+    { name: 'cc_tb_readdata_valid',
+            wave: '0.10.1110.....11110',
+            data: ['adt1',  'adt2', 'adt3'] },
+  ],
+  [ 'CC',
+    { name: 'tag_out',
+            wave: 'x=xx===xxxxxx====xx',
+            data: ['rdt1','rdt2','rdt3','rdt4','rdt5','rdt6','rdt7','rdt8'] },
+    { name: 'dary_out',
+            wave: 'xx=xx===xxxxxx====x',
+            data: ['do1','do2','do3','do4','do5','do6','do7','do8'] },
+  ],
+  [ 'LRU',
+    { name: 'way_hit',
+            wave: 'x=xx===xxxxxx====xx',
+            data: ['0001','do2','do3','do4','do5','do6','do7','do8'] },
+    { name: 'lru_out',
+            wave: 'x=xx===xxxxxx====xx',
+            data: ['bbb','bbc','bbd','bbe','bbf','bbg','bbh','bbi'] },
+    { name: 'lru_wd',
+            wave: 'x=xx===xxxxxx====xx',
+            data: ['bbc','bbd','bbe','bbf','bbg','bbh','bbi','bbj'] },
+    { name: 'lru[idx]',
+            wave: 'xx=xx===......====x',
+            data: ['bbc','bbd','bbe','bbf','bbg','bbh','bbi','bbj'] },
+  ],
+  [ 'TB',
+    { name: 'capture_a ( rd & hit )',
+            wave: '010.1110.....11110.'   },
+    { name: 'capture_d ( valid )',
+            wave: '0.10.1110.....11110'  }
+  ]
+]
+}
+</script>
+
+<p>
+<hr>
+<p>
+
+<script type="WaveDrom">
+{ 
+  head: { text: ["tspan", "READ HIT"], tock:0 },
+  signal: [
+{ name: "clk", wave: 'p.......' },
+{ name: "cnt", wave: '========', data: [0,1,2,3,4,5,6,7,8] },
+  [ "TOP",
+    { name: "tb_cc_read",
+            wave: '010.1110' },
+    { name: "tb_cc_address",
+            wave: 'x=xx===x',
+            data: ["a1","a2","a3","a4"] },
+    { name: "cc_tb_req_hit",
+            wave: '010.1110' },
+    { name: "cc_tb_readdata",
+            wave: 'xx=xx===',
+            data: ["rd1",  "rd2", "rd3","rd4"] },
+    { name: "cc_tb_readdata_valid",
+            wave: '0010.111',
+            data: ["adt1",  "adt2", "adt3"] },
+  ],
+  [ "CC",
+    { name: "tag_out",
+            wave: 'x=xx===x',
+            data: ["rdt1",  "rdt2", "rdt3","rdt4"] },
+    { name: "dary_out",
+            wave: 'xx=x',
+            data: ["adt1",  "adt2", "adt3"] },
+  ],
+  [ "TB",
+    { name: "capture_a",
+            wave: '010.1110'   },
+    { name: "capture_d",
+            wave: '0.10.111'  }
+  ]
+]
+}
+</script>
+<p>
+<hr>
+<p>
+<script type="WaveDrom">
+{ 
+  head: { text: ["tspan", "READ MISS w/ stall"], tock:0 },
+  signal: [
+  { name: "clk", wave: 'p...........' },
+    [ "TOP",
+      { name: "tb_cc_read",          wave: '01.....1110.' },
+      { name: "tb_cc_address",       wave: 'x=.....===xx', data: ["a1","a2","a3","a4"] },
+      { name: "cc_tb_req_hit",       wave: '00000011110.' },
+      { name: "stall",               wave: '===...====xx', data: ["","miss","stall","hit","hit","hit","hit"] },
+      { name: "cc_tb_readdata",      wave: 'xxxxxxx====x', data: ["rd1",  "rd2", "rd3","rd4"] },
+      { name: "cc_tb_readdata_valid",wave: '0......11110', data: ["adt1",  "adt2", "adt3"] },
+
+    ],
+    [ "CC",
+      { name: "tag_out",  wave: 'x=.....===xx', data: ["rdt1",  "rdt2", "rdt3","rdt4"] },
+      { name: "dary_out",  wave: 'xxxxxxx====x', data: ["adt1",  "adt2", "adt3","adt4"] },
+    ],
+    [ "TB",
+      { name: "capture_a", wave: '0.....11110'   },
+      { name: "capture_d", wave: '0......11110'  }
+    ]
+  ]
+}
+</script>
+<p>
+<hr>
+<p>
+<script type="WaveDrom">
+{ 
+  head: { text: ["tspan", "Write HIT"], tock:0 },
+  signal: [
+  { name: "clk", wave: 'p.......' },
+    [ "TOP",
+      { name: "tb_cc_write",      wave: '010.1110' },
+      { name: "tb_cc_address",    wave: 'x=xx===x', data: ["a1","a2","a3","a4"] },
+      { name: "cc_tb_req_hit",    wave: '010.1110' },
+      { name: "tb_cc_writedata",  wave: 'x=xx===', data: ["wd1","wd2","wd3","wd4"] }
+    ],
+    [ "CC",
+      { name: "tag_out",  wave: 'x=xx===x', data: ["rdt1", "rdt2", "rdt3","rdt4"] },
+      { name: "dary_in",  wave: 'x=xx===x', data: ["din1", "din2", "din3", "din4"] },
+    ],
+    [ "TB",
+      { name: "capture_a", wave: '0.......'   },
+      { name: "capture_d", wave: '0.......'  }
+    ]
+  ],
+}
+</script>
+<p>
+<hr>
+<p>
+<script type="WaveDrom">
+{ 
+  head: { text: ["tspan", "WRITE MISS w/ stall"], tock:0 },
+  signal: [
+  { name: "clk", wave: 'p...........' },
+    [ "TOP",
+      { name: "tb_cc_write",         wave: '01.....1110.' },
+      { name: "tb_cc_address",       wave: 'x=.....===xx', data: ["a1","a2","a3","a4"] },
+      { name: "cc_tb_req_hit",       wave: '00000011110.' },
+      { name: "stall",               wave: '===...====xx', data: ["","miss","stall","hit","hit","hit","hit"] },
+      { name: "tb_cc_writedata",     wave: 'x=.....===x', data: ["wd1","wd2","wd3","wd4"] },
+    ],
+    [ "CC",
+      { name: "tag_out",  wave: 'x=.....===xx', data: ["wrt1",  "wrt2", "wrt3","wrt4"] },
+      { name: "dary_wd",  wave: 'x=.....===xx',  data: ["wd1","wd2","wd3","wd4"] },
+    ],
+    [ "TB",
+      { name: "capture_a", wave: '0...........'   },
+      { name: "capture_d", wave: '0...........'  }
+    ]
+  ],
+}
+</script>
+<p>
+<hr>
+<p>
+<script type="WaveDrom">
+{ 
+  head: { text: ["tspan", "LRU UPDATE"], tock:0 },
+  signal: [
+  { name: "clk",              wave: 'p.......' },
+  [ "PE",
+    { name: "pe_acess",       wave: '==', data: [ "r/w", "r/w" ] },
+    { name: "pe_a",           wave: '==', data: [ "c00",  "400"  ] },
+   ],
+  [ "TAG", 
+    { name: "tag_read",    wave: '11' },
+    { name: "tag_out",     wave: 'x=.', data: ["0003", "0003", "ia3"] },
+    { name: "tag_compare", wave: '011' },
+   { name: "way_hit",     wave: 'x==', data: ["1000",  "0010", "oa3"] }
+   ],
+   [ "LRU",
+    { name: "lru_read",    wave: '11' },
+    { name: "lru_out",     wave: 'x==', data: ["000", "byp", "ia3"] },
+    { name: "new_lru",     wave: 'x=', data: ["110",  "oa2", "oa3"] },
+    { name: "lru_wr",      wave: '01' },
+    { name: "lru_data_0",  wave: '=.=', data: ["000", "110", "110"] },    
+  ],
+
+]}
+
+</script>
+
+<!--
+  <img src = "svg/read_hit.svg"   alt="READ HIT"/>
+  <img src = "svg/read_miss.svg"   alt="READ MISS"/>
+  <p>
+  <img src = "svg/write_hit.svg"   alt="WRITE HIT"/>
+  <img src = "svg/write_miss.svg"   alt="WRITE MISS"/>
+  <p>
+  <img src = "svg/lru_update.svg" alt="LRU UPDATE"/>
+  <p>
+-->
+</body>
+</html>
+

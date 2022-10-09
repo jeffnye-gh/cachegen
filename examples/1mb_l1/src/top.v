@@ -10,14 +10,18 @@ module top;
 `include "locals.h"   //other enum like vars
 
 localparam integer MAX = 5000;
-localparam integer MM_ADDR_WIDTH    = 20;
-localparam integer EXP_MM_ENTRIES   = 1024;
-localparam integer EXP_DATA_ENTRIES = 256;
+localparam integer MM_ADDR_WIDTH     = 20;
+localparam integer EXP_MM_ENTRIES    = 1024;
+localparam integer EXP_DATA_ENTRIES  = 256;
+
+localparam integer L1_READ_HIT_LAT   = 1;
+localparam integer L1_WRITE_HIT_TPUT = 1;
+
+localparam integer MM_READ_LAT       = 4;
+localparam integer MM_WRITE_TPUT     = 4;
 // ------------------------------------------------------------------------
 // Test controls
 // ------------------------------------------------------------------------
-//localparam _bypass_test = 1'b0;
-//localparam _tag_rw_test = 1'b0;
 localparam _basic_tests        = 1'b1;
 localparam   _bt_lru_test      = 1'b1;
 localparam   _bt_rd_hit_test   = 1'b1;
@@ -25,9 +29,13 @@ localparam   _bt_wr_hit_test   = 1'b1;
 localparam   _bt_rd_alloc_test = 1'b0;
 localparam   _bt_wr_alloc_test = 1'b0;
 // ----------------------------------------------------------------------
-integer count;
-integer lru_errs,basic_rd_hit_errs,basic_wr_hit_errs;
-integer basic_rd_alloc_errs,basic_wr_alloc_errs;
+int count;
+int lru_errs            = -1;
+int basic_rd_hit_errs   = -1;
+int basic_wr_hit_errs   = -1;
+int basic_rd_alloc_errs = -1;
+int basic_wr_alloc_errs = -1;
+// ----------------------------------------------------------------------
 reg master_clk,clk,reset;
 string testName;
 // ----------------------------------------------------------------------
@@ -87,16 +95,15 @@ initial begin
   tb_cc_read     = 1'b0;
   tb_cc_write    = 1'b0;
 
-  count = 0;
+  capture_a_index = 0;
+  capture_d_index = 0;
 
-  lru_errs = 0;
-  basic_rd_hit_errs   = 0;
-  basic_wr_hit_errs   = 0;
-  basic_rd_alloc_errs = 0;
-  basic_wr_alloc_errs = 0;
+  count = 0;
 
   $dumpfile("csim.vcd");
   $dumpvars(0,top);
+
+  run_tests();
 end
 
 // ------------------------------------------------------------------------
@@ -108,85 +115,53 @@ always @(posedge clk) count <= count + 1;
 integer capture_a_index,capture_d_index;
 wire [31:0] mm_capture_addr_0 = mm_actual_capture_addr[0];
 wire [31:0] mm_capture_addr_1 = mm_actual_capture_addr[1];
-reg  [31:0] tb_cc_address_q;
 // ------------------------------------------------------------------------
-wire rd_capture = tb_cc_read & cc_tb_req_hit & cc_tb_readdata_valid;
-wire wr_capture = 1'b0; //FIXME
-wire capture = rd_capture | wr_capture;
+wire capture_a = tb_cc_read & cc_tb_req_hit;
+wire capture_d = cc_tb_readdata_valid;
 // ------------------------------------------------------------------------
-
 always @(posedge clk) begin
-`ifndef EXPERIMENT
-  if(tb_cc_read) begin
+  if(capture_a) begin
     mm_actual_capture_addr[capture_a_index] <= tb_cc_address;
     capture_a_index <= capture_a_index + 1;
   end
-
-  if(cc_tb_readdata_valid) begin
+  if(capture_d) begin
     mm_actual_capture_data[capture_d_index] <= cc_tb_readdata;
-    capture_d_index <= capture_d_index+1;
-  end
-`else
-  if(capture) begin
-    mm_actual_capture_data[capture_d_index] <= cc_tb_readdata;
-    mm_actual_capture_addr[capture_a_index] <= tb_cc_address;
-    //separate indexes are redundant in this mode
-    capture_a_index <= capture_a_index + 1;
     capture_d_index <= capture_d_index + 1;
   end
-`endif
 end
 // ------------------------------------------------------------------------
-string tb_cmd_txt;
-always @(tb_cmd or reset) begin
-  if(reset) tb_cmd_txt = "RST "; 
-  else begin
-    case(tb_cmd) 
-      TB_CMD_NOP:       tb_cmd_txt = "TB_NOP ";
-      TB_CMD_NORMAL:    tb_cmd_txt = "TB_NRML";
-      TB_CMD_BYPASS:    tb_cmd_txt = "TB_BYP ";
-      TB_CMD_INVAL:     tb_cmd_txt = "TB_INV ";
-      TB_CMD_INVAL_ALL: tb_cmd_txt = "TB_INVA";
-      TB_CMD_DIRTY:     tb_cmd_txt = "TB_DRTY";
-      TB_CMD_CLEAN:     tb_cmd_txt = "TB_CLN ";
-      TB_CMD_FLUSH:     tb_cmd_txt = "TB_FLSH";
-      TB_CMD_FLUSH_ALL: tb_cmd_txt = "TB_FLSA";
-      TB_CMD_WBACK:     tb_cmd_txt = "TB_WBCK";
-      TB_CMD_TERM:      tb_cmd_txt = "TB_TERM";
-      default:          tb_cmd_txt = "TB_XXXX";
-    endcase 
+task run_tests;
+begin
+  nop(1);
+  initState();
+  nop(1);
+  testName = "None";
+  nop(1);
+  if(_basic_tests) begin
+    if(_bt_lru_test)      basicLruTest(lru_errs,0);
+    if(_bt_rd_hit_test)   basicRdHitTest(basic_rd_hit_errs,0);
+    if(_bt_wr_hit_test)   basicWrHitTest(basic_wr_hit_errs,0);
+    if(_bt_rd_alloc_test) basicRdAllocTest(basic_rd_alloc_errs,1);
+    if(_bt_wr_alloc_test) basicWrAllocTest(basic_wr_alloc_errs,0);
   end
+  nop(5);
+  terminate();
 end
+endtask
+// ------------------------------------------------------------------------
 // ------------------------------------------------------------------------
 always @(count) begin
-
   if(count == 0) imsg("CACHE SIM START");
-
-  testName = "None";
   if(count < 3)  reset = 1'b1; 
   else           reset = 1'b0;
-
-  if(count > 2) begin
-
-    initState();
-//    if(_bypass_test) bypassTest(8); 
-//    if(_tag_rw_test) tagRwTest(8); 
-    if(_basic_tests) begin
-      if(_bt_lru_test)      basicLruTest(lru_errs,0);
-      if(_bt_rd_hit_test)   basicRdHitTest(basic_rd_hit_errs,0);
-      if(_bt_wr_hit_test)   basicWrHitTest(basic_wr_hit_errs,0);
-      if(_bt_rd_alloc_test) basicRdAllocTest(basic_rd_alloc_errs,1);
-      if(_bt_wr_alloc_test) basicWrAllocTest(basic_wr_alloc_errs,0);
-    end
-    terminate();
-  end
-
   if(count > MAX) terminate();
 end
 // ----------------------------------------------------------------
 _probes _prb();
 // ----------------------------------------------------------------
-cache dut0(
+cache #(.READ_HIT_LAT(L1_READ_HIT_LAT),
+        .WRITE_HIT_TPUT(L1_WRITE_HIT_TPUT)
+) dut0(
   //outputs
   .rd      (cc_tb_readdata),
   .rd_valid(cc_tb_readdata_valid),
@@ -220,7 +195,10 @@ cache dut0(
 // ----------------------------------------------------------------------
 // ----------------------------------------------------------------------
 //mainmemory #(.MEM_RANGE(MM_MEM_RANGE)) mm0(
-mainmemory #(.ENTRIES(EXP_MM_ENTRIES)) mm0(
+mainmemory #(.ENTRIES(EXP_MM_ENTRIES),
+             .READ_LAT(MM_READ_LAT),
+             .WRITE_TPUT(MM_WRITE_TPUT)
+) mm0(
 
   .rd   (mm_cc_readdata),
   .valid(mm_cc_readdatavalid),
@@ -229,8 +207,8 @@ mainmemory #(.ENTRIES(EXP_MM_ENTRIES)) mm0(
   .a     (cc_mm_address),
   .be    (cc_mm_byteenable),
   .wd    (cc_mm_writedata),
-  .write (cc_mm_read),
-  .read  (cc_mm_write),
+  .read  (cc_mm_read),
+  .write (cc_mm_write),
 
   .clk(clk)
 );

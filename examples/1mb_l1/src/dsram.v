@@ -1,6 +1,5 @@
 // ---------------------------------------------------------------------------
 // Data array model, one for each way
-// This supports single cycle fills and byte writes
 //
 // 1 cycle load/use
 // ---------------------------------------------------------------------------
@@ -21,11 +20,12 @@ module dsram #(
 
 localparam ENTRIES = 2 ** ADDR_WIDTH;
 
-reg [255:0] ram[0:ENTRIES-1];
-reg [255:0] rd_tmp;
-reg read_q;
+reg  [255:0] ram[0:ENTRIES-1];
+reg  [255:0] rd_tmp;
+reg  read_q;
 
-assign rd = read_q ? rd_tmp : {256{1'bz}};
+wire  [255:0] xrd;
+assign rd = read_q ? rd_tmp : {256{1'bx}};
 
 // -----------------------------------------------------------------------
 // FIXME: figure out how to write a generate statement icarus verilog likes

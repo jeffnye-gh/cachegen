@@ -1,0 +1,21 @@
+{ signal: [
+  { name: "clk", wave: 'p...........' },
+    [ "TOP",
+      { name: "tb_cc_write",         wave: '01.....1110.' },
+      { name: "tb_cc_address",       wave: 'x=.....===xx', data: ["a1","a2","a3","a4"] },
+      { name: "cc_tb_req_hit",       wave: '00000011110.' },
+      { name: "stall",               wave: '===...====xx', data: ["","miss","stall","hit","hit","hit","hit"] },
+      { name: "tb_cc_writedata",     wave: 'x=.....===x', data: ["wd1","wd2","wd3","wd4"] },
+    ],
+    [ "CC",
+      { name: "tag_out",  wave: 'x=.....===xx', data: ["wrt1",  "wrt2", "wrt3","wrt4"] },
+      { name: "dary_wd",  wave: 'x=.....===xx',  data: ["wd1","wd2","wd3","wd4"] },
+    ],
+    [ "TB",
+      { name: "capture_a", wave: '0...........'   },
+      { name: "capture_d", wave: '0...........'  }
+    ]
+  ],
+  foot: { text: ["tspan", "WRITE MISS w/ stall"], tock:0 }
+}
+

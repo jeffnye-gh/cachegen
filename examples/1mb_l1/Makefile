@@ -15,6 +15,7 @@ WV_VCD_FILE  = -f csim.vcd
 WV_SAVE_FILE = -a csim.gtkw
 #WV_RC_FILE   = -r csim.rc
 
+DROM = ../../../../exttools/wavedrom/wavedrom-editor
 WAVE_OPTS = $(WV_VCD_FILE) $(WV_SAVE_FILE) $(WV_RC_FILE)
 #WAVE_OPTS = $(WV_VCD_FILE) $(WV_SAVE_FILE) $(WV_RC_FILE)
 
@@ -35,6 +36,9 @@ data:
 waves: wave
 wave:
 	$(WAVE) $(WAVE_OPTS)  &
+
+drom:
+	$(DROM)
 
 _IVL_OPTS = -g2012  -I./inc $(IVL_DEF) $(VLIBS)
 one:

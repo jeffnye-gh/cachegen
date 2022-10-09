@@ -1,35 +1,30 @@
 // vi:ft=verilog:
 // -----------------------------------------------------------------
 `include "sim_cntrl.h"
+`include "functions.h"
 // =================================================================
 // TASKS
 // =================================================================
 task rd_req(input [31:0] a,input [3:0] be,input verbose=0);
+int watchdog;
 begin
+  watchdog = 0;
   if(verbose) $display("-I: rd req : a:%08x  be:%04b",a,be);
-`ifdef EXPERIMENT
-  while(!(cc_tb_readdata_valid && cc_tb_req_hit)) begin
-    top.tb_cc_address    = a;
-    top.tb_cc_byteenable = be;
-    top.tb_cc_read       = 1'b1;
-    top.tb_cc_write      = 1'b0;
-    @(posedge clk);
-  end
-`else
-  top.tb_cc_address    = a;
-  top.tb_cc_byteenable = be;
-  top.tb_cc_read       = 1'b1;
-  top.tb_cc_write      = 1'b0;
-  @(posedge clk);
-`endif
-  //#1 so the signal has enough hold for the simulator to catch it
-  top.tb_cc_read       = #1 1'b0;
-  top.tb_cc_write      = #1 1'b0;
+  top.tb_cc_address    <= `FF a;
+  top.tb_cc_byteenable <= `FF be;
+  top.tb_cc_read       <= `FF 1'b1;
+  top.tb_cc_write      <= `FF 1'b0;
+  do begin
+    @(posedge clk); 
+    ++watchdog;
+    if(watchdog > 1000) begin watchdog_err("rd_req"); $finish; end
+  end while(!cc_tb_req_hit);
 end
 endtask
 // --------------------------------------------------------------------------
 // --------------------------------------------------------------------------
 task wr_req(input [31:0] a,input [3:0] be,input [31:0] wd,input verbose=0);
+int watchdog=0;
 begin
   if(verbose) $display("-I: wr req : a:%08x  be:%04b",a,be);
   top.tb_cc_address    = a;
@@ -37,10 +32,11 @@ begin
   top.tb_cc_read       = 1'b0;
   top.tb_cc_write      = 1'b1;
   top.tb_cc_writedata  = wd;
-  @(posedge clk);
-  top.tb_cc_read       = #1 1'b0;
-  top.tb_cc_write      = #1 1'b0;
-//  top.tb_cc_address    = #1 31'bx;
+  do begin
+    @(posedge clk); 
+    ++watchdog;
+    if(watchdog > 1000) begin watchdog_err("wr_req"); $finish; end
+  end while(!cc_tb_req_hit);
 end
 endtask
 // --------------------------------------------------------------------------
@@ -95,7 +91,7 @@ begin
   for(i=0;i<cnt;i=i+1) begin
     $display("%0d : v:%04b m:%04b lru:%03b",
       i,
-      top.dut0.bits0.vbits[i],
+      top.dut0.valid0.regs[i],
       top.dut0.dirty0.regs[i],
       top.dut0.lrurf0.regs[i]);
   end
@@ -111,7 +107,7 @@ begin
   for(i=0;i<EXP_DATA_ENTRIES;i=i+1) begin
     top.dut0.lrurf0.regs[i] = 3'bx;
     top.dut0.dirty0.regs[i] = 4'bx;
-    top.dut0.bits0.vbits[i] = 4'bx; 
+    top.dut0.valid0.regs[i] = 4'bx; 
   end
 end
 endtask
@@ -127,7 +123,7 @@ begin
   for(i=0;i<EXP_DATA_ENTRIES;i=i+1) begin
     top.dut0.lrurf0.regs[i] = local_bits[i][2:0];
     top.dut0.dirty0.regs[i] = local_bits[i][6:3];
-    top.dut0.bits0.vbits[i] = local_bits[i][10:7];
+    top.dut0.valid0.regs[i] = local_bits[i][10:7];
   end
 end
 endtask
@@ -413,7 +409,7 @@ begin
                         top.dut0.tags[1].tag.ram[i],
                         top.dut0.tags[0].tag.ram[i] };
 
-      vbits = top.dut0.bits0.vbits[i];
+      vbits = top.dut0.valid0.regs[i];
       mbits = top.dut0.dirty0.regs[i];
       lbits = top.dut0.lrurf0.regs[i];
       local_bits[i] = { vbits, mbits, lbits }; 
@@ -519,14 +515,13 @@ endtask
 task nop(input int count,input int verbose=0);
 integer i;
 begin
-  for(i=0;i<count;i=i+1) begin
-    tb_cmd = TB_CMD_NOP;
-    tb_cc_read     = 1'b0;
-    tb_cc_write    = 1'b0;
-    tb_cc_ram_test = 1'b0;
-    if(verbose) $display("-I: NOP");
-    @(posedge clk);
-  end
+  tb_cmd = TB_CMD_NOP;
+  tb_cc_read     = 1'b0;
+  tb_cc_write    = 1'b0;
+  tb_cc_ram_test = 1'b0;
+  if(verbose) $display("-I: NOP");
+  //@(posedge clk);
+  for(i=0;i<count;i=i+1) @(posedge clk);
 end
 endtask
 // -----------------------------------------------------------------
@@ -535,17 +530,17 @@ task terminate;
 string msg,pfx;
 integer total_errs;
 begin
-  total_errs = lru_errs
-             + basic_rd_hit_errs
-             + basic_wr_hit_errs
-             + basic_rd_alloc_errs
-             + basic_wr_alloc_errs
+  total_errs = abserr(lru_errs,1000)
+             + abserr(basic_rd_hit_errs,1000) 
+             + abserr(basic_wr_hit_errs,1000)
+             + abserr(basic_rd_alloc_errs,1000)
+             + abserr(basic_wr_alloc_errs,1000)
              ;
 
   pfx = "-I:";
   msg = "PASS";
 
-  if(total_errs > 0) begin
+  if(total_errs !== 0) begin
     pfx = "-E: ";
     msg = "FAIL";
   end
@@ -569,6 +564,16 @@ end
 endtask
 // -----------------------------------------------------------------
 // -----------------------------------------------------------------
+task initTest(input string tn,inout errs);
+begin
+  errs = 0;
+  nop(4);
+  testName = tn;
+  beginTestMsg(testName);
+end
+endtask
+// -----------------------------------------------------------------
+// -----------------------------------------------------------------
 task beginTestMsg(input string testName);
 begin
   $display("-I: BEGIN TEST : %014s",testName);
@@ -586,11 +591,14 @@ end
 endtask
 // -----------------------------------------------------------------
 // -----------------------------------------------------------------
-task imsg( input string m);
-  begin $display("-I: %0s",m); end
-endtask
+task imsg( input string m); begin $display("-I: %0s",m); end endtask
+task emsg( input string m); begin $display("-E: %0s",m); end endtask
 // -----------------------------------------------------------------
-// -----------------------------------------------------------------
-task emsg( input string m);
-  begin $display("-E: %0s",m); end
+task watchdog_err(input string m);
+begin
+  $display("-E: ###################################################");
+  $display("-E: watch dog time out in %0s",m);
+  $display("-E: ###################################################");
+  $finish;
+end
 endtask

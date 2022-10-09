@@ -2,6 +2,9 @@
 `ifndef SIM_CNTRL
 `define SIM_CNTRL 1
 
+`define FF 
+//`define FF #1
+
 `define ENABLE_DUMP 1
 `define BASIC_TESTS 1
 `define TAG_RW_TEST 1

@@ -8,13 +8,15 @@
 //        parameterized model
 // ---------------------------------------------------------------------------
 module mainmemory #(
-  parameter ENTRIES = 256
+  parameter ENTRIES = 256,
+  parameter READ_LAT   = 2, //FIXME: this is placeholder
+  parameter WRITE_TPUT = 2  //FIXME: this is placeholder
 )
 (
   output wire [255:0] rd,
-  output reg  valid,
+  output reg          valid,
 
-  input  wire [31:0] a,
+  input  wire [31:0]  a,
   input  wire [31:0]  be,
   input  wire [255:0] wd,
   input  wire         write,
@@ -29,7 +31,8 @@ reg [255:0] rd_q,rd_q2;
 reg [31:0] aq;
 reg read_q;
 
-assign rd = valid ? rd_q2 : {256{1'bz}};
+
+assign rd = valid ? rd_q2 : {256{1'bx}};
 
 // -----------------------------------------------------------------------
 // FIXME: figure out how to write a generate statement icarus verilog likes

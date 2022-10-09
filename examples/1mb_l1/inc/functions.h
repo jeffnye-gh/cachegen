@@ -88,4 +88,18 @@ begin
   onehot = (cnt === 1);
 end
 endfunction
+// -----------------------------------------------------------------
+function int abs(input int i);
+begin
+  if(i >= 0) abs = i;
+  else abs = -1*i;
+end
+endfunction
+// -----------------------------------------------------------------
+function int abserr(input int i,input int err=1000);
+begin
+  if(i >= 0) abserr = i;
+  else       abserr = err;
+end
+endfunction
 `endif
