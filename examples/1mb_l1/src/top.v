@@ -26,7 +26,7 @@ localparam _basic_tests        = 1'b1;
 localparam   _bt_lru_test      = 1'b1;
 localparam   _bt_rd_hit_test   = 1'b1;
 localparam   _bt_wr_hit_test   = 1'b1;
-localparam   _bt_rd_alloc_test = 1'b0;
+localparam   _bt_rd_alloc_test = 1'b1;
 localparam   _bt_wr_alloc_test = 1'b0;
 // ----------------------------------------------------------------------
 reg lru_flag, basic_rd_hit_flag,basic_wr_hit_flag,basic_rd_alloc_flag,
@@ -44,7 +44,6 @@ reg master_clk,clk,reset;
 string testName;
 // ----------------------------------------------------------------------
 reg [3:0] tb_cmd;
-reg tb_cc_ram_test;
 // ----------------------------------------------------------------------
 reg  [31:0]  tb_cc_address;
 reg  [3:0]   tb_cc_byteenable;
@@ -95,7 +94,6 @@ initial begin
 
   tb_cmd = TB_CMD_NOP;
 
-  tb_cc_ram_test = 1'b0;
   tb_cc_read     = 1'b0;
   tb_cc_write    = 1'b0;
 
@@ -142,9 +140,6 @@ end
 // ------------------------------------------------------------------------
 task run_tests;
 begin
-  nop(1);
-  initState();
-  nop(1);
   testName = "None";
   nop(1);
   if(_basic_tests) begin
@@ -159,12 +154,12 @@ begin
       basicWrHitTest(basic_wr_hit_errs,basic_wr_hit_flag,0);
 
     if(_bt_rd_alloc_test)
-      basicRdAllocTest(basic_rd_alloc_errs,basic_rd_alloc_flag,1);
+      basicRdAllocTest(basic_rd_alloc_errs,basic_rd_alloc_flag,0);
 
     if(_bt_wr_alloc_test)
       basicWrAllocTest(basic_wr_alloc_errs,basic_wr_alloc_flag,0);
   end
-  nop(5);
+  nop(1);
   terminate();
 end
 endtask
@@ -183,11 +178,11 @@ cache #(.READ_HIT_LAT(L1_READ_HIT_LAT),
         .WRITE_HIT_TPUT(L1_WRITE_HIT_TPUT)
 ) dut0(
   //outputs
-  .rd      (cc_tb_readdata),
-  .rd_valid(cc_tb_readdata_valid),
-  .req_hit (cc_tb_req_hit),
-  .req_miss(cc_tb_req_miss),
-  .req_mod (cc_tb_req_mod),
+  .rd        (cc_tb_readdata),
+  .rd_valid_d(cc_tb_readdata_valid),
+  .req_hit_d (cc_tb_req_hit),
+  .req_miss_d(cc_tb_req_miss),
+  .req_mod_d (cc_tb_req_mod),
 
   //from TB 
   .a    (tb_cc_address),
@@ -196,14 +191,12 @@ cache #(.READ_HIT_LAT(L1_READ_HIT_LAT),
   .write(tb_cc_write),
   .wd   (tb_cc_writedata),
 
-  .ram_test(tb_cc_ram_test),
-
   //from cache to mainmemory
-  .mm_a    (cc_mm_address),
-  .mm_wd   (cc_mm_writedata),
-  .mm_write(cc_mm_write),
-  .mm_read (cc_mm_read),
-  .mm_be   (cc_mm_byteenable),
+  .mm_a      (cc_mm_address),
+  .mm_be     (cc_mm_byteenable),
+  .mm_read_d (cc_mm_read),
+  .mm_write_d(cc_mm_write),
+  .mm_wd     (cc_mm_writedata),
 
   //from main to L1, fill
   .mm_rd (mm_cc_readdata),

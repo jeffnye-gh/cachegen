@@ -13,7 +13,7 @@ module lrurf
   output reg  [2:0]  rd,
 
   input  wire [12:0] wa,
-  input  wire [3:0]  way_hit,
+  input  wire [3:0]  way_sel,
 
   input  wire [12:0] ra,
   input  wire        wr,
@@ -40,7 +40,7 @@ assign rd = regs[ra];
 // access to way3    b2=1  b1=1   b0=b0
 // ---------------------------------------------------------------------------
 always @* begin
-  casez(way_hit)
+  casez(way_sel)
     4'b???1: wd =  { 1'b0, rd[1], 1'b0       }; //WAY0
     4'b??1?: wd =  { 1'b0, rd[1], 1'b1       }; //WAY1
     4'b?1??: wd =  { 1'b1, 1'b0,  rd[0] }; //WAY2

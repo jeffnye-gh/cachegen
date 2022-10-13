@@ -29,11 +29,10 @@ module mainmemory #(
 reg [255:0] ram[0:ENTRIES-1];
 reg [255:0] rd_q,rd_q2;
 reg [31:0] aq;
-reg read_q;
+reg read_q,read_q2;
 
-
-assign rd = valid ? rd_q2 : {256{1'bx}};
-
+assign rd = read_q2 ? rd_q2 : {256{1'bx}};
+assign valid = read_q2;
 // -----------------------------------------------------------------------
 // FIXME: figure out how to write a generate statement icarus verilog likes
 //        it does not like my multidimension syntax
@@ -50,12 +49,11 @@ assign rd = valid ? rd_q2 : {256{1'bx}};
 //For now a little bit of python , see hacks.py
 always @(posedge clk) begin
   aq   <= a;
-
   rd_q <= ram[a];
   rd_q2<= rd_q;
 
-  read_q <= read;
-  valid  <= read_q;
+  read_q  <= read & !read_q;
+  read_q2 <= read_q;
 
   ram[aq][  7:  0] <= write & be[0]  ? wd[  7:  0] : ram[aq][  7:  0];
   ram[aq][ 15:  8] <= write & be[1]  ? wd[ 15:  8] : ram[aq][ 15:  8];

@@ -7,10 +7,13 @@
 // =================================================================
 task rd_req(input [31:0] a,input [3:0] be,input verbose=0);
 int watchdog;
+int debug;
 begin
+  debug = 0;
   watchdog = 0;
   if(verbose) $display("-I: rd req : a:%08x  be:%04b",a,be);
   top.tb_cc_address    <= `FF a;
+  if(debug)$display("RD ADDR %08x",a);
   top.tb_cc_byteenable <= `FF be;
   top.tb_cc_read       <= `FF 1'b1;
   top.tb_cc_write      <= `FF 1'b0;
@@ -79,6 +82,65 @@ begin
   else if(way == 2) data = top.dut0.dsram2.ram[index];
   else if(way == 3) data = top.dut0.dsram3.ram[index];
   $display("-I: show way%0d d:%032x",way,data);
+end
+endtask
+// --------------------------------------------------------------------------
+// check a rd miss allocate for invalid way
+// 4 valid bits, 4 dirty bits and 3 lru bits init data
+// -----------------------------------------------------------------
+task chk_alloc;
+input [1:0]  way;
+input [12:0] idx;
+input [13:0] tag;
+input [3:0]  val;
+input [3:0]  mod;
+input [2:0]  lru;
+input integer enb;
+inout integer errs;
+input integer verbose;
+
+reg [13:0] act_tag;
+reg [3:0]  act_val;
+reg [3:0]  act_mod;
+reg [2:0]  act_lru;
+int m_tag,m_val,m_mod,m_lru,v;
+begin
+  if(enb) begin
+    nop(1);
+    v = verbose;
+    if(v) $display("-I: chk_alloc");
+    case(way)
+      2'h0: act_tag = top.dut0.tags[0].tag.ram[idx];
+      2'h1: act_tag = top.dut0.tags[1].tag.ram[idx];
+      2'h2: act_tag = top.dut0.tags[2].tag.ram[idx];
+      2'h3: act_tag = top.dut0.tags[3].tag.ram[idx];
+    endcase
+    act_val = top.dut0.valid0.regs[idx];
+    act_mod = top.dut0.dirty0.regs[idx];
+    act_lru = top.dut0.lrurf0.regs[idx];
+  
+    m_tag = act_tag === tag;
+    m_val = act_val === val;
+    m_mod = act_mod === mod;
+    m_lru = act_lru === lru;
+  
+    if(!m_tag) $display("-E: tag e:%0x a:%0x FAIL",tag,act_tag);
+    else if(v) $display("-I: tag e:%0x a:%0x PASS",tag,act_tag);
+  
+    if(!m_val) $display("-E: val e:%04b a:%04b FAIL",val,act_val);
+    else if(v) $display("-I: val e:%04b a:%04b PASS",val,act_val);
+  
+    if(!m_mod) $display("-E: mod e:%04b a:%04b FAIL",mod,act_mod);
+    else if(v) $display("-I: mod e:%04b a:%04b PASS",mod,act_mod);
+  
+    if(!m_lru) $display("-E: lru e:%04b a:%04b FAIL",lru,act_lru);
+    else if(v) $display("-I: lru e:%04b a:%04b PASS",lru,act_lru);
+  
+    if(!m_tag) errs += 1;
+    if(!m_val) errs += 1;
+    if(!m_mod) errs += 1;
+    if(!m_lru) errs += 1;
+  end
 end
 endtask
 // --------------------------------------------------------------------------
@@ -519,7 +581,6 @@ begin
   tb_cmd = TB_CMD_NOP;
   tb_cc_read     = 1'b0;
   tb_cc_write    = 1'b0;
-  tb_cc_ram_test = 1'b0;
   if(verbose) $display("-I: NOP");
   //@(posedge clk);
   for(i=0;i<count;i=i+1) @(posedge clk);
@@ -580,9 +641,9 @@ task beginTestMsg(input string tn,inout errs,inout flag);
 begin
   errs = 0;
   flag = 1'b1;
-  nop(4);
   testName = tn;
   $display("-I: BEGIN TEST : %014s",testName);
+  nop(3);
 end
 endtask
 // -----------------------------------------------------------------

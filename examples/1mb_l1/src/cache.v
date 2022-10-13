@@ -21,11 +21,11 @@ module cache #(
 (
   //Back to PE/TB
   output reg   [31:0]  rd,
-  output wire          rd_valid,
+  output wire          rd_valid_d,
 
-  output wire         req_hit,   //status output
-  output wire         req_miss,
-  output wire         req_mod,
+  output wire         req_hit_d,   //status output
+  output wire         req_miss_d,
+  output wire         req_mod_d,
 
   //From PE/TB
   input  wire [31:0]  a,
@@ -34,15 +34,12 @@ module cache #(
   input  wire         write,
   input  wire [31:0]  wd,
 
-  //From TB
-  input  wire ram_test,
-
   //From cache to main memory
   output wire [31:0]   mm_a,
-  output wire [31:0]   mm_be,    //to MM, byte enables, FIXME: needed?
-  output wire [255:0]  mm_wd,    // line eviction data
-  output wire          mm_write, //to MM, write command
-  output wire          mm_read,  //to MM, read command
+  output wire [31:0]   mm_be,      //to MM, byte enables, FIXME: needed?
+  output wire [255:0]  mm_wd,      // line eviction data
+  output wire          mm_write_d, //to MM, write command
+  output wire          mm_read_d,  //to MM, read command
 
   input  wire [255:0]  mm_rd,    // line fill data
   input  wire          mm_readdata_valid, //fill data valid
@@ -60,11 +57,11 @@ localparam integer WAYS =  4;
 // ------------------------------------------------------------------------
 // FIXME: temp
 // ------------------------------------------------------------------------
-wire       fsm_cc_fill = 1'b0;
+//wire       fsm_cc_fill = 1'b0;
 wire [3:0] fsm_cc_tag_write = 4'b0;
 assign mm_be = 32'hFFFFFFFF;
 
-assign mm_a = a;  
+assign mm_a = {a[31:6],5'b0};  
 // ------------------------------------------------------------------------
 wire [CACHELINE_BITS-1:0] fsm_cc_wd;
 wire [CACHELINE_BITS-1:0] dary_out[3:0];
@@ -72,23 +69,18 @@ wire [CACHELINE_BITS-1:0] dary_out[3:0];
 reg  [TAG_BITS-1:0] ag_wd;
 wire [TAG_BITS-1:0] tag_out_d[3:0];
 
-wire [3:0] tag_write;
-
 wire lru_wr,mod_wr;
 wire [3:0] val_out_d;
 wire [3:0] mod_out_d;
 wire [2:0] lru_out_d;
 
-wire req_hit_d;
-wire req_miss_d;
-wire req_mod_d;
 wire fsm_mm_read_d;
 wire fsm_mm_write_d;
 
 wire fsm_cc_readdata_valid;
 
 wire fsm_cc_ary_write_d;
-wire fsm_cc_tag_write_d;
+//wire fsm_cc_tag_write_d;
 wire fsm_cc_val_write_d;
 wire fsm_cc_mod_write_d;
 wire fsm_cc_lru_write_d;
@@ -102,10 +94,10 @@ wire pe_flush_all;
 wire pe_invalidate;
 wire pe_invalidate_all;
 
-wire [3:0] way_hit_d;
-reg  [3:0] way_hit;
+wire [3:0] way_sel_d;
+reg  [3:0] way_sel;
 wire [3:0] way_mod_d;
-wire [3:0] pe_compare_d;
+//wire [3:0] pe_compare_d;
 // --------------------------------------------------------------------------
 // Fix up the names so it's clear what pipe stage they are in
 // --------------------------------------------------------------------------
@@ -132,16 +124,25 @@ wire                 cache_read_d = !reset & (pe_read_d | pe_write_d);
 //
 //pe_read_d is applied to the rams
 // --------------------------------------------------------------------------
-reg  [2:0]          pe_offset;
-reg  [3:0]          pe_be;
-reg  [31:0]         pe_wd;
+reg   [2:0]  pe_offset,pe_offset_q;
+reg   [3:0]  pe_be;
+reg  [31:0]  pe_wd;
+reg [255:0]  mm_rd_q;
+reg          fsm_cc_fill;
 
 wire pe_access_d = (pe_read_d | pe_write_d) & !reset;
+
 always @(posedge clk) begin
-  pe_offset <= pe_offset_d;
-  pe_be     <= pe_be_d;
-  pe_wd     <= pe_wd_d;
-  way_hit   <= way_hit_d;
+  fsm_cc_fill <= fsm_cc_fill_d;
+  mm_rd_q     <= mm_rd;
+
+  pe_offset   <= pe_offset_d;
+  pe_offset_q <= pe_offset;
+
+  pe_be   <= pe_be_d;
+  pe_wd   <= pe_wd_d;
+  way_sel <= way_sel_d;
+  mm_rd_q <= mm_rd;
 end
 // --------------------------------------------------------------------------
 // select logic
@@ -152,31 +153,23 @@ assign tag_compare_d[1] = tag_out_d[1] == pe_tag_d;
 assign tag_compare_d[2] = tag_out_d[2] == pe_tag_d;
 assign tag_compare_d[3] = tag_out_d[3] == pe_tag_d;
 
-assign pe_compare_d[0] = val_out_d[0] & tag_compare_d[0];
-assign pe_compare_d[1] = val_out_d[1] & tag_compare_d[1];
-assign pe_compare_d[2] = val_out_d[2] & tag_compare_d[2];
-assign pe_compare_d[3] = val_out_d[3] & tag_compare_d[3];
+//Way is valid and tag matches 
+assign way_sel_d[0] = pe_access_d & val_out_d[0] & tag_compare_d[0];
+assign way_sel_d[1] = pe_access_d & val_out_d[1] & tag_compare_d[1];
+assign way_sel_d[2] = pe_access_d & val_out_d[2] & tag_compare_d[2];
+assign way_sel_d[3] = pe_access_d & val_out_d[3] & tag_compare_d[3];
 
-assign way_hit_d[0] = pe_access_d & pe_compare_d[0];
-assign way_hit_d[1] = pe_access_d & pe_compare_d[1];
-assign way_hit_d[2] = pe_access_d & pe_compare_d[2]; 
-assign way_hit_d[3] = pe_access_d & pe_compare_d[3];
+//selected way is modified
+assign way_mod_d[0] = way_sel_d[0] & mod_out_d[0];
+assign way_mod_d[1] = way_sel_d[1] & mod_out_d[1];
+assign way_mod_d[2] = way_sel_d[2] & mod_out_d[2];
+assign way_mod_d[3] = way_sel_d[3] & mod_out_d[3];
 
-assign way_mod_d[0] = way_hit_d[0] & mod_out_d[0];
-assign way_mod_d[1] = way_hit_d[1] & mod_out_d[1];
-assign way_mod_d[2] = way_hit_d[2] & mod_out_d[2];
-assign way_mod_d[3] = way_hit_d[3] & mod_out_d[3];
+assign rd_valid_d = fsm_cc_readdata_valid;
+assign mm_read_d  = fsm_mm_read_d;
+assign mm_write_d = fsm_mm_write_d;
 
-//external name - just renaming
-//assign req_hit  = req_hit_d;
-assign req_hit  = 1'b1;
-assign req_miss = req_miss_d;
-assign req_mod  = req_mod_d;
-assign rd_valid = fsm_cc_readdata_valid;
-assign mm_read  = fsm_mm_read_d;
-assign mm_write = fsm_mm_write_d;
-
-assign req_hit_d  = |way_hit_d & pe_access_d;
+assign req_hit_d  = (|way_sel_d & pe_access_d) | fsm_cc_fill_d;
 assign req_miss_d = ~req_hit_d;
 assign req_mod_d  = |way_mod_d & pe_access_d;
 // --------------------------------------------------------------------------
@@ -201,6 +194,11 @@ reg [255:0] pe_line_wd;
 reg [31:0]  pe_line_be;
 
 reg [3:0] dary_write;
+reg [3:0] tag_write;
+
+reg [3:0] val_way_sel_d;
+reg [3:0] mod_way_sel_d;
+reg [3:0] lru_way_sel_d;
 
 always @* begin
 
@@ -234,42 +232,99 @@ end
 // --------------------------------------------------------------------------
 wire  [255:0] line_wd;
 wire  [31:0]  line_be;
-assign line_wd  = fsm_cc_fill ? mm_rd        : pe_line_wd; 
-assign line_be  = fsm_cc_fill ? 32'hFFFFFFFF : pe_line_be; 
+assign line_wd  = fsm_cc_fill_d ? mm_rd        : pe_line_wd; 
+assign line_be  = fsm_cc_fill_d ? 32'hFFFFFFFF : pe_line_be; 
 // --------------------------------------------------------------------------
+// select an invalid way over eviction
+// --------------------------------------------------------------------------
+reg [3:0] inval_sel_d;
+
 always @* begin
-  dary_write[0] = way_hit_d[0] & fsm_cc_ary_write_d;
-  dary_write[1] = way_hit_d[1] & fsm_cc_ary_write_d;
-  dary_write[2] = way_hit_d[2] & fsm_cc_ary_write_d;
-  dary_write[3] = way_hit_d[3] & fsm_cc_ary_write_d;
+  inval_sel_d = 4'b0;
+  casez(val_out_d)
+    4'b0???: inval_sel_d[3] = 1'b1;
+    4'b10??: inval_sel_d[2] = 1'b1;
+    4'b110?: inval_sel_d[1] = 1'b1;
+    4'b1110: inval_sel_d[0] = 1'b1;
+    default: inval_sel_d    = 4'b0;
+  endcase
+end
+// --------------------------------------------------------------------------
+wire [3:0] fill_way_sel;
+assign fill_way_sel[0] = (way_sel_d[0] | (inval_sel_d[0] & fsm_cc_fill_d));
+assign fill_way_sel[1] = (way_sel_d[1] | (inval_sel_d[1] & fsm_cc_fill_d));
+assign fill_way_sel[2] = (way_sel_d[2] | (inval_sel_d[2] & fsm_cc_fill_d));
+assign fill_way_sel[3] = (way_sel_d[3] | (inval_sel_d[3] & fsm_cc_fill_d));
+
+always @* begin
+  dary_write[0] = fsm_cc_ary_write_d & fill_way_sel[0];
+  dary_write[1] = fsm_cc_ary_write_d & fill_way_sel[1];
+  dary_write[2] = fsm_cc_ary_write_d & fill_way_sel[2];
+  dary_write[3] = fsm_cc_ary_write_d & fill_way_sel[3];
+
+  tag_write[0]  = fsm_cc_tag_write_d & fill_way_sel[0];
+  tag_write[1]  = fsm_cc_tag_write_d & fill_way_sel[1];
+  tag_write[2]  = fsm_cc_tag_write_d & fill_way_sel[2];
+  tag_write[3]  = fsm_cc_tag_write_d & fill_way_sel[3];
+
+  val_way_sel_d[0]  = fsm_cc_val_write_d & fill_way_sel[0];
+  val_way_sel_d[1]  = fsm_cc_val_write_d & fill_way_sel[1];
+  val_way_sel_d[2]  = fsm_cc_val_write_d & fill_way_sel[2];
+  val_way_sel_d[3]  = fsm_cc_val_write_d & fill_way_sel[3];
+
+  mod_way_sel_d[0]  = fsm_cc_mod_write_d & fill_way_sel[0];
+  mod_way_sel_d[1]  = fsm_cc_mod_write_d & fill_way_sel[1];
+  mod_way_sel_d[2]  = fsm_cc_mod_write_d & fill_way_sel[2];
+  mod_way_sel_d[3]  = fsm_cc_mod_write_d & fill_way_sel[3];
+
+  lru_way_sel_d[0]  = fsm_cc_lru_write_d & fill_way_sel[0];
+  lru_way_sel_d[1]  = fsm_cc_lru_write_d & fill_way_sel[1];
+  lru_way_sel_d[2]  = fsm_cc_lru_write_d & fill_way_sel[2];
+  lru_way_sel_d[3]  = fsm_cc_lru_write_d & fill_way_sel[3];
 end
 // --------------------------------------------------------------------------
 reg [255:0] line_data;
 
-always @(way_hit,dary_out[0],dary_out[1],
-                 dary_out[2],dary_out[3])
+always @(fsm_cc_fill_d,way_sel,dary_out[0],dary_out[1],
+                       dary_out[2],dary_out[3])
 begin
-  casez(way_hit)
-    4'b???1: line_data = dary_out[0];
-    4'b??1?: line_data = dary_out[1];
-    4'b?1??: line_data = dary_out[2];
-    4'b1???: line_data = dary_out[3];
+  casez({fsm_cc_fill_d,way_sel})
+    5'b1????: line_data = mm_rd;
+    5'b0???1: line_data = dary_out[0];
+    5'b0??1?: line_data = dary_out[1];
+    5'b0?1??: line_data = dary_out[2];
+    5'b01???: line_data = dary_out[3];
     default: line_data = 256'bx;
   endcase
 
 end
+reg [31:0] ard; //array read data
+reg [31:0] frd; //fill read data
 
-always @(pe_offset,line_data) begin
+always @* begin
   case(pe_offset)
-    3'b000: rd = line_data[ 31:  0];
-    3'b001: rd = line_data[ 63: 32];
-    3'b010: rd = line_data[ 95: 64];
-    3'b011: rd = line_data[127: 96];
-    3'b100: rd = line_data[159:128];
-    3'b101: rd = line_data[191:160];
-    3'b110: rd = line_data[223:192];
-    3'b111: rd = line_data[255:224];
+    3'b000: ard = line_data[ 31:  0];
+    3'b001: ard = line_data[ 63: 32];
+    3'b010: ard = line_data[ 95: 64];
+    3'b011: ard = line_data[127: 96];
+    3'b100: ard = line_data[159:128];
+    3'b101: ard = line_data[191:160];
+    3'b110: ard = line_data[223:192];
+    3'b111: ard = line_data[255:224];
   endcase
+
+  case(pe_offset_q)
+    3'b000: frd = mm_rd_q[ 31:  0];
+    3'b001: frd = mm_rd_q[ 63: 32];
+    3'b010: frd = mm_rd_q[ 95: 64];
+    3'b011: frd = mm_rd_q[127: 96];
+    3'b100: frd = mm_rd_q[159:128];
+    3'b101: frd = mm_rd_q[191:160];
+    3'b110: frd = mm_rd_q[223:192];
+    3'b111: frd = mm_rd_q[255:224];
+  endcase
+
+  rd = !rd_valid_d ? 32'bx : (!fsm_cc_fill ? ard : frd);
 end
 
 // --------------------------------------------------------------------------
@@ -315,7 +370,7 @@ bitrf valid0
 (
   .rd(val_out_d),
   .wa(pe_index_d),
-  .way_hit(way_hit_d),
+  .way_sel(val_way_sel_d),
   .ra(pe_index_d),
   .wr(fsm_cc_val_write_d),
   .in(fsm_cc_is_val_d),
@@ -326,9 +381,10 @@ bitrf valid0
 bitrf dirty0
 (
   .rd(mod_out_d),
+
   .wa(pe_index_d),
-  .way_hit(way_hit_d),
   .ra(pe_index_d),
+  .way_sel(mod_way_sel_d),
   .wr(fsm_cc_mod_write_d),
   .in(fsm_cc_is_mod_d),
   .reset(reset),
@@ -339,7 +395,7 @@ lrurf lrurf0
 (
   .rd(lru_out_d),
   .wa(pe_index_d),
-  .way_hit(way_hit_d),
+  .way_sel(lru_way_sel_d),
   .ra(pe_index_d),
   .wr(fsm_cc_lru_write_d),
   .reset(reset),
@@ -348,14 +404,13 @@ lrurf lrurf0
 // --------------------------------------------------------------------------
 // TAGS
 // --------------------------------------------------------------------------
-wire [TAG_BITS-1:0] tag_wd;
 genvar WAYVAR;
 generate for(WAYVAR=0;WAYVAR<4;WAYVAR=WAYVAR+1) begin : tags
   sram #(.DATA_WIDTH(TAG_BITS),.ADDR_WIDTH(IDX_BITS)) tag (
     .a    (pe_index_d),
-    .wd   (tag_wd),
+    .wd   (pe_tag_d),
     .rd   (tag_out_d[WAYVAR]),
-    .write(fsm_cc_tag_write[WAYVAR]),
+    .write(tag_write[WAYVAR]),
     .read (cache_read_d),
     .clk  (clk)
   ); 

@@ -12,44 +12,54 @@
 // Mod bits are also arbitrarily set
 // Tags are same as basicRdHit, this is to test invalid overriding tag match.
 //
-// index invalid way  mod    lru
-//   0       0        0111   010
-//   1       1        0100   100
-//   2       2        0010   000
-//   3       3        1111   111
-//   4       3        0111   000
-//   5       -        0000   000
-//   6       2        0100   010
-//   7       1        1110   001
-//   8       -        0010   111
-//   9       0        1001   101
-//  10       -        1100   010
-//  11       1        0111   001
-//  12       2        1100   010
-//  13       2        0101   110
-//  14       3        0010   011
-//  15       2        0100   000
+// expect results:
+//
+// tag/way index   word  way idx     tag     val        mod        lru
+// ------------------------------------------------------------------------
+// 14'h000,13'h000,3'h3   0  13'h000 14'h000 1110->1111 0111->0110 010->010
+// 14'h003,13'h000,3'h3   3  13'b000 14'h003 
+// 14'h001,13'h001,3'h7   1  13'h001 14'h001 
+// 14'h002,13'h002,3'h6   2  13'h002 14'h002 
+// 14'h000,13'h003,3'h5   0  13'h003 14'h000 
+// 14'h000,13'h004,3'h2   0  13'h004 14'h000 
+// 14'h000,13'h000,3'h3   0  13'h000 14'h000 
+// 14'h003,13'h000,3'h3   3  13'h000 14'h003 
+// 14'h001,13'h001,3'h7   1  13'h001 14'h001 
+// 14'h002,13'h002,3'h6   2  13'h002 14'h002 
+// 14'h000,13'h003,3'h5   0  13'h003 14'h000 
+// 14'h000,13'h004,3'h2   0  13'h004 14'h000 
+// 14'h001,13'h001,3'h1   1  13'h001 14'h001 
+// 14'h002,13'h005,3'h5   2  13'h005 14'h002 
+// 14'h003,13'h007,3'h3   3  13'h007 14'h003 
+// 14'h000,13'h002,3'h2   0  13'h002 14'h000 
+// 14'h001,13'h003,3'h1   1  13'h003 14'h001 
+// 14'h000,13'h003,3'h6   0  13'h003 14'h000 
+// 14'h001,13'h003,3'h7   1  13'h003 14'h001 
+// 14'h003,13'h006,3'h4   3  13'h006 14'h003 
+// 14'h000,13'h006,3'h3   0  13'h006 14'h000 
+// 14'h000,13'h002,3'h0   0  13'h002 14'h000 
+// 14'h001,13'h000,3'h1   1  13'h000 14'h001 
 //
 // --------------------------------------------------------------------------
 task basicRdAllocTest(inout int errs,inout flag,input int verbose);
 integer i,j,mod,lclerrs;
-int v;
+int v,enb;
 reg [2:0] lru_exp,lru_act;
 reg [31:0] addr;
+string state;
 begin
-  beginTestMsg("basicRdAllocTest",errs,flag);
+  enb   = 0;
+  state = "OFF";
+  if(enb) state = "ON";
 
-`ifdef EXPERIMENT
-  $display("-I: experiment is ON");
-`else
-  $display("-I: experiment is OFF");
-`endif
+  beginTestMsg("basicRdAllocTest",errs,flag);
+  $display("-I: CHECK ENABLE IS %s",state);
 
   v = verbose;
 
   clear_tb_data(0,EXP_DATA_ENTRIES,v);
 
-  nop(4);
+  nop(1);
 
   if(verbose) $display("-I: setting initial configuration ");
   //load main memory
@@ -63,36 +73,51 @@ begin
   load_initial_tags("data/basicRdAlloc.tags.memh",v);
   //load control bits
   load_initial_bits("data/basicRdAlloc.bits.memb",v);
+  top.dut0.valid0.regs[0] <= 4'b1110;
+  top.dut0.dirty0.regs[0] <= 4'b0111;
+  nop(1);
+//  $display("HERE mod bits index 0 %04b",top.dut0.dirty0.regs[0]);
+//  $display("HERE val bits index 0 %04b",top.dut0.valid0.regs[0]);
+//  $display("HERE val bits index 1 %04b",top.dut0.valid0.regs[1]);
+//  $display("HERE val bits index 2 %04b",top.dut0.valid0.regs[2]);
+//  $display("HERE val bits index 3 %04b",top.dut0.valid0.regs[3]);
 
-  nop(4);
+  nop(1);
 
-  //some arbitrary nops inserted just for simple state test
+          //tag/way index   word
+  rd_req({14'h000,13'h000,3'h3,2'h0},4'b1111,1);//miss
+//           way   index    tag      val     mod    lru
+  chk_alloc(2'h0,13'h000,14'h000,4'b1111,4'b0110,3'b010,enb,errs,v);
 
-          //tag/way index   word                  --wpWpii
-  rd_req({14'h000,13'h000,3'h3,2'h0},4'b1111,1);//
+  rd_req({14'h001,13'h001,3'h7,2'h0},4'b1111,v);
+  chk_alloc(2'h1,13'h001,14'h001,4'b1111,4'b0100,3'b001,enb,errs,v);
 
-//  rd_req({14'h003,13'h000,3'h3,2'h0},4'b1111,v);//00303000
-//  rd_req({14'h001,13'h001,3'h7,2'h0},4'b1111,v);//00107001
-//  nop(4);
-//  rd_req({14'h002,13'h002,3'h6,2'h0},4'b1111,v);//00206002
-//  nop(1);
-//  rd_req({14'h000,13'h003,3'h5,2'h0},4'b1111,v);//00005003
-//  rd_req({14'h000,13'h004,3'h2,2'h0},4'b1111,v);//00002004
-//  nop(4);
-//  rd_req({14'h001,13'h001,3'h1,2'h0},4'b1111,v);//00101001
-//  rd_req({14'h002,13'h005,3'h5,2'h0},4'b1111,v);//00205005
-//  rd_req({14'h003,13'h007,3'h3,2'h0},4'b1111,v);//00303007
-//  nop(2);
-//  rd_req({14'h000,13'h002,3'h2,2'h0},4'b1111,v);//00002002
-//  rd_req({14'h001,13'h003,3'h1,2'h0},4'b1111,v);//00101003
-//  rd_req({14'h000,13'h003,3'h6,2'h0},4'b1111,v);//00006003
-//  nop(4);
-//  rd_req({14'h001,13'h003,3'h7,2'h0},4'b1111,v);//00107003
-//  rd_req({14'h003,13'h006,3'h4,2'h0},4'b1111,v);//00304006
-//  rd_req({14'h000,13'h006,3'h3,2'h0},4'b1111,v);//00003006
-//  nop(1);
-//  rd_req({14'h000,13'h002,3'h0,2'h0},4'b1111,v);//00000002
-//  rd_req({14'h001,13'h000,3'h1,2'h0},4'b1111,v);//00101000
+  rd_req({14'h002,13'h002,3'h6,2'h0},4'b1111,v);
+  chk_alloc(2'h2,13'h002,14'h002,4'b1111,4'b0010,3'b100,enb,errs,v);
+
+  rd_req({14'h003,13'h003,3'h6,2'h0},4'b1111,v);
+  chk_alloc(2'h3,13'h003,14'h003,4'b1111,4'b0111,3'b111,enb,errs,v);
+
+  rd_req({14'h003,13'h004,3'h5,2'h0},4'b1111,v);
+  chk_alloc(2'h3,13'h004,14'h003,4'b1111,4'b0111,3'b110,enb,errs,v);
+
+  rd_req({14'h001,13'h005,3'h1,2'h0},4'b1111,v);
+  chk_alloc(2'h1,13'h005,14'h001,4'b1111,4'b0000,3'b001,enb,errs,v);
+
+  rd_req({14'h002,13'h006,3'h5,2'h0},4'b1111,v);
+  chk_alloc(2'h2,13'h006,14'h002,4'b1100,4'b0000,3'b100,enb,errs,v);
+
+  rd_req({14'h003,13'h007,3'h3,2'h0},4'b1111,v);
+  chk_alloc(2'h3,13'h007,14'h003,4'b1101,4'b0110,3'b111,enb,errs,v);
+
+  rd_req({14'h001,13'h008,3'h2,2'h0},4'b1111,v);
+  chk_alloc(2'h1,13'h008,14'h001,4'b1110,4'b0000,3'b011,enb,errs,v);
+
+  rd_req({14'h000,13'h009,3'h1,2'h0},4'b1111,v);
+  chk_alloc(2'h0,13'h009,14'h000,4'b1111,4'b1000,3'b000,enb,errs,v);
+
+  rd_req({14'h001,13'h00a,3'h1,2'h0},4'b1111,v);
+  chk_alloc(2'h1,13'h00a,14'h001,4'b1111,4'b1101,3'b011,enb,errs,v);
 
   //load expect main memory
   load_expect_main_memory("./golden/basicRdAlloc.mm.memh",v);
@@ -111,12 +136,12 @@ begin
 
   nop(4); //let state propagate
 
-  check_main_memory (errs,0,1,v);
-  check_data_arrays (errs,0,1,v);
+  check_main_memory (errs,0,15,v);
+//  check_data_arrays (errs,0,15,v);
   //check tags and bits
-  check_tb_tags_bits(errs,0,1,v);
+  check_tb_tags_bits(errs,0,15,v);
   //check capture address and data
-  check_tb_capture_info (errs,0,1,v);
+  check_tb_capture_info (errs,0,11,v);
 
   nop(4);
 end
@@ -134,7 +159,7 @@ begin
   v = verbose;
   clear_tb_data(0,EXP_DATA_ENTRIES,v);
 
-  nop(4);
+  nop(1);
 
 //  if(verbose) $display("-I: setting initial configuration ");
 //  $readmemh("data/dsram0.cfg0.memh",top.dut0.dsram0.ram);
@@ -256,7 +281,7 @@ begin
   load_initial_tags("data/basicLru.tags.memh",verbose);
   load_initial_bits("data/basicLru.bits.memb",verbose);
 
-  nop(4);
+  nop(1);
 
   _byte = 2'b00;
   word  = 3'b000;
@@ -311,7 +336,7 @@ begin
   end
 
   endTestMsg(testName,errs,flag);
-  nop(4);
+  nop(1);
 end
 endtask
 // --------------------------------------------------------------------------
@@ -337,7 +362,7 @@ begin
 
   clear_tb_data(0,EXP_DATA_ENTRIES,v);
 
-  nop(4);
+  nop(1);
 
   if(verbose) $display("-I: setting initial configuration ");
   $readmemh("data/basicRdHit.dsram0.memh",top.dut0.dsram0.ram);
@@ -401,7 +426,7 @@ begin
 
   //$display("HERE basicRdHitTest");
   //show_line(0,0);
-  nop(4);
+  nop(1);
 end
 endtask
 // --------------------------------------------------------------------------
@@ -457,7 +482,7 @@ begin
   load_initial_tags("data/basicWrHit.tags.memh",v);
   load_initial_bits("data/basicWrHit.bits.memb",v);
 
-  nop(4);
+  nop(1);
 
   //FIXME: I have not found why the readmemh's above are not working.
   //I see left over state from the previous read test. Uncomment to
@@ -562,7 +587,7 @@ begin
   wr_req({14'h000,13'h006,3'h3,2'h0},4'b1111,32'hffffffff,v); //i6 
   wr_req({14'h000,13'h002,3'h0,2'h0},4'b1111,32'h01020304,v); //i2 
   wr_req({14'h001,13'h000,3'h1,2'h0},4'b1111,32'h50607080,v); //i0 1001 -> 1011
-  nop(4);
+  nop(1);
 
   load_expect_dary_data("./golden/basicWrHit.d0.memh",
                         "./golden/basicWrHit.d1.memh",
@@ -572,20 +597,19 @@ begin
   load_expect_tags("./golden/basicWrHit.t.memh",v);
   load_expect_bits("./golden/basicWrHit.b.memb",v); //NOTE B file
 
-  nop(4);
+  nop(1);
 
   check_data_arrays (errs,0,16,v); 
   check_tb_tags_bits(errs,0,2,v);
 
   endTestMsg(testName,errs,flag);
-  nop(4);
+  nop(1);
 end
 endtask
 // --------------------------------------------------------------------------
 // --------------------------------------------------------------------------
-task initState;
-begin
-  testName = "initState";
-  tb_cc_ram_test = 1'b0;
-end
-endtask
+//task initState;
+//begin
+//  testName = "initState";
+//end
+//endtask

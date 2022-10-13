@@ -7,7 +7,7 @@ VLG_SRC = $(filter-out src/parts.v,$(ALL_SRC))
 #VLG_SRC = $(ALL_SRC)
 
 IVL      = iverilog
-IVL_DEF  = -DEXPERIMENT=1
+IVL_DEF  = 
 IVL_OPTS = -g2012 -s top -I./inc $(IVL_DEF) $(VLIBS)
 
 WAVE = /usr/local/gtkwave/bin/gtkwave

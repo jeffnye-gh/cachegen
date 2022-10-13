@@ -13,48 +13,25 @@ always @(top.dut0.fsm0.state) begin
     IDLE:      ps_fsm_st = "IDLE";
     WR_ALLOC:  ps_fsm_st = "WR_ALLOC";
     RD_ALLOC:  ps_fsm_st = "RD_ALLOC";
+    FILL:      ps_fsm_st = "FILL";
     WR_EVICT:  ps_fsm_st = "WR_EVICT";
     RD_EVICT:  ps_fsm_st = "RD_EVICT";
     FLUSH_ALL: ps_fsm_st = "FLUSH_ALL";
     INVAL_ALL: ps_fsm_st = "INVAL_ALL";
-    TEMP:      ps_fsm_st = "TEMP";
-    RD_HIT:    ps_fsm_st = "RD_HIT";
-    WR_HIT:    ps_fsm_st = "WR_HIT";
-    TST_READ:  ps_fsm_st = "TST_READ";
-    TST_WRITE: ps_fsm_st = "TST_WRITE";
   endcase
 end
 // ---------------------------------------------------------------------
 // ---------------------------------------------------------------------
-string ps_way_hit;
-always @(top.dut0.way_hit_d) begin
-  case(top.dut0.way_hit_d)
-    4'b0001: ps_way_hit = "WAY0";
-    4'b0010: ps_way_hit = "WAY1";
-    4'b0100: ps_way_hit = "WAY2";
-    4'b1000: ps_way_hit = "WAY3";
-    default: ps_way_hit = "x";
+string ps_way_sel;
+always @(top.dut0.way_sel_d) begin
+  case(top.dut0.way_sel_d)
+    4'b0001: ps_way_sel = "WAY0";
+    4'b0010: ps_way_sel = "WAY1";
+    4'b0100: ps_way_sel = "WAY2";
+    4'b1000: ps_way_sel = "WAY3";
+    default: ps_way_sel = "x";
   endcase
 end
-// ---------------------------------------------------------------------
-// ---------------------------------------------------------------------
-//string ps_bit_cmd;
-//always @(top.dut0.fsm_bit_cmd) begin
-//  case(top.dut0.fsm_bit_cmd)
-//    B_CMD_NOP:        ps_bit_cmd = "NOP";
-//    B_CMD_VAL:        ps_bit_cmd = "VAL";
-//    B_CMD_INVAL:      ps_bit_cmd = "INVAL";
-//    B_CMD_MOD:        ps_bit_cmd = "MOD";
-//    B_CMD_CLEAN:      ps_bit_cmd = "CLEAN";
-//    B_CMD_INVAL_ALL:  ps_bit_cmd = "INVAL_ALL";
-//    B_CMD_ALLOC:      ps_bit_cmd = "ALLOC";
-//    B_CMD_VAL_MOD:    ps_bit_cmd = "VAL_MOD";
-//    B_CMD_READ:       ps_bit_cmd = "READ";
-//    B_CMD_LRU_UP:     ps_bit_cmd = "LRU_UP";
-//    B_CMD_LRU_MOD_UP: ps_bit_cmd = "LRU_MOD_UP";
-//    default: ps_bit_cmd = "x";
-//  endcase
-//end
 // ---------------------------------------------------------------------
 //LRU bit probes, 1st 8 indexes
 // ---------------------------------------------------------------------
@@ -109,6 +86,10 @@ wire [13:0]  p_tag3_ram_1 = top.dut0.tags[3].tag.ram[1];
 wire [13:0]  p_tag3_ram_2 = top.dut0.tags[3].tag.ram[2];
 wire [13:0]  p_tag3_ram_3 = top.dut0.tags[3].tag.ram[3];
 
+wire         p_tag0_wr = top.dut0.tags[0].tag.write;
+wire         p_tag1_wr = top.dut0.tags[1].tag.write;
+wire         p_tag2_wr = top.dut0.tags[2].tag.write;
+wire         p_tag3_wr = top.dut0.tags[3].tag.write;
 // ---------------------------------------------------------------------
 // Darray probes, 4 ways, 1st 4 indexes
 // ---------------------------------------------------------------------
