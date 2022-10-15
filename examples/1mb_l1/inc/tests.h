@@ -3,6 +3,121 @@
 `include "bitcmds.h"
 `include "functions.h"
 // --------------------------------------------------------------------------
+// Write miss allocate to invalid way
+//
+// Writes to invalid ways should allocate from main memory.
+// The word in the retreived line is updated in the dary
+//
+// LRU bits are initially arbitrarily set
+// Mod bits are initially arbitrarily set
+// --------------------------------------------------------------------------
+task basicWrAllocTest(inout int errs,inout flag,input int verbose);
+integer i,j,mod,lclerrs;
+int v,enb;
+reg [2:0] lru_exp,lru_act;
+reg [31:0] addr;
+string state;
+begin
+  enb   = 1;
+  state = "OFF";
+  if(enb) state = "ON";
+
+  beginTestMsg("basicWrAllocTest",errs,flag);
+  if(verbose) $display("-I: CHECK ENABLE IS %s",state);
+
+  v = verbose;
+
+  clear_tb_data(0,EXP_DATA_ENTRIES,v);
+
+  @(posedge clk);
+  if(verbose) $display("-I: setting initial configuration ");
+  //load main memory
+  $readmemh("data/basicWrAlloc.mm.memh",top.mm0.ram);
+  //load data arrays
+  $readmemh("data/basicWrAlloc.dsram0.memh",top.dut0.dsram0.ram);
+  $readmemh("data/basicWrAlloc.dsram1.memh",top.dut0.dsram1.ram);
+  $readmemh("data/basicWrAlloc.dsram2.memh",top.dut0.dsram2.ram);
+  $readmemh("data/basicWrAlloc.dsram3.memh",top.dut0.dsram3.ram);
+  //load tags
+  load_initial_tags("data/basicWrAlloc.tags.memh",v);
+  //load control bits
+  load_initial_bits("data/basicWrAlloc.bits.memb",v);
+  top.dut0.valid0.regs[0] <= 4'b1110;
+  top.dut0.dirty0.regs[0] <= 4'b0111;
+  top.dut0.valid0.regs[10] <= 4'b1101;
+  @(posedge clk);
+  nop(1);
+
+          //tag/way index   word
+  //a:00000000
+  wr_req({14'h000,13'h000,3'h3,2'h0},4'b1111,32'h11111111,v);
+  //        way   index    tag      val     mod    lru
+  chk_alloc(2'h0,13'h000,14'h000,4'b1111,4'b0111,3'b010,enb,errs,v);
+
+  //a:00002001
+  wr_req({14'h001,13'h001,3'h7,2'h0},4'b1111,32'h22222222,v);
+  chk_alloc(2'h1,13'h001,14'h001,4'b1111,4'b0110,3'b001,enb,errs,v);
+
+  //a:00004002
+  wr_req({14'h002,13'h002,3'h6,2'h0},4'b1111,32'h23232323,v);
+  chk_alloc(2'h2,13'h002,14'h002,4'b1111,4'b0110,3'b100,enb,errs,v);
+
+  //a:00006003
+  wr_req({14'h003,13'h003,3'h6,2'h0},4'b1111,32'h34353637,v);
+  chk_alloc(2'h3,13'h003,14'h003,4'b1111,4'b1111,3'b111,enb,errs,v);
+
+  //a:00006004
+  wr_req({14'h003,13'h004,3'h5,2'h0},4'b1111,32'h45464748,v);
+  chk_alloc(2'h3,13'h004,14'h003,4'b1111,4'b1111,3'b110,enb,errs,v);
+
+  //a:00002005  way 1 index 5 be 1010
+  wr_req({14'h001,13'h005,3'h1,2'h0},4'b1010,32'hFFFFFFFF,v);
+  chk_alloc(2'h1,13'h005,14'h001,4'b1111,4'b0010,3'b001,enb,errs,v);
+
+  //a:00004006  way 2 index 6 be 0101
+  wr_req({14'h002,13'h006,3'h5,2'h0},4'b0101,32'h77777777,v);
+  chk_alloc(2'h2,13'h006,14'h002,4'b1100,4'b0100,3'b100,enb,errs,v);
+
+  //a:00006007
+  wr_req({14'h003,13'h007,3'h3,2'h0},4'b1111,32'h98979695,v);
+  chk_alloc(2'h3,13'h007,14'h003,4'b1101,4'b1110,3'b111,enb,errs,v);
+
+  //a:00002008
+  wr_req({14'h001,13'h008,3'h2,2'h0},4'b1111,32'habacadae,v);
+  chk_alloc(2'h1,13'h008,14'h001,4'b1110,4'b0010,3'b011,enb,errs,v);
+
+  //a:00000009
+  wr_req({14'h000,13'h009,3'h1,2'h0},4'b1111,32'hbeefb0da,v);
+  chk_alloc(2'h0,13'h009,14'h000,4'b1111,4'b1001,3'b000,enb,errs,v);
+
+  //a:0000200a
+  wr_req({14'h001,13'h00a,3'h1,2'h0},4'b1111,32'hab109876,v);
+  chk_alloc(2'h1,13'h00a,14'h001,4'b1111,4'b1111,3'b011,enb,errs,v);
+
+  //load expect main memory
+  load_expect_main_memory("./golden/basicWrAlloc.mm.memh",v);
+  //load expect data arrays
+  load_expect_dary_data("./golden/basicWrAlloc.d0.memh",
+                        "./golden/basicWrAlloc.d1.memh",
+                        "./golden/basicWrAlloc.d2.memh",
+                        "./golden/basicWrAlloc.d3.memh",v);
+  //load expect tags
+  load_expect_tags("./golden/basicWrAlloc.tags.memh",v);
+  //load expect control bits
+  load_expect_bits("./golden/basicWrAlloc.bits.memb",v);
+
+  nop(4); //let state propagate
+
+  check_main_memory (errs,0,15,v);
+  check_data_arrays (errs,0,15,v);
+  //check tags and bits
+  check_tb_tags_bits(errs,0,15,v);
+
+  endTestMsg(testName,errs,flag);
+  nop(4);
+end
+endtask
+// --------------------------------------------------------------------------
 // Read miss allocate to invalid way
 //
 // Reads to invalid ways should allocate from main memory and return 
@@ -49,7 +164,7 @@ begin
 
           //tag/way index   word
   //a:00000000
-  rd_req({14'h000,13'h000,3'h3,2'h0},4'b1111,1);//miss
+  rd_req({14'h000,13'h000,3'h3,2'h0},4'b1111,v);//miss
   //        way   index    tag      val     mod    lru
   chk_alloc(2'h0,13'h000,14'h000,4'b1111,4'b0110,3'b010,enb,errs,v);
 
@@ -121,99 +236,12 @@ begin
   nop(4);
 end
 endtask
-
 // --------------------------------------------------------------------------
-task basicWrAllocTest(inout int errs,inout flag,input int verbose);
-integer i,j,mod,lclerrs;
-int v;
-reg [2:0] lru_exp,lru_act;
-reg [31:0] addr;
-
-begin
-  beginTestMsg("basicWrAllocTest",errs,flag);
-  v = verbose;
-  clear_tb_data(0,EXP_DATA_ENTRIES,v);
-
-  nop(1);
-
-//  if(verbose) $display("-I: setting initial configuration ");
-//  $readmemh("data/dsram0.cfg0.memh",top.dut0.dsram0.ram);
-//  $readmemh("data/dsram1.cfg0.memh",top.dut0.dsram1.ram);
-//  $readmemh("data/dsram2.cfg0.memh",top.dut0.dsram2.ram);
-//  $readmemh("data/dsram3.cfg0.memh",top.dut0.dsram3.ram);
+// LRU rules - see README.txt
 //
-//  load_initial_tags("data/tags.cfg0.memh",v);
-//  load_initial_bits("data/bits.cfg0.memb",v);
-//
-//  nop(4);
-//
-//  //FIXME: there is a problem somewhere, where the readmemh calls
-//  //above do not reset index 0 of the lru/dirty bits. I have not found
-//  //the problem yet.
-//  @(posedge clk);
-//  top.dut0.lrurf0.regs[0] = 3'b0;
-//  top.dut0.dirty0.regs[0] = 4'b0;
-//  @(posedge clk);
-//
-//
-//  //some arbitrary nops inserted just for simple state test
-//
-//          //tag/way index   word                  --wpWpii
-//  rd_req({14'h003,13'h000,3'h3,2'h0},4'b1111,v);//00303000
-//  rd_req({14'h001,13'h001,3'h7,2'h0},4'b1111,v);//00107001
-//  nop(4);
-//  rd_req({14'h002,13'h002,3'h6,2'h0},4'b1111,v);//00206002
-//  nop(1);
-//  rd_req({14'h000,13'h003,3'h5,2'h0},4'b1111,v);//00005003
-//  rd_req({14'h000,13'h004,3'h2,2'h0},4'b1111,v);//00002004
-//  nop(4);
-//  rd_req({14'h001,13'h001,3'h1,2'h0},4'b1111,v);//00101001
-//  rd_req({14'h002,13'h005,3'h5,2'h0},4'b1111,v);//00205005
-//  rd_req({14'h003,13'h007,3'h3,2'h0},4'b1111,v);//00303007
-//  nop(2);
-//  rd_req({14'h000,13'h002,3'h2,2'h0},4'b1111,v);//00002002
-//  rd_req({14'h001,13'h003,3'h1,2'h0},4'b1111,v);//00101003
-//  rd_req({14'h000,13'h003,3'h6,2'h0},4'b1111,v);//00006003
-//  nop(4);
-//  rd_req({14'h000,13'h003,3'h6,2'h0},4'b1111,v);//00006003
-//  nop(4);
-//  rd_req({14'h001,13'h003,3'h7,2'h0},4'b1111,v);//00107003
-//  rd_req({14'h003,13'h006,3'h4,2'h0},4'b1111,v);//00304006
-//  rd_req({14'h000,13'h006,3'h3,2'h0},4'b1111,v);//00003006
-//  nop(1);
-//  rd_req({14'h000,13'h002,3'h0,2'h0},4'b1111,v);//00000002
-//  rd_req({14'h001,13'h000,3'h1,2'h0},4'b1111,v);//00101000
-//
-//
-//  load_expect_capture_data("./golden/basicRdHit.a.cfg0.memh",
-//                           "./golden/basicRdHit.d.cfg0.memh",v);
-//  load_expect_tags("./golden/basicRdHit.t.cfg0.memh",v);
-//  load_expect_bits("./golden/basicRdHit.b.cfg0.memb",v); //NOTE B file
-//
-//  nop(4); //let state propagate
-//
-//  check_tb_capture_info (errs,0,16,v); //EXP_DATA_ENTRIES);
-//  check_tb_tags_bits(errs,0,16,v); //EXP_DATA_ENTRIES);
-
-  endTestMsg(testName,errs,flag);
-  nop(4);
-end
-endtask
-// --------------------------------------------------------------------------
-//  33222222222211 11111111            
-//  10987654321098 7654321098765 432-- 
-//  ------------TT SSSSSSSSSSSSS wwwxx 
-//
-// --------------------------------------------------------------------------
-//
-// LRU rules
-// access to way0    b2=0  b1=b1  b0=0
-// access to way1    b2=0  b1=b1  b0=1   1 1 0 0 1 1
-// access to way2    b2=1  b1=0   b0=b0    
-// access to way3    b2=1  b1=1   b0=b0
-//
+// Example
 // LRU state starts at 3'b000.
-// All accesses are to index 0 ways, in this order:  3,1,2,0,3.
+// All accesses are to index 0 w/ ways, accessed in this order: 3,1,2,0,3.
 //
 //                  previous
 // read             b2  b1  b0  | next LRU   | next value

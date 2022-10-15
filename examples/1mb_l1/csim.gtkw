@@ -1,15 +1,15 @@
 [*]
 [*] GTKWave Analyzer v3.3.113 (w)1999-2022 BSI
-[*] Sat Oct 15 16:05:16 2022
+[*] Sat Oct 15 19:40:31 2022
 [*]
 [dumpfile] "/home/jeff/Development/gitbox/cachegen/examples/1mb_l1/csim.vcd"
-[dumpfile_mtime] "Sat Oct 15 16:05:08 2022"
-[dumpfile_size] 311884
+[dumpfile_mtime] "Sat Oct 15 19:39:45 2022"
+[dumpfile_size] 490669
 [savefile] "/home/jeff/Development/gitbox/cachegen/examples/1mb_l1/csim.gtkw"
-[timestart] 20894
+[timestart] 38919
 [size] 1637 831
 [pos] -1 -1
-*-10.402320 22308 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+*-10.402320 43050 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
 [treeopen] top.
 [treeopen] top.dut0.
 [treeopen] top.dut0.dirty0.
@@ -17,7 +17,7 @@
 [treeopen] top.dut0.tags[0].
 [treeopen] top.dut0.valid0.
 [sst_width] 255
-[signals_width] 465
+[signals_width] 349
 [sst_expanded] 1
 [sst_vpaned_height] 374
 @28
@@ -47,12 +47,32 @@ top.capture_d
 top._prb.dary_index0_way0[255:0]
 top._prb.dary_index0_way1[255:0]
 top._prb.dary_index0_way2[255:0]
-@23
 top._prb.dary_index0_way3[255:0]
+top.dut0.line_data[255:0]
+top.dut0.wd0_d[31:0]
+top.dut0.pe_wd_d[31:0]
+top.dut0.pe_be_d[3:0]
 @c00200
 -TAGS
-@22
+@c00022
 top.dut0.pe_tag_d[13:0]
+@28
+(0)top.dut0.pe_tag_d[13:0]
+(1)top.dut0.pe_tag_d[13:0]
+(2)top.dut0.pe_tag_d[13:0]
+(3)top.dut0.pe_tag_d[13:0]
+(4)top.dut0.pe_tag_d[13:0]
+(5)top.dut0.pe_tag_d[13:0]
+(6)top.dut0.pe_tag_d[13:0]
+(7)top.dut0.pe_tag_d[13:0]
+(8)top.dut0.pe_tag_d[13:0]
+(9)top.dut0.pe_tag_d[13:0]
+(10)top.dut0.pe_tag_d[13:0]
+(11)top.dut0.pe_tag_d[13:0]
+(12)top.dut0.pe_tag_d[13:0]
+(13)top.dut0.pe_tag_d[13:0]
+@1401200
+-group_end
 @28
 top._prb.p_tag0_wr
 @22
@@ -71,7 +91,7 @@ top._prb.p_tag2_wr
 top._prb.p_tag3_wr
 @1401200
 -TAGS
-@800200
+@c00201
 -MM
 @28
 top.mm0.read_q
@@ -80,7 +100,7 @@ top.mm0.valid
 @22
 top.mm0.rd[255:0]
 top.mm0.a[26:0]
-@1000200
+@1401201
 -MM
 @c00200
 -VAL

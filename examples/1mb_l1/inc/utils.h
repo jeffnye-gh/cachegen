@@ -400,52 +400,66 @@ begin
 
       // -------------------------------------------------------------
       if(!matchd[0]) begin
-        $display("-E:way0 exp:%032x ",     top.mm_expect_dary_0[i]);
-        $display("-E:way0 act:%032x m:%0d",top.dut0.dsram0.ram[i],
+        $display("-E:way0 exp:%032x ",    top.mm_expect_dary_0[i]);
+        $display("-E:way0 act:%032x m:%b",top.dut0.dsram0.ram[i],
                                           matchd[0]);
         errs = errs + 1;
       end else if(verbose) begin
-        $display("-I:way0 exp:%032x ",     top.mm_expect_dary_0[i]);
-        $display("-I:way0 act:%032x m:%0d",top.dut0.dsram0.ram[i],
-                                           matchd[0]);
+        $display("-I:way0 exp:%032x ",    top.mm_expect_dary_0[i]);
+        $display("-I:way0 act:%032x m:%b",top.dut0.dsram0.ram[i],
+                                          matchd[0]);
       end
-
       // -------------------------------------------------------------
       if(!matchd[1]) begin
-        $display("-E:way1 exp:%032x ",   top.mm_expect_dary_1[i]);
-        $display("-E:way1 act:%032x m:0",top.dut0.dsram1.ram[i],
-                                           matchd[1]);
+        $display("-E:way1 exp:%032x ",    top.mm_expect_dary_1[i]);
+        $display("-E:way1 act:%032x m:%b",top.dut0.dsram1.ram[i],
+                                          matchd[1]);
         errs = errs + 1;
+//        $display("-E:way1 exp:%08x_%08x_%08x_%08x_%08x_%08x_%08x_%08x ",
+//         top.mm_expect_dary_1[i][255:224],
+//         top.mm_expect_dary_1[i][223:192],
+//         top.mm_expect_dary_1[i][191:160],
+//         top.mm_expect_dary_1[i][159:128],
+//         top.mm_expect_dary_1[i][127: 96],
+//         top.mm_expect_dary_1[i][ 95: 64],
+//         top.mm_expect_dary_1[i][ 63: 32],
+//         top.mm_expect_dary_1[i][ 31:  0]);
+//        $display("-E:way1 act:%08x_%08x_%08x_%08x_%08x_%08x_%08x_%08x ",
+//         top.dut0.dsram1.ram[i][255:224],
+//         top.dut0.dsram1.ram[i][223:192],
+//         top.dut0.dsram1.ram[i][191:160],
+//         top.dut0.dsram1.ram[i][159:128],
+//         top.dut0.dsram1.ram[i][127: 96],
+//         top.dut0.dsram1.ram[i][ 95: 64],
+//         top.dut0.dsram1.ram[i][ 63: 32],
+//         top.dut0.dsram1.ram[i][ 31:  0]);
       end else if(verbose) begin
-        $display("-I:way1 exp:%032x ",     top.mm_expect_dary_1[i]);
-        $display("-I:way1 act:%032x m:%0d",top.dut0.dsram1.ram[i],
-                                           matchd[1]);
+        $display("-I:way1 exp:%032x ",    top.mm_expect_dary_1[i]);
+        $display("-I:way1 act:%032x m:%b",top.dut0.dsram1.ram[i],
+                                          matchd[1]);
       end
-
       // -------------------------------------------------------------
       if(!matchd[2]) begin
-        $display("-E:way2 exp:%032x ",   top.mm_expect_dary_2[i]);
-        $display("-E:way2 act:%032x m:0",top.dut0.dsram2.ram[i],
-                                           matchd[2]);
+        $display("-E:way2 exp:%032x ",    top.mm_expect_dary_2[i]);
+        $display("-E:way2 act:%032x m:%b",top.dut0.dsram2.ram[i],
+                                          matchd[2]);
         errs = errs + 1;
       end else if(verbose) begin
-        $display("-I:way2 exp:%032x ",     top.mm_expect_dary_2[i]);
-        $display("-I:way2 act:%032x m:%0d",top.dut0.dsram2.ram[i],
-                                           matchd[2]);
+        $display("-I:way2 exp:%032x ",    top.mm_expect_dary_2[i]);
+        $display("-I:way2 act:%032x m:%b",top.dut0.dsram2.ram[i],
+                                          matchd[2]);
       end
-
       // -------------------------------------------------------------
       if(!matchd[3]) begin
-        $display("-E:way3 exp:%032x ",     top.mm_expect_dary_3[i]);
-        $display("-E:way3 act:%032x m:%0d",top.dut0.dsram3.ram[i],
-                                           matchd[3]);
+        $display("-E:way3 exp:%032x ",    top.mm_expect_dary_3[i]);
+        $display("-E:way3 act:%032x m:%b",top.dut0.dsram3.ram[i],
+                                          matchd[3]);
         errs = errs + 1;
       end else if(verbose) begin
         $display("-I:way3 exp:%032x ",     top.mm_expect_dary_3[i]);
-        $display("-I:way3 act:%032x m:%0d",top.dut0.dsram3.ram[i],
-                                           matchd[3]);
+        $display("-I:way3 act:%032x m:%b",top.dut0.dsram3.ram[i],
+                                          matchd[3]);
       end
-//      end
     end
   end
 end

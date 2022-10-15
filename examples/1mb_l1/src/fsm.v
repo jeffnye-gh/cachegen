@@ -104,7 +104,8 @@ module fsm #(
 
   output reg   fsm_cc_is_val_d,
   output reg   fsm_cc_is_mod_d,
-  output reg   fsm_cc_fill_d,
+  output reg   fsm_cc_rd_fill_d,
+  output reg   fsm_cc_wr_fill_d,
 
   output reg   fsm_cc_readdata_valid,
 
@@ -140,7 +141,8 @@ always @* begin
   fsm_cc_val_write_d   = 1'b0;
   fsm_cc_mod_write_d   = 1'b0;
   fsm_cc_lru_write_d   = 1'b0;
-  fsm_cc_fill_d        = 1'b0;
+  fsm_cc_rd_fill_d     = 1'b0;
+  fsm_cc_wr_fill_d     = 1'b0;
 
   fsm_cc_is_mod_d      = 1'bx;
   fsm_cc_is_val_d      = 1'bx;
@@ -178,6 +180,12 @@ always @* begin
         next = RD_ALLOC;
       end
 
+      // WRITE MISS CLEAN
+      else if(pe_write_d & !pe_req_hit_d & !pe_req_mod_d) begin
+        fsm_mm_read_d = 1'b1;
+        next = WR_ALLOC;
+      end
+
     end //end of IDLE
 
     RD_ALLOC: begin
@@ -194,11 +202,32 @@ always @* begin
         fsm_cc_val_write_d = 1'b1; 
         fsm_cc_is_val_d    = 1'b1;
 
-        fsm_cc_fill_d      = 1'b1;
+        fsm_cc_rd_fill_d   = 1'b1;
         next = FILL;
       end else begin
         fsm_mm_read_d = 1'b1;
         next = RD_ALLOC;
+      end
+    end
+
+    WR_ALLOC: begin
+      if(mm_readdata_valid) begin
+        fsm_cc_ary_write_d = 1'b1;
+        fsm_cc_lru_write_d = 1'b1;
+
+        fsm_cc_mod_write_d = 1'b1;
+        fsm_cc_is_mod_d    = 1'b1; //set the mod bit
+
+        fsm_cc_tag_write_d = 1'b1; 
+
+        fsm_cc_val_write_d = 1'b1; 
+        fsm_cc_is_val_d    = 1'b1;
+
+        fsm_cc_wr_fill_d   = 1'b1;
+        next = FILL;
+      end else begin
+        fsm_mm_read_d = 1'b1;
+        next = WR_ALLOC;
       end
     end
 

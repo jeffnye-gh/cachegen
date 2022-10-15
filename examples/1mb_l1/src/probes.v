@@ -119,6 +119,16 @@ wire [255:0] p_d3_ram_0 = top.dut0.dsram3.ram[0];
 wire [255:0] p_d3_ram_1 = top.dut0.dsram3.ram[1];
 wire [255:0] p_d3_ram_2 = top.dut0.dsram3.ram[2];
 wire [255:0] p_d3_ram_3 = top.dut0.dsram3.ram[3];
+
+wire [31:0] p_line_wd_word0 = top.dut0.line_wd[ 31:  0];
+wire [31:0] p_line_wd_word1 = top.dut0.line_wd[ 63: 32];
+wire [31:0] p_line_wd_word2 = top.dut0.line_wd[ 95: 64];
+wire [31:0] p_line_wd_word3 = top.dut0.line_wd[127: 96];
+wire [31:0] p_line_wd_word4 = top.dut0.line_wd[159:128];
+wire [31:0] p_line_wd_word5 = top.dut0.line_wd[191:160];
+wire [31:0] p_line_wd_word6 = top.dut0.line_wd[223:192];
+wire [31:0] p_line_wd_word7 = top.dut0.line_wd[255:224];
+
 // ---------------------------------------------------------------------
 // Darray Words of way 0, index 0
 // ---------------------------------------------------------------------
@@ -148,6 +158,16 @@ wire [31:0] p_mm_ram0_0 = top.dut0.mm0.ram0[0];
 wire [31:0] p_mm_ram0_1 = top.dut0.mm0.ram0[1];
 wire [31:0] p_mm_ram0_2 = top.dut0.mm0.ram0[2];
 wire [31:0] p_mm_ram0_3 = top.dut0.mm0.ram0[3];
+
+wire [31:0] p_mm_rd_word0 = top.dut0.mm0.rd[ 31:  0];
+wire [31:0] p_mm_rd_word1 = top.dut0.mm0.rd[ 63: 32];
+wire [31:0] p_mm_rd_word2 = top.dut0.mm0.rd[ 95: 64];
+wire [31:0] p_mm_rd_word3 = top.dut0.mm0.rd[127: 96];
+wire [31:0] p_mm_rd_word4 = top.dut0.mm0.rd[159:128];
+wire [31:0] p_mm_rd_word5 = top.dut0.mm0.rd[191:160];
+wire [31:0] p_mm_rd_word6 = top.dut0.mm0.rd[223:192];
+wire [31:0] p_mm_rd_word7 = top.dut0.mm0.rd[255:224];
+
 // ---------------------------------------------------------------------
 // Capture data and address
 // ---------------------------------------------------------------------

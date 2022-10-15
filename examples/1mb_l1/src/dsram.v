@@ -39,39 +39,64 @@ assign rd = read_q ? rd_tmp : {256{1'bx}};
 //  end
 //endgenerate
 
+//wire be4 = be[4];
+//wire be5 = be[5];
+//wire be6 = be[6];
+//wire be7 = be[7];
+//wire [7:0] wd1_b0 = write & be[4]  ? wd[ 39: 32] : ram[a][ 39: 32];
+//wire [7:0] wd1_b1 = write & be[5]  ? wd[ 47: 40] : ram[a][ 47: 40];
+//wire [7:0] wd1_b2 = write & be[6]  ? wd[ 55: 48] : ram[a][ 55: 48];
+//wire [7:0] wd1_b3 = write & be[7]  ? wd[ 63: 56] : ram[a][ 63: 56];
+
 //For now a little bit of python , see hacks.py
 always @(posedge clk) begin
   read_q <= read;
   rd_tmp <= ram[a];
 
+  //word 0
   ram[a][  7:  0] <= `FF write & be[0]  ? wd[  7:  0] : ram[a][  7:  0];
   ram[a][ 15:  8] <= `FF write & be[1]  ? wd[ 15:  8] : ram[a][ 15:  8];
   ram[a][ 23: 16] <= `FF write & be[2]  ? wd[ 23: 16] : ram[a][ 23: 16];
   ram[a][ 31: 24] <= `FF write & be[3]  ? wd[ 31: 24] : ram[a][ 31: 24];
+
+  //word 1
   ram[a][ 39: 32] <= `FF write & be[4]  ? wd[ 39: 32] : ram[a][ 39: 32];
   ram[a][ 47: 40] <= `FF write & be[5]  ? wd[ 47: 40] : ram[a][ 47: 40];
   ram[a][ 55: 48] <= `FF write & be[6]  ? wd[ 55: 48] : ram[a][ 55: 48];
   ram[a][ 63: 56] <= `FF write & be[7]  ? wd[ 63: 56] : ram[a][ 63: 56];
+
+
+  //word 2
   ram[a][ 71: 64] <= `FF write & be[8]  ? wd[ 71: 64] : ram[a][ 71: 64];
   ram[a][ 79: 72] <= `FF write & be[9]  ? wd[ 79: 72] : ram[a][ 79: 72];
   ram[a][ 87: 80] <= `FF write & be[10] ? wd[ 87: 80] : ram[a][ 87: 80];
   ram[a][ 95: 88] <= `FF write & be[11] ? wd[ 95: 88] : ram[a][ 95: 88];
+
+  //word 3
   ram[a][103: 96] <= `FF write & be[12] ? wd[103: 96] : ram[a][103: 96];
   ram[a][111:104] <= `FF write & be[13] ? wd[111:104] : ram[a][111:104];
   ram[a][119:112] <= `FF write & be[14] ? wd[119:112] : ram[a][119:112];
   ram[a][127:120] <= `FF write & be[15] ? wd[127:120] : ram[a][127:120];
+
+  //word 4
   ram[a][135:128] <= `FF write & be[16] ? wd[135:128] : ram[a][135:128];
   ram[a][143:136] <= `FF write & be[17] ? wd[143:136] : ram[a][143:136];
   ram[a][151:144] <= `FF write & be[18] ? wd[151:144] : ram[a][151:144];
   ram[a][159:152] <= `FF write & be[19] ? wd[159:152] : ram[a][159:152];
+
+  //word 5
   ram[a][167:160] <= `FF write & be[20] ? wd[167:160] : ram[a][167:160];
   ram[a][175:168] <= `FF write & be[21] ? wd[175:168] : ram[a][175:168];
   ram[a][183:176] <= `FF write & be[22] ? wd[183:176] : ram[a][183:176];
   ram[a][191:184] <= `FF write & be[23] ? wd[191:184] : ram[a][191:184];
+
+  //word 6
   ram[a][199:192] <= `FF write & be[24] ? wd[199:192] : ram[a][199:192];
   ram[a][207:200] <= `FF write & be[25] ? wd[207:200] : ram[a][207:200];
   ram[a][215:208] <= `FF write & be[26] ? wd[215:208] : ram[a][215:208];
   ram[a][223:216] <= `FF write & be[27] ? wd[223:216] : ram[a][223:216];
+
+  //word 7
   ram[a][231:224] <= `FF write & be[28] ? wd[231:224] : ram[a][231:224];
   ram[a][239:232] <= `FF write & be[29] ? wd[239:232] : ram[a][239:232];
   ram[a][247:240] <= `FF write & be[30] ? wd[247:240] : ram[a][247:240];
@@ -80,15 +105,24 @@ end
 // -----------------------------------------------------------------------
 // debug Probes
 // ------------------------------------------------------------------------
-wire [255:0] p_ram0 = ram[0];
-wire [31:0]  p_ram0_w0 = ram[0][ 31:  0];
-wire [31:0]  p_ram0_w1 = ram[0][ 63: 32];
-wire [31:0]  p_ram0_w2 = ram[0][ 95: 64];
-wire [31:0]  p_ram0_w3 = ram[0][127: 96];
-wire [31:0]  p_ram0_w4 = ram[0][159:128];
-wire [31:0]  p_ram0_w5 = ram[0][191:160];
-wire [31:0]  p_ram0_w6 = ram[0][223:192];
-wire [31:0]  p_ram0_w7 = ram[0][255:224];
+wire [255:0] p_ram_a0 = ram[0];
+wire [31:0]  p_ram_a0_w0 = ram[0][ 31:  0];
+wire [31:0]  p_ram_a0_w1 = ram[0][ 63: 32];
+wire [31:0]  p_ram_a0_w2 = ram[0][ 95: 64];
+wire [31:0]  p_ram_a0_w3 = ram[0][127: 96];
+wire [31:0]  p_ram_a0_w4 = ram[0][159:128];
+wire [31:0]  p_ram_a0_w5 = ram[0][191:160];
+wire [31:0]  p_ram_a0_w6 = ram[0][223:192];
+wire [31:0]  p_ram_a0_w7 = ram[0][255:224];
+
+wire [31:0]  p_ram_a5_w0 = ram[5][ 31:  0];
+wire [31:0]  p_ram_a5_w1 = ram[5][ 63: 32];
+wire [31:0]  p_ram_a5_w2 = ram[5][ 95: 64];
+wire [31:0]  p_ram_a5_w3 = ram[5][127: 96];
+wire [31:0]  p_ram_a5_w4 = ram[5][159:128];
+wire [31:0]  p_ram_a5_w5 = ram[5][191:160];
+wire [31:0]  p_ram_a5_w6 = ram[5][223:192];
+wire [31:0]  p_ram_a5_w7 = ram[5][255:224];
 
 wire [255:0] p_ram1 = ram[1];
 wire [255:0] p_ram2 = ram[2];

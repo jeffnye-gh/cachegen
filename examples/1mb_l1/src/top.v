@@ -27,7 +27,7 @@ localparam   _bt_lru_test      = 1'b1;
 localparam   _bt_rd_hit_test   = 1'b1;
 localparam   _bt_wr_hit_test   = 1'b1;
 localparam   _bt_rd_alloc_test = 1'b1;
-localparam   _bt_wr_alloc_test = 1'b0;
+localparam   _bt_wr_alloc_test = 1'b1;
 // ----------------------------------------------------------------------
 reg lru_flag, basic_rd_hit_flag,basic_wr_hit_flag,basic_rd_alloc_flag,
     basic_wr_alloc_flag;
@@ -59,7 +59,7 @@ wire [31:0]  cc_mm_address;
 wire [255:0] cc_mm_writedata;
 wire         cc_mm_write;
 wire         cc_mm_read;
-wire [31:0]  cc_mm_byteenable;
+//wire [31:0]  cc_mm_byteenable;
 wire [255:0] mm_cc_readdata;
 wire [255:0] xmm_cc_readdata;
 wire         mm_cc_readdatavalid;
@@ -193,7 +193,7 @@ cache #(.READ_HIT_LAT(L1_READ_HIT_LAT),
 
   //from cache to mainmemory
   .mm_a      (cc_mm_address),
-  .mm_be     (cc_mm_byteenable),
+//  .mm_be     (cc_mm_byteenable),
   .mm_read_d (cc_mm_read),
   .mm_write_d(cc_mm_write),
   .mm_wd     (cc_mm_writedata),

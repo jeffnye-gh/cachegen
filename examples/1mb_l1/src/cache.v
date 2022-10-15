@@ -36,7 +36,7 @@ module cache #(
 
   //From cache to main memory
   output wire [31:0]   mm_a,
-  output wire [31:0]   mm_be,      //to MM, byte enables, FIXME: needed?
+//  output wire [31:0]   mm_be,      //to MM, byte enables, FIXME: needed?
   output wire [255:0]  mm_wd,      // line eviction data
   output wire          mm_write_d, //to MM, write command
   output wire          mm_read_d,  //to MM, read command
@@ -53,15 +53,12 @@ localparam integer CACHELINE_BITS = 32*8;
 localparam integer TAG_BITS = 14;
 localparam integer IDX_BITS = 13;
 localparam integer WAYS =  4;
-
 // ------------------------------------------------------------------------
 // FIXME: temp
 // ------------------------------------------------------------------------
-//wire       fsm_cc_fill = 1'b0;
-wire [3:0] fsm_cc_tag_write = 4'b0;
-assign mm_be = 32'hFFFFFFFF;
-
-//assign mm_a = {a[31:6],5'b0};  
+//n/a
+// ------------------------------------------------------------------------
+//assign mm_be = 32'hFFFFFFFF;
 assign mm_a = a;
 // ------------------------------------------------------------------------
 wire [CACHELINE_BITS-1:0] fsm_cc_wd;
@@ -88,7 +85,8 @@ wire fsm_cc_lru_write_d;
 
 wire fsm_cc_is_val_d;
 wire fsm_cc_is_mod_d;
-wire fsm_cc_fill_d;
+wire fsm_cc_fill_d,fsm_cc_rd_fill_d,fsm_cc_wr_fill_d;
+reg  fsm_cc_rd_fill;
 
 wire pe_flush;
 wire pe_flush_all;
@@ -98,7 +96,7 @@ wire pe_invalidate_all;
 wire [3:0] way_sel_d;
 reg  [3:0] way_sel;
 wire [3:0] way_mod_d;
-//wire [3:0] pe_compare_d;
+
 // --------------------------------------------------------------------------
 // Fix up the names so it's clear what pipe stage they are in
 // --------------------------------------------------------------------------
@@ -129,13 +127,12 @@ reg   [2:0]  pe_offset,pe_offset_q;
 reg   [3:0]  pe_be;
 reg  [31:0]  pe_wd;
 reg [255:0]  mm_rd_q;
-reg          fsm_cc_fill;
 
-wire pe_access_d = (pe_read_d | pe_write_d) & !reset;
+wire pe_access_d     = (pe_read_d | pe_write_d) & !reset;
+assign fsm_cc_fill_d = fsm_cc_rd_fill_d | fsm_cc_wr_fill_d;
 
 always @(posedge clk) begin
-  fsm_cc_fill <= fsm_cc_fill_d;
-  mm_rd_q     <= mm_rd;
+  fsm_cc_rd_fill <= fsm_cc_rd_fill_d;
 
   pe_offset   <= pe_offset_d;
   pe_offset_q <= pe_offset;
@@ -191,6 +188,9 @@ assign req_mod_d  = |way_mod_d & pe_access_d;
 //
 // FIXME: once it works create a wrapper and push down a level of hierarchy.
 // --------------------------------------------------------------------------
+reg [255:0] pe_merge_wd;
+//reg [31:0]  pe_merge_be;
+
 reg [255:0] pe_line_wd;
 reg [31:0]  pe_line_be;
 
@@ -201,6 +201,32 @@ reg [3:0] val_way_sel_d;
 reg [3:0] mod_way_sel_d;
 reg [3:0] lru_way_sel_d;
 
+// ------------------------------------------------------------------------
+// ------------------------------------------------------------------------
+function [31:0] mux_bytes;
+input [3:0] be;
+input [31:0] wd,rd;
+reg [7:0] b0,b1,b2,b3;
+begin
+  b0 = be[0] ? wd[ 7: 0] : rd[ 7: 0];
+  b1 = be[1] ? wd[15: 8] : rd[15: 8];
+  b2 = be[2] ? wd[23:16] : rd[23:16];
+  b3 = be[3] ? wd[31:24] : rd[31:24];
+  mux_bytes = {b3,b2,b1,b0};
+end
+endfunction
+
+wire [31:0] wd0_d = mux_bytes(pe_be_d,pe_wd_d,mm_rd[ 31:  0]);
+wire [31:0] wd1_d = mux_bytes(pe_be_d,pe_wd_d,mm_rd[ 63: 32]);
+wire [31:0] wd2_d = mux_bytes(pe_be_d,pe_wd_d,mm_rd[ 95: 64]);
+wire [31:0] wd3_d = mux_bytes(pe_be_d,pe_wd_d,mm_rd[127: 96]);
+wire [31:0] wd4_d = mux_bytes(pe_be_d,pe_wd_d,mm_rd[159:128]);
+wire [31:0] wd5_d = mux_bytes(pe_be_d,pe_wd_d,mm_rd[191:160]);
+wire [31:0] wd6_d = mux_bytes(pe_be_d,pe_wd_d,mm_rd[223:192]);
+wire [31:0] wd7_d = mux_bytes(pe_be_d,pe_wd_d,mm_rd[255:224]);
+
+// ------------------------------------------------------------------------
+// ------------------------------------------------------------------------
 always @* begin
 
   pe_line_wd = 256'bx;
@@ -227,14 +253,44 @@ always @* begin
     3'b110: pe_line_be[27:24] = pe_be_d;
     3'b111: pe_line_be[31:28] = pe_be_d;
   endcase
+
+  case(pe_offset_d)
+    3'b000: pe_merge_wd =
+        { mm_rd[255:224],mm_rd[223:192],mm_rd[191:160],mm_rd[159:128],
+          mm_rd[127: 96],mm_rd[ 95: 64],mm_rd[ 63: 32],wd0_d          };
+    3'b001: pe_merge_wd =
+        { mm_rd[255:224],mm_rd[223:192],mm_rd[191:160],mm_rd[159:128],
+          mm_rd[127: 96],mm_rd[ 95: 64],wd1_d         ,mm_rd[ 31:  0] };
+    3'b010: pe_merge_wd =
+        { mm_rd[255:224],mm_rd[223:192],mm_rd[191:160],mm_rd[159:128],
+          mm_rd[127: 96],wd2_d         ,mm_rd[ 63: 32],mm_rd[ 31:  0] };
+    3'b011: pe_merge_wd =
+        { mm_rd[255:224],mm_rd[223:192],mm_rd[191:160],mm_rd[159:128],
+          wd3_d         ,mm_rd[ 95: 64],mm_rd[ 63: 32],mm_rd[ 31:  0] };
+    3'b100: pe_merge_wd =
+        { mm_rd[255:224],mm_rd[223:192],mm_rd[191:160],wd4_d         ,
+          mm_rd[127: 96],mm_rd[ 95: 64],mm_rd[ 63: 32],mm_rd[ 31:  0] };
+    3'b101: pe_merge_wd =
+        { mm_rd[255:224],mm_rd[223:192],wd5_d         ,mm_rd[159:128],
+          mm_rd[127: 96],mm_rd[ 95: 64],mm_rd[ 63: 32],mm_rd[ 31:  0] };
+    3'b110: pe_merge_wd =
+        { mm_rd[255:224],wd6_d         ,mm_rd[191:160],mm_rd[159:128],
+          mm_rd[127: 96],mm_rd[ 95: 64],mm_rd[ 63: 32],mm_rd[ 31:  0] };
+    3'b111: pe_merge_wd =
+        { wd7_d         ,mm_rd[223:192],mm_rd[191:160],mm_rd[159:128],
+          mm_rd[127: 96],mm_rd[ 95: 64],mm_rd[ 63: 32],mm_rd[ 31:  0] };
+  endcase
 end
 // --------------------------------------------------------------------------
 // Mux in FILL data if active
 // --------------------------------------------------------------------------
 wire  [255:0] line_wd;
 wire  [31:0]  line_be;
-assign line_wd  = fsm_cc_fill_d ? mm_rd        : pe_line_wd; 
-assign line_be  = fsm_cc_fill_d ? 32'hFFFFFFFF : pe_line_be; 
+
+assign line_wd  =  fsm_cc_rd_fill_d ? mm_rd
+                : (fsm_cc_wr_fill_d ? pe_merge_wd  : pe_line_wd);
+
+assign line_be  =  fsm_cc_fill_d    ? 32'hFFFFFFFF : pe_line_be;
 // --------------------------------------------------------------------------
 // select an invalid way over eviction
 // --------------------------------------------------------------------------
@@ -325,7 +381,7 @@ always @* begin
     3'b111: frd = mm_rd_q[255:224];
   endcase
 
-  rd = !rd_valid_d ? 32'bx : (!fsm_cc_fill ? ard : frd);
+  rd = !rd_valid_d ? 32'bx : (!fsm_cc_rd_fill ? ard : frd);
 end
 
 // --------------------------------------------------------------------------
@@ -349,9 +405,10 @@ fsm #(.IDX_BITS(IDX_BITS),
   .fsm_cc_mod_write_d(fsm_cc_mod_write_d),
   .fsm_cc_lru_write_d(fsm_cc_lru_write_d),
 
-  .fsm_cc_is_val_d   (fsm_cc_is_val_d),
-  .fsm_cc_is_mod_d   (fsm_cc_is_mod_d),
-  .fsm_cc_fill_d     (fsm_cc_fill_d),
+  .fsm_cc_is_val_d (fsm_cc_is_val_d),
+  .fsm_cc_is_mod_d (fsm_cc_is_mod_d),
+  .fsm_cc_rd_fill_d(fsm_cc_rd_fill_d),
+  .fsm_cc_wr_fill_d(fsm_cc_wr_fill_d),
 
   .fsm_cc_readdata_valid(fsm_cc_readdata_valid),
 
