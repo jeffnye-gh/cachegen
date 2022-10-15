@@ -8,38 +8,8 @@
 // Reads to invalid ways should allocate from main memory and return 
 // the critical word in parallel. 
 //
-// LRU bits are arbitrarily set
-// Mod bits are also arbitrarily set
-// Tags are same as basicRdHit, this is to test invalid overriding tag match.
-//
-// expect results:
-//
-// tag/way index   word  way idx     tag     val        mod        lru
-// ------------------------------------------------------------------------
-// 14'h000,13'h000,3'h3   0  13'h000 14'h000 1110->1111 0111->0110 010->010
-// 14'h003,13'h000,3'h3   3  13'b000 14'h003 
-// 14'h001,13'h001,3'h7   1  13'h001 14'h001 
-// 14'h002,13'h002,3'h6   2  13'h002 14'h002 
-// 14'h000,13'h003,3'h5   0  13'h003 14'h000 
-// 14'h000,13'h004,3'h2   0  13'h004 14'h000 
-// 14'h000,13'h000,3'h3   0  13'h000 14'h000 
-// 14'h003,13'h000,3'h3   3  13'h000 14'h003 
-// 14'h001,13'h001,3'h7   1  13'h001 14'h001 
-// 14'h002,13'h002,3'h6   2  13'h002 14'h002 
-// 14'h000,13'h003,3'h5   0  13'h003 14'h000 
-// 14'h000,13'h004,3'h2   0  13'h004 14'h000 
-// 14'h001,13'h001,3'h1   1  13'h001 14'h001 
-// 14'h002,13'h005,3'h5   2  13'h005 14'h002 
-// 14'h003,13'h007,3'h3   3  13'h007 14'h003 
-// 14'h000,13'h002,3'h2   0  13'h002 14'h000 
-// 14'h001,13'h003,3'h1   1  13'h003 14'h001 
-// 14'h000,13'h003,3'h6   0  13'h003 14'h000 
-// 14'h001,13'h003,3'h7   1  13'h003 14'h001 
-// 14'h003,13'h006,3'h4   3  13'h006 14'h003 
-// 14'h000,13'h006,3'h3   0  13'h006 14'h000 
-// 14'h000,13'h002,3'h0   0  13'h002 14'h000 
-// 14'h001,13'h000,3'h1   1  13'h000 14'h001 
-//
+// LRU bits are initially arbitrarily set
+// Mod bits are initially arbitrarily set
 // --------------------------------------------------------------------------
 task basicRdAllocTest(inout int errs,inout flag,input int verbose);
 integer i,j,mod,lclerrs;
@@ -53,14 +23,13 @@ begin
   if(enb) state = "ON";
 
   beginTestMsg("basicRdAllocTest",errs,flag);
-  $display("-I: CHECK ENABLE IS %s",state);
+  if(verbose) $display("-I: CHECK ENABLE IS %s",state);
 
   v = verbose;
 
   clear_tb_data(0,EXP_DATA_ENTRIES,v);
 
-  nop(1);
-
+  @(posedge clk);
   if(verbose) $display("-I: setting initial configuration ");
   //load main memory
   $readmemh("data/basicRdAlloc.mm.memh",top.mm0.ram);
@@ -75,47 +44,52 @@ begin
   load_initial_bits("data/basicRdAlloc.bits.memb",v);
   top.dut0.valid0.regs[0] <= 4'b1110;
   top.dut0.dirty0.regs[0] <= 4'b0111;
-  nop(1);
-//  $display("HERE mod bits index 0 %04b",top.dut0.dirty0.regs[0]);
-//  $display("HERE val bits index 0 %04b",top.dut0.valid0.regs[0]);
-//  $display("HERE val bits index 1 %04b",top.dut0.valid0.regs[1]);
-//  $display("HERE val bits index 2 %04b",top.dut0.valid0.regs[2]);
-//  $display("HERE val bits index 3 %04b",top.dut0.valid0.regs[3]);
-
+  @(posedge clk);
   nop(1);
 
           //tag/way index   word
+  //a:00000000
   rd_req({14'h000,13'h000,3'h3,2'h0},4'b1111,1);//miss
-//           way   index    tag      val     mod    lru
+  //        way   index    tag      val     mod    lru
   chk_alloc(2'h0,13'h000,14'h000,4'b1111,4'b0110,3'b010,enb,errs,v);
 
+  //a:00002001
   rd_req({14'h001,13'h001,3'h7,2'h0},4'b1111,v);
   chk_alloc(2'h1,13'h001,14'h001,4'b1111,4'b0100,3'b001,enb,errs,v);
 
+  //a:00004002
   rd_req({14'h002,13'h002,3'h6,2'h0},4'b1111,v);
   chk_alloc(2'h2,13'h002,14'h002,4'b1111,4'b0010,3'b100,enb,errs,v);
 
+  //a:00006003
   rd_req({14'h003,13'h003,3'h6,2'h0},4'b1111,v);
   chk_alloc(2'h3,13'h003,14'h003,4'b1111,4'b0111,3'b111,enb,errs,v);
 
+  //a:00006004
   rd_req({14'h003,13'h004,3'h5,2'h0},4'b1111,v);
   chk_alloc(2'h3,13'h004,14'h003,4'b1111,4'b0111,3'b110,enb,errs,v);
 
+  //a:00002005
   rd_req({14'h001,13'h005,3'h1,2'h0},4'b1111,v);
   chk_alloc(2'h1,13'h005,14'h001,4'b1111,4'b0000,3'b001,enb,errs,v);
 
+  //a:00004006
   rd_req({14'h002,13'h006,3'h5,2'h0},4'b1111,v);
   chk_alloc(2'h2,13'h006,14'h002,4'b1100,4'b0000,3'b100,enb,errs,v);
 
+  //a:00006007
   rd_req({14'h003,13'h007,3'h3,2'h0},4'b1111,v);
   chk_alloc(2'h3,13'h007,14'h003,4'b1101,4'b0110,3'b111,enb,errs,v);
 
+  //a:00002008
   rd_req({14'h001,13'h008,3'h2,2'h0},4'b1111,v);
   chk_alloc(2'h1,13'h008,14'h001,4'b1110,4'b0000,3'b011,enb,errs,v);
 
+  //a:00000009
   rd_req({14'h000,13'h009,3'h1,2'h0},4'b1111,v);
   chk_alloc(2'h0,13'h009,14'h000,4'b1111,4'b1000,3'b000,enb,errs,v);
 
+  //a:0000200a
   rd_req({14'h001,13'h00a,3'h1,2'h0},4'b1111,v);
   chk_alloc(2'h1,13'h00a,14'h001,4'b1111,4'b1101,3'b011,enb,errs,v);
 
@@ -137,12 +111,13 @@ begin
   nop(4); //let state propagate
 
   check_main_memory (errs,0,15,v);
-//  check_data_arrays (errs,0,15,v);
+  check_data_arrays (errs,0,4,v);
   //check tags and bits
   check_tb_tags_bits(errs,0,15,v);
   //check capture address and data
-  check_tb_capture_info (errs,0,11,v);
+  check_tb_capture_info (errs,0,11,v); //only 11
 
+  endTestMsg(testName,errs,flag);
   nop(4);
 end
 endtask

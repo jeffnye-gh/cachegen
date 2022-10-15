@@ -1,15 +1,15 @@
 [*]
 [*] GTKWave Analyzer v3.3.113 (w)1999-2022 BSI
-[*] Thu Oct 13 03:31:16 2022
+[*] Sat Oct 15 16:05:16 2022
 [*]
 [dumpfile] "/home/jeff/Development/gitbox/cachegen/examples/1mb_l1/csim.vcd"
-[dumpfile_mtime] "Thu Oct 13 03:27:45 2022"
-[dumpfile_size] 270588
+[dumpfile_mtime] "Sat Oct 15 16:05:08 2022"
+[dumpfile_size] 311884
 [savefile] "/home/jeff/Development/gitbox/cachegen/examples/1mb_l1/csim.gtkw"
-[timestart] 22708
-[size] 1536 831
+[timestart] 20894
+[size] 1637 831
 [pos] -1 -1
-*-10.402320 23850 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+*-10.402320 22308 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
 [treeopen] top.
 [treeopen] top.dut0.
 [treeopen] top.dut0.dirty0.
@@ -17,7 +17,7 @@
 [treeopen] top.dut0.tags[0].
 [treeopen] top.dut0.valid0.
 [sst_width] 255
-[signals_width] 344
+[signals_width] 465
 [sst_expanded] 1
 [sst_vpaned_height] 374
 @28
@@ -43,6 +43,12 @@ top.tb_cc_writedata[31:0]
 top.tb_cc_byteenable[3:0]
 top.capture_a
 top.capture_d
+@22
+top._prb.dary_index0_way0[255:0]
+top._prb.dary_index0_way1[255:0]
+top._prb.dary_index0_way2[255:0]
+@23
+top._prb.dary_index0_way3[255:0]
 @c00200
 -TAGS
 @22
@@ -71,10 +77,9 @@ top._prb.p_tag3_wr
 top.mm0.read_q
 top.mm0.read_q2
 top.mm0.valid
-@23
-top.mm0.a[31:0]
 @22
 top.mm0.rd[255:0]
+top.mm0.a[26:0]
 @1000200
 -MM
 @c00200

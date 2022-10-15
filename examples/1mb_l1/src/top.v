@@ -11,7 +11,7 @@ module top;
 
 localparam integer MAX = 5000;
 localparam integer MM_ADDR_WIDTH     = 20;
-localparam integer EXP_MM_ENTRIES    = 1024;
+localparam integer EXP_MM_ENTRIES    = 32768;
 localparam integer EXP_DATA_ENTRIES  = 256;
 
 localparam integer L1_READ_HIT_LAT   = 1;
@@ -217,8 +217,8 @@ mainmemory #(.ENTRIES(EXP_MM_ENTRIES),
   .valid(mm_cc_readdatavalid),
 
   //from CC/TB control
-  .a     (cc_mm_address),
-  .be    (cc_mm_byteenable),
+  .a     (cc_mm_address[31:5]), //only line access
+//  .be    (cc_mm_byteenable),
   .wd    (cc_mm_writedata),
   .read  (cc_mm_read),
   .write (cc_mm_write),

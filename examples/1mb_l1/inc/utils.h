@@ -11,7 +11,8 @@ int debug;
 begin
   debug = 0;
   watchdog = 0;
-  if(verbose) $display("-I: rd req : a:%08x  be:%04b",a,be);
+  //if(verbose) $display("-I: rd req : a:%08x  be:%04b",a,be);
+  //$display("-I: rd req : a:%08x  be:%04b",a[31:5],be);
   top.tb_cc_address    <= `FF a;
   if(debug)$display("RD ADDR %08x",a);
   top.tb_cc_byteenable <= `FF be;

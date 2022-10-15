@@ -3,6 +3,13 @@ module _probes;
 `include "bitcmds.h"
 `include "fsm_state.h"
 
+//wire [255:0] p_d0_ram_0 = top.dut0.dsram0.ram[0];
+wire [255:0] dary_index0_way0 = top.dut0.dsram0.ram[0];
+wire [255:0] dary_index0_way1 = top.dut0.dsram1.ram[0];
+wire [255:0] dary_index0_way2 = top.dut0.dsram2.ram[0];
+wire [255:0] dary_index0_way3 = top.dut0.dsram3.ram[0];
+//wire [255:0] dary_index0_way2 = 
+//wire [255:0] dary_index0_way3 = 
 // ---------------------------------------------------------------------
 // Icarus verilog does not dump strings to the vcd
 // ---------------------------------------------------------------------

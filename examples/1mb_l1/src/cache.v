@@ -61,7 +61,8 @@ localparam integer WAYS =  4;
 wire [3:0] fsm_cc_tag_write = 4'b0;
 assign mm_be = 32'hFFFFFFFF;
 
-assign mm_a = {a[31:6],5'b0};  
+//assign mm_a = {a[31:6],5'b0};  
+assign mm_a = a;
 // ------------------------------------------------------------------------
 wire [CACHELINE_BITS-1:0] fsm_cc_wd;
 wire [CACHELINE_BITS-1:0] dary_out[3:0];
