@@ -21,6 +21,19 @@ localparam integer MM_READ_LAT       = 4;
 localparam integer MM_WRITE_TPUT     = 4;
 // ------------------------------------------------------------------------
 // Test controls
+//
+// _bt_rd_hit_test    rd hit
+// _bt_wr_hit_test    wr hit
+//
+// _bt_rd_alloc_test  rd miss   fill an invalid way
+// _bt_wr_alloc_test  wr miss   fill an invalid way
+//
+// _bt_rd_evict_test  rd miss   evict a dirty line
+// _bt_wr_evict_test  wr miss   evict a dirty line
+//
+// _bt_rd_clean_test  rd miss   replace a clean line - save, should be simpler
+// _bt_wr_clean_test  wr miss   replace a clean line - save, should be simpler
+//
 // ------------------------------------------------------------------------
 localparam _basic_tests        = 1'b1;
 localparam   _bt_lru_test      = 1'b1;
@@ -28,9 +41,21 @@ localparam   _bt_rd_hit_test   = 1'b1;
 localparam   _bt_wr_hit_test   = 1'b1;
 localparam   _bt_rd_alloc_test = 1'b1;
 localparam   _bt_wr_alloc_test = 1'b1;
+localparam   _bt_rd_evict_test = 1'b0;
+localparam   _bt_wr_evict_test = 1'b0;
+
+localparam   _bt_rd_clean_test = 1'b0;
+localparam   _bt_wr_clean_test = 1'b0;
 // ----------------------------------------------------------------------
-reg lru_flag, basic_rd_hit_flag,basic_wr_hit_flag,basic_rd_alloc_flag,
-    basic_wr_alloc_flag;
+reg lru_flag;
+reg basic_rd_hit_flag;
+reg basic_wr_hit_flag;
+reg basic_rd_alloc_flag;
+reg basic_wr_alloc_flag;
+reg basic_rd_evict_flag;
+reg basic_wr_evict_flag;
+reg basic_rd_clean_flag;
+reg basic_wr_clean_flag;
 // ----------------------------------------------------------------------
 int count;
 int lru_errs            = -1;
@@ -38,6 +63,10 @@ int basic_rd_hit_errs   = -1;
 int basic_wr_hit_errs   = -1;
 int basic_rd_alloc_errs = -1;
 int basic_wr_alloc_errs = -1;
+int basic_rd_evict_errs = -1;
+int basic_wr_evict_errs = -1;
+int basic_rd_clean_errs = -1;
+int basic_wr_clean_errs = -1;
 // ----------------------------------------------------------------------
 reg master_clk,clk,reset;
 //icarus does not report strings in vcd
@@ -53,7 +82,7 @@ reg  [31:0]  tb_cc_writedata;
 wire [31:0]  cc_tb_readdata;
 
 wire cc_tb_readdata_valid;
-wire cc_tb_req_hit,cc_tb_req_miss,cc_tb_req_mod;
+wire cc_tb_req_hit;
 // ----------------------------------------------------------------------
 wire [31:0]  cc_mm_address;
 wire [255:0] cc_mm_writedata;
@@ -158,6 +187,12 @@ begin
 
     if(_bt_wr_alloc_test)
       basicWrAllocTest(basic_wr_alloc_errs,basic_wr_alloc_flag,0);
+
+    if(_bt_rd_evict_test)
+      basicRdEvictTest(basic_rd_evict_errs,basic_rd_evict_flag,0);
+
+    if(_bt_wr_evict_test)
+      basicWrEvictTest(basic_wr_evict_errs,basic_wr_evict_flag,0);
   end
   nop(1);
   terminate();
@@ -181,8 +216,6 @@ cache #(.READ_HIT_LAT(L1_READ_HIT_LAT),
   .rd        (cc_tb_readdata),
   .rd_valid_d(cc_tb_readdata_valid),
   .req_hit_d (cc_tb_req_hit),
-  .req_miss_d(cc_tb_req_miss),
-  .req_mod_d (cc_tb_req_mod),
 
   //from TB 
   .a    (tb_cc_address),
@@ -192,15 +225,17 @@ cache #(.READ_HIT_LAT(L1_READ_HIT_LAT),
   .wd   (tb_cc_writedata),
 
   //from cache to mainmemory
-  .mm_a      (cc_mm_address),
-//  .mm_be     (cc_mm_byteenable),
-  .mm_read_d (cc_mm_read),
-  .mm_write_d(cc_mm_write),
-  .mm_wd     (cc_mm_writedata),
+  .mm_a        (cc_mm_address),
+  .mm_read_d   (cc_mm_read),
+  .mm_write_d  (cc_mm_write),
+  //from L1 to main, evict
+  .mm_writedata(cc_mm_writedata),
 
   //from main to L1, fill
-  .mm_rd (mm_cc_readdata),
+  .mm_readdata(mm_cc_readdata),
+
   .mm_readdata_valid(mm_cc_readdatavalid),
+  .mm_ready(mm_cc_ready),
 
   .reset(reset),
   .clk(clk)
@@ -215,10 +250,10 @@ mainmemory #(.ENTRIES(EXP_MM_ENTRIES),
 
   .rd   (mm_cc_readdata),
   .valid(mm_cc_readdatavalid),
+  .ready(mm_cc_ready),
 
   //from CC/TB control
   .a     (cc_mm_address[31:5]), //only line access
-//  .be    (cc_mm_byteenable),
   .wd    (cc_mm_writedata),
   .read  (cc_mm_read),
   .write (cc_mm_write),

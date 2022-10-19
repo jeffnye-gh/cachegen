@@ -3,6 +3,250 @@
 `include "bitcmds.h"
 `include "functions.h"
 // --------------------------------------------------------------------------
+// Read miss evict dirty way and allocate
+//
+// The LRU way is dirty, write it back, allocate and return critical word
+// to PE
+// 
+// --------------------------------------------------------------------------
+task basicRdEvictTest(inout int errs,inout flag,input int verbose);
+integer i,j,mod,lclerrs;
+int v,enb;
+reg [2:0] lru_exp,lru_act;
+reg [31:0] addr;
+string state;
+begin
+  enb   = 1;
+  state = "OFF";
+  if(enb) state = "ON";
+
+  beginTestMsg("basicRdEvictTest",errs,flag);
+  if(verbose) $display("-I: CHECK ENABLE IS %s",state);
+
+  v = verbose;
+
+  clear_tb_data(0,EXP_DATA_ENTRIES,v);
+
+  @(posedge clk);
+  if(verbose) $display("-I: setting initial configuration ");
+  //load main memory
+  $readmemh("data/basicRdEvict.mm.memh",top.mm0.ram);
+  //load data arrays
+  $readmemh("data/basicRdEvict.dsram0.memh",top.dut0.dsram0.ram);
+  $readmemh("data/basicRdEvict.dsram1.memh",top.dut0.dsram1.ram);
+  $readmemh("data/basicRdEvict.dsram2.memh",top.dut0.dsram2.ram);
+  $readmemh("data/basicRdEvict.dsram3.memh",top.dut0.dsram3.ram);
+  //load tags
+  load_initial_tags("data/basicRdEvict.tags.memh",v);
+  //load control bits
+  load_initial_bits("data/basicRdEvict.bits.memb",v);
+  top.dut0.valid0.regs[0] <= 4'b1110;
+  top.dut0.dirty0.regs[0] <= 4'b0111;
+  top.dut0.valid0.regs[10] <= 4'b1101;
+  @(posedge clk);
+  nop(1);
+
+
+  //  This first access should detect a miss, evict modified entry pointed
+  //  to by the LRU of index 0
+  //
+  // The LRU way is: 2
+  // The index of the access is : 0
+  // The tag of this way at that index is: 0002 
+  // The data of this way at that index is:
+  //   00207000_00206000_00205000_00204000_00203000_00202000_00201000_00200000
+  // Main memory @address  00 0000 0000 0010 - ----
+  //                      000 0000 0000 0100 0000 ->  0x00000040
+  //   will be written with the above data:
+  // The return data will be mm address 0, word 3 which is: 0x00003000
+
+          //tag/way index   word
+  rd_req({14'h004,13'h000,3'h3,2'h0},4'b1111,v);//miss
+  //        way   index    tag      val     mod    lru
+  chk_alloc(2'h0,13'h000,14'h000,4'b1111,4'b0110,3'b010,enb,errs,v);
+
+//  //a:00002001
+//  rd_req({14'h001,13'h001,3'h7,2'h0},4'b1111,v);
+//  chk_alloc(2'h1,13'h001,14'h001,4'b1111,4'b0100,3'b001,enb,errs,v);
+//
+//  //a:00004002
+//  rd_req({14'h002,13'h002,3'h6,2'h0},4'b1111,v);
+//  chk_alloc(2'h2,13'h002,14'h002,4'b1111,4'b0010,3'b100,enb,errs,v);
+//
+//  //a:00006003
+//  rd_req({14'h003,13'h003,3'h6,2'h0},4'b1111,v);
+//  chk_alloc(2'h3,13'h003,14'h003,4'b1111,4'b0111,3'b111,enb,errs,v);
+//
+//  //a:00006004
+//  rd_req({14'h003,13'h004,3'h5,2'h0},4'b1111,v);
+//  chk_alloc(2'h3,13'h004,14'h003,4'b1111,4'b0111,3'b110,enb,errs,v);
+//
+//  //a:00002005
+//  rd_req({14'h001,13'h005,3'h1,2'h0},4'b1111,v);
+//  chk_alloc(2'h1,13'h005,14'h001,4'b1111,4'b0000,3'b001,enb,errs,v);
+//
+//  //a:00004006
+//  rd_req({14'h002,13'h006,3'h5,2'h0},4'b1111,v);
+//  chk_alloc(2'h2,13'h006,14'h002,4'b1100,4'b0000,3'b100,enb,errs,v);
+//
+//  //a:00006007
+//  rd_req({14'h003,13'h007,3'h3,2'h0},4'b1111,v);
+//  chk_alloc(2'h3,13'h007,14'h003,4'b1101,4'b0110,3'b111,enb,errs,v);
+//
+//  //a:00002008
+//  rd_req({14'h001,13'h008,3'h2,2'h0},4'b1111,v);
+//  chk_alloc(2'h1,13'h008,14'h001,4'b1110,4'b0000,3'b011,enb,errs,v);
+//
+//  //a:00000009
+//  rd_req({14'h000,13'h009,3'h1,2'h0},4'b1111,v);
+//  chk_alloc(2'h0,13'h009,14'h000,4'b1111,4'b1000,3'b000,enb,errs,v);
+//
+//  //a:0000200a
+//  rd_req({14'h001,13'h00a,3'h1,2'h0},4'b1111,v);
+//  chk_alloc(2'h1,13'h00a,14'h001,4'b1111,4'b1101,3'b011,enb,errs,v);
+
+  nop(1);
+
+  //load expect main memory
+  load_expect_main_memory("./golden/basicRdEvict.mm.memh",v);
+  //load expect data arrays
+  load_expect_dary_data("./golden/basicRdEvict.d0.memh",
+                        "./golden/basicRdEvict.d1.memh",
+                        "./golden/basicRdEvict.d2.memh",
+                        "./golden/basicRdEvict.d3.memh",v);
+  //load expect tags
+  load_expect_tags("./golden/basicRdEvict.tags.memh",v);
+  //load expect control bits
+  load_expect_bits("./golden/basicRdEvict.bits.memb",v);
+  //load expect tb capture info
+  load_expect_capture_data("./golden/basicRdEvict.capa.memh",
+                           "./golden/basicRdEvict.capd.memh",v);
+
+  nop(4); //let state propagate
+
+  check_main_memory (errs,0,15,v);
+  check_data_arrays (errs,0,15,v);
+  //check tags and bits
+  check_tb_tags_bits(errs,0,15,v);
+  //check captured values
+  check_tb_capture_info (errs,0,11,v); //only 11
+
+  endTestMsg(testName,errs,flag);
+  nop(4);
+end
+endtask
+// --------------------------------------------------------------------------
+// Write miss evict dirty way and allocate
+//
+// The LRU way is dirty, write it back, allocate and merge write data
+// --------------------------------------------------------------------------
+task basicWrEvictTest(inout int errs,inout flag,input int verbose);
+integer i,j,mod,lclerrs;
+int v,enb;
+reg [2:0] lru_exp,lru_act;
+reg [31:0] addr;
+string state;
+begin
+  enb   = 1;
+  state = "OFF";
+  if(enb) state = "ON";
+
+  beginTestMsg("basicWrEvictTest",errs,flag);
+  if(verbose) $display("-I: CHECK ENABLE IS %s",state);
+
+  v = verbose;
+
+  clear_tb_data(0,EXP_DATA_ENTRIES,v);
+
+  @(posedge clk);
+  if(verbose) $display("-I: setting initial configuration ");
+  //load main memory
+  $readmemh("data/basicWrEvict.mm.memh",top.mm0.ram);
+  //load data arrays
+  $readmemh("data/basicWrEvict.dsram0.memh",top.dut0.dsram0.ram);
+  $readmemh("data/basicWrEvict.dsram1.memh",top.dut0.dsram1.ram);
+  $readmemh("data/basicWrEvict.dsram2.memh",top.dut0.dsram2.ram);
+  $readmemh("data/basicWrEvict.dsram3.memh",top.dut0.dsram3.ram);
+  //load tags
+  load_initial_tags("data/basicWrEvict.tags.memh",v);
+  //load control bits
+  load_initial_bits("data/basicWrEvict.bits.memb",v);
+  top.dut0.valid0.regs[0] <= 4'b1110;
+  top.dut0.dirty0.regs[0] <= 4'b0111;
+  top.dut0.valid0.regs[10] <= 4'b1101;
+  @(posedge clk);
+  nop(1);
+
+          //tag/way index   word
+  //a:00000000
+  wr_req({14'h000,13'h000,3'h3,2'h0},4'b1111,32'h11111111,v);
+  //        way   index    tag      val     mod    lru
+  chk_alloc(2'h0,13'h000,14'h000,4'b1111,4'b0111,3'b010,enb,errs,v);
+
+  //a:00002001
+  wr_req({14'h001,13'h001,3'h7,2'h0},4'b1111,32'h22222222,v);
+  chk_alloc(2'h1,13'h001,14'h001,4'b1111,4'b0110,3'b001,enb,errs,v);
+
+  //a:00004002
+  wr_req({14'h002,13'h002,3'h6,2'h0},4'b1111,32'h23232323,v);
+  chk_alloc(2'h2,13'h002,14'h002,4'b1111,4'b0110,3'b100,enb,errs,v);
+
+  //a:00006003
+  wr_req({14'h003,13'h003,3'h6,2'h0},4'b1111,32'h34353637,v);
+  chk_alloc(2'h3,13'h003,14'h003,4'b1111,4'b1111,3'b111,enb,errs,v);
+
+  //a:00006004
+  wr_req({14'h003,13'h004,3'h5,2'h0},4'b1111,32'h45464748,v);
+  chk_alloc(2'h3,13'h004,14'h003,4'b1111,4'b1111,3'b110,enb,errs,v);
+
+  //a:00002005  way 1 index 5 be 1010
+  wr_req({14'h001,13'h005,3'h1,2'h0},4'b1010,32'hFFFFFFFF,v);
+  chk_alloc(2'h1,13'h005,14'h001,4'b1111,4'b0010,3'b001,enb,errs,v);
+
+  //a:00004006  way 2 index 6 be 0101
+  wr_req({14'h002,13'h006,3'h5,2'h0},4'b0101,32'h77777777,v);
+  chk_alloc(2'h2,13'h006,14'h002,4'b1100,4'b0100,3'b100,enb,errs,v);
+
+  //a:00006007
+  wr_req({14'h003,13'h007,3'h3,2'h0},4'b1111,32'h98979695,v);
+  chk_alloc(2'h3,13'h007,14'h003,4'b1101,4'b1110,3'b111,enb,errs,v);
+
+  //a:00002008
+  wr_req({14'h001,13'h008,3'h2,2'h0},4'b1111,32'habacadae,v);
+  chk_alloc(2'h1,13'h008,14'h001,4'b1110,4'b0010,3'b011,enb,errs,v);
+
+  //a:00000009
+  wr_req({14'h000,13'h009,3'h1,2'h0},4'b1111,32'hbeefb0da,v);
+  chk_alloc(2'h0,13'h009,14'h000,4'b1111,4'b1001,3'b000,enb,errs,v);
+
+  //a:0000200a
+  wr_req({14'h001,13'h00a,3'h1,2'h0},4'b1111,32'hab109876,v);
+  chk_alloc(2'h1,13'h00a,14'h001,4'b1111,4'b1111,3'b011,enb,errs,v);
+
+  //load expect main memory
+  load_expect_main_memory("./golden/basicWrEvict.mm.memh",v);
+  //load expect data arrays
+  load_expect_dary_data("./golden/basicWrEvict.d0.memh",
+                        "./golden/basicWrEvict.d1.memh",
+                        "./golden/basicWrEvict.d2.memh",
+                        "./golden/basicWrEvict.d3.memh",v);
+  //load expect tags
+  load_expect_tags("./golden/basicWrEvict.tags.memh",v);
+  //load expect control bits
+  load_expect_bits("./golden/basicWrEvict.bits.memb",v);
+
+  nop(4); //let state propagate
+
+  check_main_memory (errs,0,15,v);
+  check_data_arrays (errs,0,15,v);
+  //check tags and bits
+  check_tb_tags_bits(errs,0,15,v);
+
+  endTestMsg(testName,errs,flag);
+  nop(4);
+end
+endtask
+// --------------------------------------------------------------------------
 // Write miss allocate to invalid way
 //
 // Writes to invalid ways should allocate from main memory.

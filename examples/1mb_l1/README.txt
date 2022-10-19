@@ -126,13 +126,52 @@
 //        FIXME: add the rest
 //      mm       main memory
 // ----------------------------------------------------------------------
-// LRU truth table
+// LRU 
 //
-// To save duplicating this every where, the truth table for LRU is below:
+// 3 bits - initial condition is 000, 0 points left
+//
+//         b2
+//       /    \
+//     b1      b0
+//   /   \   /    \
+//  w3  w2   w1  w0
+//
+//    b2    either {w3,w2} or {w1,w0}
+//    b1    w3 | w2
+//    b0    w1 | w0
+//
+// LRU truth table
 //
 // access to way0    b2=0  b1=b1  b0=0
 // access to way1    b2=0  b1=b1  b0=1  
 // access to way2    b2=1  b1=0   b0=b0    
 // access to way3    b2=1  b1=1   b0=b0
+//
+// Summary: starting from 000 (way3 is LRU), if way3 is accessed,
+//    b2 is flipped to 1   - because comparing between {w3,w2} and {w1,w0}
+//                           -- the {w1,w0} pair is least recently used
+//                           -- the {w3,w2} pair is more  recently used
+//    b1 is flipged to 1   - because comparing w3 and w2
+//                           -- w2 is least recently used
+//                           -- w3 is more recently used
+//    b0 is not changed    - maintaining the history of access in the {w1,w0}
+//                           pair
+//
+// Truth table sequence walk through
+//
+//   LRU state starts at 3'b000.
+//   Only index 0 is accessed in this example
+//   Ways are accessed accessed in this order: 3,1,2,0,3.
+//
+//                  previous
+// read             b2  b1  b0  | next LRU   | next value
+// -----------------------------|------------|-------------
+// access way3      0   0   0   | 1   1  b0  |  1 1 0
+// access way1      1   1   0   | 0  b1   1  |  0 1 1
+// access way2      0   1   1   | 1   0  b0  |  1 0 1
+// access way0      1   0   1   | 0  b1   0  |  0 0 0
+// access way3      0   0   0   | 1   1  b0  |  1 1 0
+//
+// ...will result in the LRU at index 0 being 110 
 //
 // ----------------------------------------------------------------------

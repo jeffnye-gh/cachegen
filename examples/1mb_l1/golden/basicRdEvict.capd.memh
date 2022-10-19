@@ -1,0 +1,24 @@
+// vi:syntax=verilog
+//
+// Golden reference captured data basicRdAlloc
+//
+// Configuration 0
+// Data expected values
+// Entries  11
+// Width    32
+//
+// These values are loaded into the test bench array
+// ---------------------------------------------------------------------------
+@0000 00003000
+      2000707f
+      4000607f
+      6000607f
+      6400507f
+      2500107f
+      4600507f
+      6700307f
+
+      2800407f
+      00001009
+      2a00107f
+// ---------------------------------------------------------------------------

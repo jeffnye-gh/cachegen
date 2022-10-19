@@ -612,6 +612,10 @@ begin
              + abserr(basic_wr_hit_errs,1000)
              + abserr(basic_rd_alloc_errs,1000)
              + abserr(basic_wr_alloc_errs,1000)
+             + abserr(basic_rd_evict_errs,1000)
+             + abserr(basic_wr_evict_errs,1000)
+             + abserr(basic_rd_clean_errs,1000)
+             + abserr(basic_wr_clean_errs,1000)
              ;
 
   pfx = "-I:";
@@ -627,6 +631,10 @@ begin
   $display("%0s basic wr hit errors   : %0d",pfx,basic_wr_hit_errs);
   $display("%0s basic rd alloc errors : %0d",pfx,basic_rd_alloc_errs);
   $display("%0s basic wr alloc errors : %0d",pfx,basic_wr_alloc_errs);
+  $display("%0s basic rd evict errors : %0d",pfx,basic_rd_evict_errs);
+  $display("%0s basic wr evict errors : %0d",pfx,basic_wr_evict_errs);
+  $display("%0s basic rd clean errors : %0d",pfx,basic_rd_clean_errs);
+  $display("%0s basic wr clean errors : %0d",pfx,basic_wr_clean_errs);
   $display("");
   $display("%0s Total errors          : %0d",pfx,total_errs);
   $display("==================================================");

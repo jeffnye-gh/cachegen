@@ -20,10 +20,10 @@ always @(top.dut0.fsm0.state) begin
     IDLE:      ps_fsm_st = "IDLE";
     WR_ALLOC:  ps_fsm_st = "WR_ALLOC";
     RD_ALLOC:  ps_fsm_st = "RD_ALLOC";
-    FILL:      ps_fsm_st = "FILL";
+    ALLOC_FILL:ps_fsm_st = "FILL";
     WR_EVICT:  ps_fsm_st = "WR_EVICT";
     RD_EVICT:  ps_fsm_st = "RD_EVICT";
-    FLUSH_ALL: ps_fsm_st = "FLUSH_ALL";
+    READ:      ps_fsm_st = "READ";
     INVAL_ALL: ps_fsm_st = "INVAL_ALL";
   endcase
 end
@@ -73,6 +73,11 @@ wire [3:0]   p_val_3 = top.dut0.valid0.regs[3];
 // ---------------------------------------------------------------------
 //Tag array probes, 4 ways, 1st 4 addresses
 // ---------------------------------------------------------------------
+wire [13:0]  p_tag_out_d0 = top.dut0.tag_out_d[0];
+wire [13:0]  p_tag_out_d1 = top.dut0.tag_out_d[1];
+wire [13:0]  p_tag_out_d2 = top.dut0.tag_out_d[2];
+wire [13:0]  p_tag_out_d3 = top.dut0.tag_out_d[3];
+
 wire [13:0]  p_tag0_ram_0 = top.dut0.tags[0].tag.ram[0];
 wire [13:0]  p_tag0_ram_1 = top.dut0.tags[0].tag.ram[1];
 wire [13:0]  p_tag0_ram_2 = top.dut0.tags[0].tag.ram[2];

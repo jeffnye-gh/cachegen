@@ -203,7 +203,7 @@ always @* begin
         fsm_cc_is_val_d    = 1'b1;
 
         fsm_cc_rd_fill_d   = 1'b1;
-        next = FILL;
+        next = ALLOC_FILL;
       end else begin
         fsm_mm_read_d = 1'b1;
         next = RD_ALLOC;
@@ -224,14 +224,14 @@ always @* begin
         fsm_cc_is_val_d    = 1'b1;
 
         fsm_cc_wr_fill_d   = 1'b1;
-        next = FILL;
+        next = ALLOC_FILL;
       end else begin
         fsm_mm_read_d = 1'b1;
         next = WR_ALLOC;
       end
     end
 
-    FILL: begin
+    ALLOC_FILL: begin
       next = IDLE;
     end
 

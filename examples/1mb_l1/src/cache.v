@@ -37,12 +37,13 @@ module cache #(
   //From cache to main memory
   output wire [31:0]   mm_a,
 //  output wire [31:0]   mm_be,      //to MM, byte enables, FIXME: needed?
-  output wire [255:0]  mm_wd,      // line eviction data
+  output wire [255:0]  mm_writedata,      // line eviction data
   output wire          mm_write_d, //to MM, write command
   output wire          mm_read_d,  //to MM, read command
 
-  input  wire [255:0]  mm_rd,    // line fill data
+  input  wire [255:0]  mm_readdata,    // line fill data
   input  wire          mm_readdata_valid, //fill data valid
+  input  wire          mm_ready, 
 
   input  wire          reset,
   input  wire          clk
@@ -140,7 +141,7 @@ always @(posedge clk) begin
   pe_be   <= pe_be_d;
   pe_wd   <= pe_wd_d;
   way_sel <= way_sel_d;
-  mm_rd_q <= mm_rd;
+  mm_rd_q <= mm_readdata;
 end
 // --------------------------------------------------------------------------
 // select logic
@@ -216,14 +217,14 @@ begin
 end
 endfunction
 
-wire [31:0] wd0_d = mux_bytes(pe_be_d,pe_wd_d,mm_rd[ 31:  0]);
-wire [31:0] wd1_d = mux_bytes(pe_be_d,pe_wd_d,mm_rd[ 63: 32]);
-wire [31:0] wd2_d = mux_bytes(pe_be_d,pe_wd_d,mm_rd[ 95: 64]);
-wire [31:0] wd3_d = mux_bytes(pe_be_d,pe_wd_d,mm_rd[127: 96]);
-wire [31:0] wd4_d = mux_bytes(pe_be_d,pe_wd_d,mm_rd[159:128]);
-wire [31:0] wd5_d = mux_bytes(pe_be_d,pe_wd_d,mm_rd[191:160]);
-wire [31:0] wd6_d = mux_bytes(pe_be_d,pe_wd_d,mm_rd[223:192]);
-wire [31:0] wd7_d = mux_bytes(pe_be_d,pe_wd_d,mm_rd[255:224]);
+wire [31:0] wd0_d = mux_bytes(pe_be_d,pe_wd_d,mm_readdata[ 31:  0]);
+wire [31:0] wd1_d = mux_bytes(pe_be_d,pe_wd_d,mm_readdata[ 63: 32]);
+wire [31:0] wd2_d = mux_bytes(pe_be_d,pe_wd_d,mm_readdata[ 95: 64]);
+wire [31:0] wd3_d = mux_bytes(pe_be_d,pe_wd_d,mm_readdata[127: 96]);
+wire [31:0] wd4_d = mux_bytes(pe_be_d,pe_wd_d,mm_readdata[159:128]);
+wire [31:0] wd5_d = mux_bytes(pe_be_d,pe_wd_d,mm_readdata[191:160]);
+wire [31:0] wd6_d = mux_bytes(pe_be_d,pe_wd_d,mm_readdata[223:192]);
+wire [31:0] wd7_d = mux_bytes(pe_be_d,pe_wd_d,mm_readdata[255:224]);
 
 // ------------------------------------------------------------------------
 // ------------------------------------------------------------------------
@@ -256,29 +257,29 @@ always @* begin
 
   case(pe_offset_d)
     3'b000: pe_merge_wd =
-        { mm_rd[255:224],mm_rd[223:192],mm_rd[191:160],mm_rd[159:128],
-          mm_rd[127: 96],mm_rd[ 95: 64],mm_rd[ 63: 32],wd0_d          };
+        { mm_readdata[255:224],mm_readdata[223:192],mm_readdata[191:160],mm_readdata[159:128],
+          mm_readdata[127: 96],mm_readdata[ 95: 64],mm_readdata[ 63: 32],wd0_d          };
     3'b001: pe_merge_wd =
-        { mm_rd[255:224],mm_rd[223:192],mm_rd[191:160],mm_rd[159:128],
-          mm_rd[127: 96],mm_rd[ 95: 64],wd1_d         ,mm_rd[ 31:  0] };
+        { mm_readdata[255:224],mm_readdata[223:192],mm_readdata[191:160],mm_readdata[159:128],
+          mm_readdata[127: 96],mm_readdata[ 95: 64],wd1_d         ,mm_readdata[ 31:  0] };
     3'b010: pe_merge_wd =
-        { mm_rd[255:224],mm_rd[223:192],mm_rd[191:160],mm_rd[159:128],
-          mm_rd[127: 96],wd2_d         ,mm_rd[ 63: 32],mm_rd[ 31:  0] };
+        { mm_readdata[255:224],mm_readdata[223:192],mm_readdata[191:160],mm_readdata[159:128],
+          mm_readdata[127: 96],wd2_d         ,mm_readdata[ 63: 32],mm_readdata[ 31:  0] };
     3'b011: pe_merge_wd =
-        { mm_rd[255:224],mm_rd[223:192],mm_rd[191:160],mm_rd[159:128],
-          wd3_d         ,mm_rd[ 95: 64],mm_rd[ 63: 32],mm_rd[ 31:  0] };
+        { mm_readdata[255:224],mm_readdata[223:192],mm_readdata[191:160],mm_readdata[159:128],
+          wd3_d         ,mm_readdata[ 95: 64],mm_readdata[ 63: 32],mm_readdata[ 31:  0] };
     3'b100: pe_merge_wd =
-        { mm_rd[255:224],mm_rd[223:192],mm_rd[191:160],wd4_d         ,
-          mm_rd[127: 96],mm_rd[ 95: 64],mm_rd[ 63: 32],mm_rd[ 31:  0] };
+        { mm_readdata[255:224],mm_readdata[223:192],mm_readdata[191:160],wd4_d         ,
+          mm_readdata[127: 96],mm_readdata[ 95: 64],mm_readdata[ 63: 32],mm_readdata[ 31:  0] };
     3'b101: pe_merge_wd =
-        { mm_rd[255:224],mm_rd[223:192],wd5_d         ,mm_rd[159:128],
-          mm_rd[127: 96],mm_rd[ 95: 64],mm_rd[ 63: 32],mm_rd[ 31:  0] };
+        { mm_readdata[255:224],mm_readdata[223:192],wd5_d         ,mm_readdata[159:128],
+          mm_readdata[127: 96],mm_readdata[ 95: 64],mm_readdata[ 63: 32],mm_readdata[ 31:  0] };
     3'b110: pe_merge_wd =
-        { mm_rd[255:224],wd6_d         ,mm_rd[191:160],mm_rd[159:128],
-          mm_rd[127: 96],mm_rd[ 95: 64],mm_rd[ 63: 32],mm_rd[ 31:  0] };
+        { mm_readdata[255:224],wd6_d         ,mm_readdata[191:160],mm_readdata[159:128],
+          mm_readdata[127: 96],mm_readdata[ 95: 64],mm_readdata[ 63: 32],mm_readdata[ 31:  0] };
     3'b111: pe_merge_wd =
-        { wd7_d         ,mm_rd[223:192],mm_rd[191:160],mm_rd[159:128],
-          mm_rd[127: 96],mm_rd[ 95: 64],mm_rd[ 63: 32],mm_rd[ 31:  0] };
+        { wd7_d         ,mm_readdata[223:192],mm_readdata[191:160],mm_readdata[159:128],
+          mm_readdata[127: 96],mm_readdata[ 95: 64],mm_readdata[ 63: 32],mm_readdata[ 31:  0] };
   endcase
 end
 // --------------------------------------------------------------------------
@@ -287,7 +288,7 @@ end
 wire  [255:0] line_wd;
 wire  [31:0]  line_be;
 
-assign line_wd  =  fsm_cc_rd_fill_d ? mm_rd
+assign line_wd  =  fsm_cc_rd_fill_d ? mm_readdata
                 : (fsm_cc_wr_fill_d ? pe_merge_wd  : pe_line_wd);
 
 assign line_be  =  fsm_cc_fill_d    ? 32'hFFFFFFFF : pe_line_be;
@@ -346,7 +347,7 @@ always @(fsm_cc_fill_d,way_sel,dary_out[0],dary_out[1],
                        dary_out[2],dary_out[3])
 begin
   casez({fsm_cc_fill_d,way_sel})
-    5'b1????: line_data = mm_rd;
+    5'b1????: line_data = mm_readdata;
     5'b0???1: line_data = dary_out[0];
     5'b0??1?: line_data = dary_out[1];
     5'b0?1??: line_data = dary_out[2];
@@ -426,36 +427,44 @@ fsm #(.IDX_BITS(IDX_BITS),
 // --------------------------------------------------------------------------
 bitrf valid0
 (
-  .rd(val_out_d),
-  .wa(pe_index_d),
+  .q(val_out_d),
   .way_sel(val_way_sel_d),
+
   .ra(pe_index_d),
+  .wa(pe_index_d),
+
   .wr(fsm_cc_val_write_d),
-  .in(fsm_cc_is_val_d),
+  .d(fsm_cc_is_val_d),
+
   .reset(reset),
   .clk(clk)
 );
 // --------------------------------------------------------------------------
 bitrf dirty0
 (
-  .rd(mod_out_d),
-
-  .wa(pe_index_d),
-  .ra(pe_index_d),
+  .q(mod_out_d),
   .way_sel(mod_way_sel_d),
+
+  .ra(pe_index_d),
+  .wa(pe_index_d),
   .wr(fsm_cc_mod_write_d),
-  .in(fsm_cc_is_mod_d),
+  .d(fsm_cc_is_mod_d),
+
   .reset(reset),
   .clk(clk)
 );
 // --------------------------------------------------------------------------
+wire [1:0] lru_way_d;
 lrurf lrurf0
 (
-  .rd(lru_out_d),
-  .wa(pe_index_d),
+  .q(lru_out_d),
+  .lru_way(lru_way_d),
+
   .way_sel(lru_way_sel_d),
   .ra(pe_index_d),
+  .wa(pe_index_d),
   .wr(fsm_cc_lru_write_d),
+
   .reset(reset),
   .clk(clk)
 );
