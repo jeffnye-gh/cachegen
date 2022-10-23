@@ -41,7 +41,7 @@ localparam   _bt_rd_hit_test   = 1'b1;
 localparam   _bt_wr_hit_test   = 1'b1;
 localparam   _bt_rd_alloc_test = 1'b1;
 localparam   _bt_wr_alloc_test = 1'b1;
-localparam   _bt_rd_evict_test = 1'b0;
+localparam   _bt_rd_evict_test = 1'b1;
 localparam   _bt_wr_evict_test = 1'b0;
 
 localparam   _bt_rd_clean_test = 1'b0;

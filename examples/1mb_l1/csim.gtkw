@@ -1,23 +1,23 @@
 [*]
 [*] GTKWave Analyzer v3.3.113 (w)1999-2022 BSI
-[*] Wed Oct 19 03:20:40 2022
+[*] Sun Oct 23 22:29:29 2022
 [*]
 [dumpfile] "/home/jeff/Development/gitbox/cachegen/examples/1mb_l1/csim.vcd"
-[dumpfile_mtime] "Wed Oct 19 03:20:11 2022"
-[dumpfile_size] 425957
+[dumpfile_mtime] "Sun Oct 23 22:29:24 2022"
+[dumpfile_size] 661097
 [savefile] "/home/jeff/Development/gitbox/cachegen/examples/1mb_l1/csim.gtkw"
-[timestart] 17750
+[timestart] 29100
 [size] 1637 831
 [pos] -1 -1
-*-10.402320 23850 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+*-11.947205 47050 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
 [treeopen] top.
 [treeopen] top.dut0.
 [treeopen] top.dut0.dirty0.
 [treeopen] top.dut0.fsm0.
 [treeopen] top.dut0.tags[0].
 [treeopen] top.dut0.valid0.
-[sst_width] 255
-[signals_width] 398
+[sst_width] 210
+[signals_width] 366
 [sst_expanded] 1
 [sst_vpaned_height] 374
 @28
@@ -36,12 +36,61 @@ top.cc_tb_req_hit
 @820
 top._prb.ps_fsm_st[79:0]
 @22
-top.dut0.way_sel_d[3:0]
 top.cc_tb_readdata[31:0]
 @28
 top.cc_tb_readdata_valid
 top.dut0.cc_fsm_req_hit_d
+top.dut0.cc_fsm_req_hit_d
+top.dut0.way_is_selected_d
+top.dut0.pe_access_d
+top.dut0.cmp0.val_output_d[3:0]
+@22
+top.dut0.way_hit_d[3:0]
+@29
+top.dut0.cmp0.req_clean_d
+@28
+top.dut0.fsm0.cc_fsm_req_mod_d
+top.dut0.victim_way_is_dirty_d
+top.dut0.cmp0.way_is_selected_d
+top.dut0.cmp0.no_victim
+@22
+top.dut0.cmp0.fill_or_victim_way_d[3:0]
+@28
+top.dut0.cmp0.mod_output_d[3:0]
+top.dut0.cmp0.lru_way_is_dirty_d
+@c00200
+-CMP
+@22
+top.dut0.cmp0.way_hit_d[3:0]
+top.dut0.cmp0.lru_selected_way_d[3:0]
+top.dut0.cmp0.mod_output_d[3:0]
+top.dut0.cmp0.way_hit_d[3:0]
+@28
+top.dut0.cmp0.way_is_selected_d
+@22
+top.dut0.fill_or_victim_way_d[3:0]
+top.dut0.cmp0.select_by_invalid_d[3:0]
+top.dut0.cmp0.way_mod_d[3:0]
+@1401200
+-CMP
 @800200
+-FSM
+@28
+top.dut0.fsm0.fsm_mm_write_d
+top.dut0.fsm0.mm_ready
+top.dut0.fsm0.cc_fsm_req_mod_d
+top.dut0.fsm0.fsm_mm_read_d
+top.dut0.cc_fill_d
+top.dut0.fsm_cc_evict_d
+top.dut0.fsm0.pe_read_d
+top.dut0.fsm0.pe_write_d
+top.dut0.fsm0.cc_fsm_req_hit_d
+top.dut0.fsm0.cc_fsm_req_mod_d
+@820
+top._prb.ps_fsm_st[79:0]
+@1000200
+-FSM
+@c00200
 -TAGS
 @22
 top.dut0.pe_index_d[12:0]
@@ -50,9 +99,7 @@ top._prb.p_tag_out_d0[13:0]
 top._prb.p_tag_out_d1[13:0]
 top._prb.p_tag_out_d2[13:0]
 top._prb.p_tag_out_d3[13:0]
-@28
-top.dut0.fsm0.cc_fsm_req_hit_d
-@1000200
+@1401200
 -TAGS
 @c00200
 -MM
@@ -61,52 +108,39 @@ top.dut0.mm_a[31:0]
 @28
 top.dut0.mm_read_d
 top.dut0.mm_write_d
+top.mm0.write
+top.mm0.write_q
+top.mm0.write_q2
 top.dut0.mm_ready
-top.dut0.fsm_cc_evict_d
 top.dut0.mm_readdata_valid
 @22
 top.dut0.mm_writedata[255:0]
 top.mm0.a[26:0]
 @28
-top.dut0.cc_fsm_req_hit_d
 top.dut0.pe_access_d
-top.dut0.way_sel_d[3:0]
-top.dut0.val_out_d[3:0]
 top.dut0.fsm_cc_is_val_d
 @1401200
 -MM
-@c00200
+@800200
 -VAL
 @28
-top.dut0.lru_way_d[1:0]
-top.dut0.fsm_cc_evict_d
 top.dut0.valid0.wr
-@22
-top.dut0.valid0.wa[12:0]
-top.dut0.valid0.way_sel[3:0]
-@28
 top.dut0.fsm_cc_val_write_d
 @22
 top.dut0.valid0.wr_data[3:0]
 @28
 top.dut0.valid0.d
-@22
-top.dut0.valid0.way_sel[3:0]
-@28
 top._prb.p_val_0[3:0]
 top._prb.p_val_1[3:0]
 top._prb.p_val_2[3:0]
 top._prb.p_val_3[3:0]
-@1401200
+@1000200
 -VAL
 @c00200
 -LRU
 @28
 top.dut0.lrurf0.wr
 top.dut0.lrurf0.wd[2:0]
-@22
-top.dut0.lrurf0.wa[12:0]
-@28
 top._prb.p_lru_0[2:0]
 @1401200
 -LRU
@@ -148,12 +182,6 @@ top.dut0.rd[31:0]
 -DARY3
 @1401200
 -DARY
-@c00200
--FSM
-@820
-top._prb.ps_fsm_st[79:0]
-@1401200
--FSM
 @c00200
 -DIRTY
 @28

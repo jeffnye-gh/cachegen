@@ -79,6 +79,7 @@
 //
 // Invalidate all
 //            - assert reset on the valid bit "register file"
+// -------------------------------------------------------------------------
 //
 // -------------------------------------------------------------------------
 `include "functions.h"
@@ -92,9 +93,8 @@ module fsm #(
   input  wire pe_read_d,
   input  wire pe_write_d,
 
-  input  wire  pe_req_hit_d,
-  input  wire  pe_req_miss_d,
-  input  wire  pe_req_mod_d,
+  input  wire  cc_fsm_req_hit_d,
+  input  wire  cmp_fsm_req_clean_d,
 
   output reg   fsm_cc_ary_write_d,
   output reg   fsm_cc_tag_write_d,
@@ -106,6 +106,7 @@ module fsm #(
   output reg   fsm_cc_is_mod_d,
   output reg   fsm_cc_rd_fill_d,
   output reg   fsm_cc_wr_fill_d,
+  output reg   fsm_cc_evict_d,
 
   output reg   fsm_cc_readdata_valid,
 
@@ -113,6 +114,7 @@ module fsm #(
   output reg   fsm_mm_write_d,
 
   input  wire mm_readdata_valid,
+  input  wire mm_ready,
 
   input reset,
   input clk
@@ -143,6 +145,7 @@ always @* begin
   fsm_cc_lru_write_d   = 1'b0;
   fsm_cc_rd_fill_d     = 1'b0;
   fsm_cc_wr_fill_d     = 1'b0;
+  fsm_cc_evict_d       = 1'b0;
 
   fsm_cc_is_mod_d      = 1'bx;
   fsm_cc_is_val_d      = 1'bx;
@@ -155,16 +158,24 @@ always @* begin
   next = IDLE;
 
   casez(state) 
+    // ------------------------------------------------------------------
     IDLE: begin
       // READ HIT
-      if(pe_read_d & pe_req_hit_d) begin 
+      // - mux between the ways down to the requested word 
+      // - assert valid and return the 32b word
+      // - update LRU 
+      if(pe_read_d & cc_fsm_req_hit_d) begin 
         fsm_cc_lru_write_d = 1'b1;
         fsm_cc_readdata_valid_d = 1'b1;
         next = IDLE;
       end
 
       // WRITE HIT
-      else if(pe_write_d & pe_req_hit_d)  begin
+      // - read the line, align the word to the line
+      // - write the line back
+      // - update LRU 
+      // - set the dirty bit 
+      else if(pe_write_d & cc_fsm_req_hit_d)  begin
         fsm_cc_ary_write_d = 1'b1;
         fsm_cc_lru_write_d = 1'b1;
 
@@ -175,19 +186,58 @@ always @* begin
       end
 
       // READ MISS CLEAN
-      else if(pe_read_d & !pe_req_hit_d & !pe_req_mod_d) begin
+      // - there is a write miss
+      // -     EITHER there is one invalid way
+      // -     OR     the LRU way is not modified
+      // - assert read to MM and wait for mm valid
+      // - mux down to the critical word in the mm data in flight
+      // - assert valid and return the critical word
+      // - write the mm data to the selected way
+      // - update the LRU
+      // - set the valid bit
+      // - clear the dirty bit
+//      else if(pe_read_d & !cc_fsm_req_hit_d & !cc_fsm_req_mod_d) begin
+      else if(pe_read_d & !cc_fsm_req_hit_d & cmp_fsm_req_clean_d) begin
         fsm_mm_read_d = 1'b1;
         next = RD_ALLOC;
       end
 
       // WRITE MISS CLEAN
-      else if(pe_write_d & !pe_req_hit_d & !pe_req_mod_d) begin
+      // - there is a write miss
+      // -     EITHER there is one invalid way
+      // -     OR     the LRU way is not modified
+      // - assert read to MM and wait for mm valid
+      // - align PE word and merge with the mm returned data
+      //     (honor PE's be settings)
+      // - write the merged data to the selected way
+      // - update the LRU
+      // - set the valid bit
+      // - set the dirty bit
+      else if(pe_write_d & !cc_fsm_req_hit_d & cmp_fsm_req_clean_d) begin
         fsm_mm_read_d = 1'b1;
         next = WR_ALLOC;
       end
 
-    end //end of IDLE
+      // READ MISS MODIFIED
+      // - there is a read miss
+      // -    all ways are valid
+      // -    the LRU way is modified
+      // - (1) assert write to MM and wait for mm ready
+      // - (2) assert read to the MM and way for mm valid
+      // - mux down to the critical word in the mm data in flight
+      // - assert valid and return the critical word
+      // - write the return data to the selected way 
+      // - update the LRU
+      // - set the valid bit
+      // - clear the dirty bit
+      else if(pe_read_d & !cc_fsm_req_hit_d & !cmp_fsm_req_clean_d) begin
+        fsm_mm_write_d = 1'b1;
+        fsm_cc_evict_d = 1'b1;
+        next = RD_EVICT;
+      end
 
+    end //end of IDLE
+    // ------------------------------------------------------------------
     RD_ALLOC: begin
       if(mm_readdata_valid) begin
         fsm_cc_readdata_valid_d = 1'b1;
@@ -209,7 +259,7 @@ always @* begin
         next = RD_ALLOC;
       end
     end
-
+    // ------------------------------------------------------------------
     WR_ALLOC: begin
       if(mm_readdata_valid) begin
         fsm_cc_ary_write_d = 1'b1;
@@ -230,8 +280,33 @@ always @* begin
         next = WR_ALLOC;
       end
     end
+    // ------------------------------------------------------------------
+    RD_EVICT: begin
+      if(mm_ready) begin //when ready update cache state
+        fsm_cc_ary_write_d = 1'b1;
+        fsm_cc_lru_write_d = 1'b1;
 
+        fsm_cc_mod_write_d = 1'b1;
+        fsm_cc_is_mod_d    = 1'b0; //clear the mod bit
+
+        fsm_cc_tag_write_d = 1'b1; 
+
+        fsm_cc_val_write_d = 1'b1; 
+        fsm_cc_is_val_d    = 1'b1;
+
+        next = READ;
+      end else begin
+        fsm_mm_write_d = 1'b1;  //write back victim
+        fsm_cc_evict_d = 1'b1;
+        next = RD_EVICT;
+      end
+    end
+    // ------------------------------------------------------------------
     ALLOC_FILL: begin
+      next = IDLE;
+    end
+    // ------------------------------------------------------------------
+    READ: begin //state has been updated, hit is ensured, read data is ready
       next = IDLE;
     end
 
@@ -284,17 +359,17 @@ endmodule
 
 // MORE IDLE CASES
 //      // WRITE MISS CLEAN
-//      else if(pe_write_d & !pe_req_miss_d & !pe_req_mod_d) begin
+//      else if(pe_write_d & !pe_req_miss_d & !cc_fsm_req_mod_d) begin
 //        next = WR_ALLOC;
 //      end
 //
 //      // READ MISS DIRTY
-//      else if(pe_read_d & !pe_req_miss_d &  pe_req_mod_d) begin
+//      else if(pe_read_d & !pe_req_miss_d &  cc_fsm_req_mod_d) begin
 //        next = RD_EVICT;
 //      end
 //
 //      // WRITE MISS DIRTY
-//      else if(pe_write_d & !pe_req_miss_d &  pe_req_mod_d) begin
+//      else if(pe_write_d & !pe_req_miss_d &  cc_fsm_req_mod_d) begin
 //        next = WR_EVICT;
 //      end
 //

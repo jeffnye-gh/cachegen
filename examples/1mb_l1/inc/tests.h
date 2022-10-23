@@ -40,9 +40,9 @@ begin
   load_initial_tags("data/basicRdEvict.tags.memh",v);
   //load control bits
   load_initial_bits("data/basicRdEvict.bits.memb",v);
-  top.dut0.valid0.regs[0] <= 4'b1110;
-  top.dut0.dirty0.regs[0] <= 4'b0111;
-  top.dut0.valid0.regs[10] <= 4'b1101;
+  top.dut0.valid0.regs[0]  <= 4'b1111;
+  top.dut0.dirty0.regs[0]  <= 4'b1111;
+//  top.dut0.valid0.regs[10] <= 4'b1101;
   @(posedge clk);
   nop(1);
 

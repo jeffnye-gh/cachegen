@@ -13,10 +13,8 @@ module bitrf
 (
   output reg  [3:0]  q,
 
-  input  wire [3:0]  way_sel,
-
-  input  wire [12:0] ra,
-  input  wire [12:0] wa,
+  input  wire [12:0] index,
+  input  wire [3:0]  way,
 
   input  wire        wr,
   input  wire        d,
@@ -34,10 +32,10 @@ endtask
 reg  [3:0] regs[0:8192];
 reg  [3:0] wr_data;
 // ---------------------------------------------------------------------------
-assign q = regs[ra];
+assign q = regs[index];
 // ---------------------------------------------------------------------------
 always @* begin
-  casez(way_sel)
+  casez(way)
     4'b???1: wr_data = { q[3], q[2], q[1], d    };
     4'b??1?: wr_data = { q[3], q[2], d,    q[0] };
     4'b?1??: wr_data = { q[3], d,    q[1], q[0] };
@@ -51,6 +49,6 @@ always @(posedge clk) begin
 end
 // ---------------------------------------------------------------------------
 always @(posedge clk) begin
-  regs[wa] <= wr ? wr_data : regs[wa];
+  regs[index] <= wr ? wr_data : regs[index];
 end
 endmodule

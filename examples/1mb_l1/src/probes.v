@@ -29,14 +29,14 @@ always @(top.dut0.fsm0.state) begin
 end
 // ---------------------------------------------------------------------
 // ---------------------------------------------------------------------
-string ps_way_sel;
-always @(top.dut0.way_sel_d) begin
-  case(top.dut0.way_sel_d)
-    4'b0001: ps_way_sel = "WAY0";
-    4'b0010: ps_way_sel = "WAY1";
-    4'b0100: ps_way_sel = "WAY2";
-    4'b1000: ps_way_sel = "WAY3";
-    default: ps_way_sel = "x";
+string ps_way_hit;
+always @(top.dut0.way_hit_d) begin
+  case(top.dut0.way_hit_d)
+    4'b0001: ps_way_hit = "WAY0";
+    4'b0010: ps_way_hit = "WAY1";
+    4'b0100: ps_way_hit = "WAY2";
+    4'b1000: ps_way_hit = "WAY3";
+    default: ps_way_hit = "x";
   endcase
 end
 // ---------------------------------------------------------------------
