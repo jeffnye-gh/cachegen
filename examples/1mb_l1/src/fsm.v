@@ -283,6 +283,8 @@ always @* begin
     // ------------------------------------------------------------------
     RD_EVICT: begin
       if(mm_ready) begin //when ready update cache state
+        fsm_cc_readdata_valid_d = 1'b1;
+
         fsm_cc_ary_write_d = 1'b1;
         fsm_cc_lru_write_d = 1'b1;
 
@@ -294,7 +296,10 @@ always @* begin
         fsm_cc_val_write_d = 1'b1; 
         fsm_cc_is_val_d    = 1'b1;
 
-        next = READ;
+        fsm_cc_evict_d = 1'b1;
+
+        fsm_mm_read_d = 1'b1;
+        next = RD_ALLOC;
       end else begin
         fsm_mm_write_d = 1'b1;  //write back victim
         fsm_cc_evict_d = 1'b1;
@@ -307,9 +312,28 @@ always @* begin
     end
     // ------------------------------------------------------------------
     READ: begin //state has been updated, hit is ensured, read data is ready
-      next = IDLE;
-    end
+      if(mm_readdata_valid) begin
+        fsm_cc_readdata_valid_d = 1'b1;
+        fsm_cc_ary_write_d = 1'b1;
+        fsm_cc_lru_write_d = 1'b1;
 
+        fsm_cc_mod_write_d = 1'b1;
+        fsm_cc_is_mod_d    = 1'b0; //clear the mod bit
+
+        fsm_cc_tag_write_d = 1'b1; 
+
+        fsm_cc_val_write_d = 1'b1; 
+        fsm_cc_is_val_d    = 1'b1;
+
+        fsm_cc_rd_fill_d   = 1'b1;
+        next = ALLOC_FILL;
+      end else begin
+        fsm_cc_wr_fill_d = 1'b1;
+        fsm_cc_evict_d = 1'b1;
+        fsm_mm_read_d = 1'b1;
+        next = READ;
+      end
+    end
 //    RD_EVICT: begin
 //      if(FIXME_mm_readdata_valid) begin
 //        next = RD_ALLOC;

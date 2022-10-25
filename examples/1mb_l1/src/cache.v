@@ -153,7 +153,9 @@ assign mm_write_d = fsm_mm_write_d;
 
 // --------------------------------------------------------------------------
 wire cc_fsm_req_hit_d =  way_is_selected_d & pe_access_d;
-assign req_hit_d      =  cc_fsm_req_hit_d  | cc_fill_d;
+assign req_hit_d      =  cc_fsm_req_hit_d
+                      |  cc_fill_d
+                      |  (mm_ready & fsm_cc_evict_d);
 // --------------------------------------------------------------------------
 // write logic
 //
@@ -229,17 +231,6 @@ always @* begin
 
 end
 
-merge mrg0
-(
-  .y(pe_merge_wd),
-
-  .rd(mm_readdata),
-  .wd(pe_wd_d),
-
-  .be(pe_be_d),
-  .sel(pe_offset_d)
-
-);
 // ------------------------------------------------------------------------
 // lru_selected_way_d is always 1-hot 
 // ------------------------------------------------------------------------
@@ -259,7 +250,8 @@ wire  [255:0] line_wd;
 wire  [31:0]  line_be;
 
 assign line_wd  =  fsm_cc_rd_fill_d ? mm_readdata
-                : (fsm_cc_wr_fill_d ? pe_merge_wd  : pe_line_wd);
+                : (fsm_cc_wr_fill_d ? pe_merge_wd  
+                : (fsm_cc_evict_d   ? mm_readdata : pe_line_wd));
 
 assign line_be  =  cc_fill_d    ? 32'hFFFFFFFF : pe_line_be;
 // --------------------------------------------------------------------------
@@ -327,6 +319,20 @@ always @* begin
 
   rd = !rd_valid_d ? 32'bx : (!fsm_cc_rd_fill ? ard : frd);
 end
+// ------------------------------------------------------------------------
+// MERGE
+// ------------------------------------------------------------------------
+merge mrg0
+(
+  .y(pe_merge_wd),
+
+  .rd(mm_readdata),
+  .wd(pe_wd_d),
+
+  .be(pe_be_d),
+  .sel(pe_offset_d)
+
+);
 // --------------------------------------------------------------------------
 // COMPARE
 // --------------------------------------------------------------------------

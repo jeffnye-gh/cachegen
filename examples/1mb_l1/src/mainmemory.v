@@ -27,7 +27,7 @@ module mainmemory #(
 
 //localparam ENTRIES = 2 ** ADDR_WIDTH;
 
-reg [255:0] ram[0:ENTRIES-1];
+reg [255:0] ram[0:64000-1];
 reg [255:0] rd_q,rd_q2;
 reg [26:0] aq;
 reg read_q,read_q2;

@@ -61,6 +61,12 @@ begin
   // The return data will be mm address 0, word 3 which is: 0x00003000
 
           //tag/way index   word
+  //a:00002001
+//  0000 0000 0001 0000 0000 0000 0000 1100
+//  0    0    1    0    0    0    0    c
+//  000 0000 0000 1000 0000 0000 0000
+//  0   0    0    8    0    0    0
+// //a:00008000
   rd_req({14'h004,13'h000,3'h3,2'h0},4'b1111,v);//miss
   //        way   index    tag      val     mod    lru
   chk_alloc(2'h0,13'h000,14'h000,4'b1111,4'b0110,3'b010,enb,errs,v);
