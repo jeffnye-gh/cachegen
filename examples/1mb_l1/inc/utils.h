@@ -22,7 +22,7 @@ begin
     @(posedge clk); 
     ++watchdog;
     if(watchdog > 1000) begin watchdog_err("rd_req"); $finish; end
-  end while(!cc_tb_req_hit);
+  end while(!cc_tb_ready);
 end
 endtask
 // --------------------------------------------------------------------------
@@ -41,7 +41,7 @@ begin
     @(posedge clk); 
     ++watchdog;
     if(watchdog > 1000) begin watchdog_err("wr_req"); $finish; end
-  end while(!cc_tb_req_hit);
+  end while(!cc_tb_ready);
 end
 endtask
 // --------------------------------------------------------------------------

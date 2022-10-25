@@ -93,7 +93,9 @@ module fsm #(
   input  wire pe_read_d,
   input  wire pe_write_d,
 
-  input  wire  cc_fsm_req_hit_d,
+//  input  wire  cc_fsm_req_hit_d,
+  input  wire  way_is_selected_d,
+
   input  wire  cmp_fsm_req_clean_d,
 
   output reg   fsm_cc_ary_write_d,
@@ -108,7 +110,10 @@ module fsm #(
   output reg   fsm_cc_wr_fill_d,
   output reg   fsm_cc_evict_d,
 
+  output reg   fsm_cc_ready_d,
   output reg   fsm_cc_readdata_valid,
+
+  output reg   fsm_cc_use_evict_add_d,
 
   output reg   fsm_mm_read_d,
   output reg   fsm_mm_write_d,
@@ -129,6 +134,7 @@ module fsm #(
 // ----------------------------------------------------------------------
 reg [3:0] state,next;
 reg fsm_cc_readdata_valid_d;
+wire cc_fsm_req_hit_d = way_is_selected_d & (pe_read_d | pe_write_d);
 // ----------------------------------------------------------------------
 always @(posedge clk) begin
   state <= reset ? IDLE : next;
@@ -138,6 +144,7 @@ end
 // ----------------------------------------------------------------------
 always @* begin
 
+  fsm_cc_ready_d       = 1'b0;
   fsm_cc_ary_write_d   = 1'b0;
   fsm_cc_tag_write_d   = 1'b0;
   fsm_cc_val_write_d   = 1'b0;
@@ -150,6 +157,7 @@ always @* begin
   fsm_cc_is_mod_d      = 1'bx;
   fsm_cc_is_val_d      = 1'bx;
 
+  fsm_cc_use_evict_add_d  = 1'b0;
   fsm_cc_readdata_valid_d = 1'b0;
 
   fsm_mm_read_d  = 1'b0;
@@ -165,6 +173,7 @@ always @* begin
       // - assert valid and return the 32b word
       // - update LRU 
       if(pe_read_d & cc_fsm_req_hit_d) begin 
+        fsm_cc_ready_d     = 1'b1;
         fsm_cc_lru_write_d = 1'b1;
         fsm_cc_readdata_valid_d = 1'b1;
         next = IDLE;
@@ -176,6 +185,7 @@ always @* begin
       // - update LRU 
       // - set the dirty bit 
       else if(pe_write_d & cc_fsm_req_hit_d)  begin
+        fsm_cc_ready_d     = 1'b1;
         fsm_cc_ary_write_d = 1'b1;
         fsm_cc_lru_write_d = 1'b1;
 
@@ -196,7 +206,6 @@ always @* begin
       // - update the LRU
       // - set the valid bit
       // - clear the dirty bit
-//      else if(pe_read_d & !cc_fsm_req_hit_d & !cc_fsm_req_mod_d) begin
       else if(pe_read_d & !cc_fsm_req_hit_d & cmp_fsm_req_clean_d) begin
         fsm_mm_read_d = 1'b1;
         next = RD_ALLOC;
@@ -233,6 +242,7 @@ always @* begin
       else if(pe_read_d & !cc_fsm_req_hit_d & !cmp_fsm_req_clean_d) begin
         fsm_mm_write_d = 1'b1;
         fsm_cc_evict_d = 1'b1;
+        fsm_cc_use_evict_add_d = 1'b1;
         next = RD_EVICT;
       end
 
@@ -240,6 +250,7 @@ always @* begin
     // ------------------------------------------------------------------
     RD_ALLOC: begin
       if(mm_readdata_valid) begin
+        fsm_cc_ready_d = 1'b1;
         fsm_cc_readdata_valid_d = 1'b1;
         fsm_cc_ary_write_d = 1'b1;
         fsm_cc_lru_write_d = 1'b1;
@@ -262,6 +273,7 @@ always @* begin
     // ------------------------------------------------------------------
     WR_ALLOC: begin
       if(mm_readdata_valid) begin
+        fsm_cc_ready_d = 1'b1;
         fsm_cc_ary_write_d = 1'b1;
         fsm_cc_lru_write_d = 1'b1;
 
@@ -299,10 +311,12 @@ always @* begin
         fsm_cc_evict_d = 1'b1;
 
         fsm_mm_read_d = 1'b1;
-        next = RD_ALLOC;
+        //fsm_cc_use_evict_add_d = 1'b1;
+        next = READ;
       end else begin
         fsm_mm_write_d = 1'b1;  //write back victim
         fsm_cc_evict_d = 1'b1;
+        fsm_cc_use_evict_add_d = 1'b1;
         next = RD_EVICT;
       end
     end
@@ -313,7 +327,7 @@ always @* begin
     // ------------------------------------------------------------------
     READ: begin //state has been updated, hit is ensured, read data is ready
       if(mm_readdata_valid) begin
-        fsm_cc_readdata_valid_d = 1'b1;
+        //fsm_cc_readdata_valid_d = 1'b1;
         fsm_cc_ary_write_d = 1'b1;
         fsm_cc_lru_write_d = 1'b1;
 

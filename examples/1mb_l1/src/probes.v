@@ -8,6 +8,11 @@ wire [255:0] dary_index0_way0 = top.dut0.dsram0.ram[0];
 wire [255:0] dary_index0_way1 = top.dut0.dsram1.ram[0];
 wire [255:0] dary_index0_way2 = top.dut0.dsram2.ram[0];
 wire [255:0] dary_index0_way3 = top.dut0.dsram3.ram[0];
+
+wire [255:0] p_dary_out_0 = top.dut0.dary_out[0];
+wire [255:0] p_dary_out_1 = top.dut0.dary_out[1];
+wire [255:0] p_dary_out_2 = top.dut0.dary_out[2];
+wire [255:0] p_dary_out_3 = top.dut0.dary_out[3];
 //wire [255:0] dary_index0_way2 = 
 //wire [255:0] dary_index0_way3 = 
 // ---------------------------------------------------------------------

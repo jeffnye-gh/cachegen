@@ -82,7 +82,7 @@ reg  [31:0]  tb_cc_writedata;
 wire [31:0]  cc_tb_readdata;
 
 wire cc_tb_readdata_valid;
-wire cc_tb_req_hit;
+wire cc_tb_ready;
 // ----------------------------------------------------------------------
 wire [31:0]  cc_mm_address;
 wire [255:0] cc_mm_writedata;
@@ -153,7 +153,7 @@ integer capture_a_index,capture_d_index;
 wire [31:0] mm_capture_addr_0 = mm_actual_capture_addr[0];
 wire [31:0] mm_capture_addr_1 = mm_actual_capture_addr[1];
 // ------------------------------------------------------------------------
-wire capture_a = tb_cc_read & cc_tb_req_hit;
+wire capture_a = tb_cc_read & cc_tb_ready;
 wire capture_d = cc_tb_readdata_valid;
 // ------------------------------------------------------------------------
 always @(posedge clk) begin
@@ -215,7 +215,7 @@ cache #(.READ_HIT_LAT(L1_READ_HIT_LAT),
   //outputs
   .rd        (cc_tb_readdata),
   .rd_valid_d(cc_tb_readdata_valid),
-  .req_hit_d (cc_tb_req_hit),
+  .ready_d   (cc_tb_ready),
 
   //from TB 
   .a    (tb_cc_address),

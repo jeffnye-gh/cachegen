@@ -23,7 +23,7 @@ module cache #(
   output reg   [31:0]  rd,
   output wire          rd_valid_d,
 
-  output wire         req_hit_d,   //status output
+  output wire          ready_d,   //status output
 
   //From PE/TB
   input  wire [31:0]  a,
@@ -57,13 +57,14 @@ localparam integer WAYS =  4;
 //n/a
 // ------------------------------------------------------------------------
 //assign mm_be = 32'hFFFFFFFF;
-assign mm_a = a;
+assign mm_a = fsm_cc_use_evict_add_d ? {evict_tag_add_d,18'b0} : a;
 // ------------------------------------------------------------------------
 wire [CACHELINE_BITS-1:0] fsm_cc_wd;
 wire [CACHELINE_BITS-1:0] dary_out[3:0];
 
 reg  [TAG_BITS-1:0] ag_wd;
 wire [TAG_BITS-1:0] tag_out_d[3:0];
+reg  [TAG_BITS-1:0] evict_tag_add_d;
 
 wire lru_wr,mod_wr;
 wire [3:0] val_output_d;
@@ -73,6 +74,7 @@ wire [2:0] lru_output_d;
 wire fsm_mm_read_d;
 wire fsm_mm_write_d;
 
+wire fsm_cc_use_evict_add_d;
 wire fsm_cc_readdata_valid;
 
 wire fsm_cc_ary_write_d;
@@ -150,12 +152,15 @@ end
 assign rd_valid_d = fsm_cc_readdata_valid;
 assign mm_read_d  = fsm_mm_read_d;
 assign mm_write_d = fsm_mm_write_d;
+assign ready_d    = fsm_cc_ready_d;
 
 // --------------------------------------------------------------------------
-wire cc_fsm_req_hit_d =  way_is_selected_d & pe_access_d;
-assign req_hit_d      =  cc_fsm_req_hit_d
-                      |  cc_fill_d
-                      |  (mm_ready & fsm_cc_evict_d);
+//wire cc_fsm_req_hit_d =  way_is_selected_d & pe_access_d;
+wire fsm_cc_ready_d;
+//assign req_hit_d = fsm_cc_ready_d;
+//assign req_hit_d      =  cc_fsm_req_hit_d
+//                      |  cc_fill_d
+//                      |  (mm_ready & fsm_cc_evict_d);
 // --------------------------------------------------------------------------
 // write logic
 //
@@ -188,18 +193,18 @@ reg [3:0] lru_way_sel_d;
 
 // ------------------------------------------------------------------------
 // ------------------------------------------------------------------------
-function [31:0] mux_bytes;
-input [3:0] be;
-input [31:0] wd,rd;
-reg [7:0] b0,b1,b2,b3;
-begin
-  b0 = be[0] ? wd[ 7: 0] : rd[ 7: 0];
-  b1 = be[1] ? wd[15: 8] : rd[15: 8];
-  b2 = be[2] ? wd[23:16] : rd[23:16];
-  b3 = be[3] ? wd[31:24] : rd[31:24];
-  mux_bytes = {b3,b2,b1,b0};
-end
-endfunction
+//function [31:0] mux_bytes;
+//input [3:0] be;
+//input [31:0] wd,rd;
+//reg [7:0] b0,b1,b2,b3;
+//begin
+//  b0 = be[0] ? wd[ 7: 0] : rd[ 7: 0];
+//  b1 = be[1] ? wd[15: 8] : rd[15: 8];
+//  b2 = be[2] ? wd[23:16] : rd[23:16];
+//  b3 = be[3] ? wd[31:24] : rd[31:24];
+//  mux_bytes = {b3,b2,b1,b0};
+//end
+//endfunction
 // ------------------------------------------------------------------------
 // ------------------------------------------------------------------------
 always @* begin
@@ -237,10 +242,20 @@ end
 always @* begin
   casez(lru_selected_way_d)
     4'b1???: mm_writedata  = dary_out[3];
-    4'b?1??: mm_writedata  = dary_out[0]; 
+    4'b?1??: mm_writedata  = dary_out[2]; 
     4'b??1?: mm_writedata  = dary_out[1];
-    4'b???1: mm_writedata  = dary_out[2];
+    4'b???1: mm_writedata  = dary_out[0];
     default  mm_writedata = 256'bx;
+  endcase
+end
+
+always @* begin
+  casez(lru_selected_way_d)
+    4'b1???: evict_tag_add_d  = tag_out_d[3];
+    4'b?1??: evict_tag_add_d  = tag_out_d[2]; 
+    4'b??1?: evict_tag_add_d  = tag_out_d[1];
+    4'b???1: evict_tag_add_d  = tag_out_d[0];
+    default  evict_tag_add_d  = 14'bx;
   endcase
 end
 // --------------------------------------------------------------------------
@@ -374,8 +389,9 @@ fsm #(.IDX_BITS(IDX_BITS),
   .pe_read_d    (pe_read_d),
   .pe_write_d   (pe_write_d),
 
-  .cc_fsm_req_hit_d (cc_fsm_req_hit_d),
-  .cmp_fsm_req_clean_d (cmp_fsm_req_clean_d),
+//  .cc_fsm_req_hit_d (cc_fsm_req_hit_d),
+  .way_is_selected_d  (way_is_selected_d),
+  .cmp_fsm_req_clean_d(cmp_fsm_req_clean_d),
 
   .fsm_cc_ary_write_d(fsm_cc_ary_write_d),
   .fsm_cc_tag_write_d(fsm_cc_tag_write_d),
@@ -390,7 +406,10 @@ fsm #(.IDX_BITS(IDX_BITS),
 
   .fsm_cc_evict_d  (fsm_cc_evict_d),
 
+  .fsm_cc_ready_d(fsm_cc_ready_d),
   .fsm_cc_readdata_valid(fsm_cc_readdata_valid),
+
+  .fsm_cc_use_evict_add_d(fsm_cc_use_evict_add_d),
 
   .fsm_mm_read_d(fsm_mm_read_d),
   .fsm_mm_write_d(mm_write_d),
