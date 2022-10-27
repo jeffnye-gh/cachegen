@@ -46,30 +46,39 @@ begin
   @(posedge clk);
   nop(1);
 
-
   //  This first access should detect a miss, evict modified entry pointed
   //  to by the LRU of index 0
   //
-  // The LRU way is: 2
-  // The index of the access is : 0
-  // The tag of this way at that index is: 0002 
-  // The data of this way at that index is:
-  //   00207000_00206000_00205000_00204000_00203000_00202000_00201000_00200000
-  // Main memory @address  00 0000 0000 0010 - ----
-  //                      000 0000 0000 0100 0000 ->  0x00000040
-  //   will be written with the above data:
-  // The return data will be mm address 0, word 3 which is: 0x00003000
+  // Access is to 0000 0000 0001 0000 0000 0000 0000 1100 -> 0010000C hex
+  // Line addr is 000 0000 0000 1000 0000 0000 0000       ->  0008000 hex
+  // Index addr   0 0000 0000 0000                        ->     0000 hex
+  // Word  addr                 11                        ->        3 hex
+  // LRU bits are 010 -> lru way is 2
+  //
+  // Tag at index 0/way 2 is: 14'h0002 (14'b00000000000010)
+  // The data at index 0/way 2  is:
+  // 00207000_00206000_00205000_00204000_00203000_00202000_00201000_00200000
+  //
+  // The main memory (line) address for the write back is {tag,index,5'b0}
+  //
+  // <--- tag ----> <-- index --> <-0->
+  // 00000000000010 0000000000000 00000
+  // 0000 0000 0000 1000 0000 0000 0000 0000 -> 00080000 byte address
+  // 000 0000 0000 0100 0000 0000 0000       ->  0004000 line address
+  //
+  // At the end of the access:
+  //
+  // main memory at 26'h04000 should contain:
+  // 00207000_00206000_00205000_00204000_00203000_00202000_00201000_00200000
+  //
+  // tag at index 0 way 2 should contain:
+  // 00 0000 0000 0100  -> 0004 
+  // Af
+  //a:00008000
+  rd_req({14'h004,13'h000,3'h3,2'h0},4'b1111,v);//miss, victim is dirty
 
-          //tag/way index   word
-  //a:00002001
-//  0000 0000 0001 0000 0000 0000 0000 1100
-//  0    0    1    0    0    0    0    c
-//  000 0000 0000 1000 0000 0000 0000
-//  0   0    0    8    0    0    0
-// //a:00008000
-  rd_req({14'h004,13'h000,3'h3,2'h0},4'b1111,v);//miss
   //        way   index    tag      val     mod    lru
-  chk_alloc(2'h0,13'h000,14'h000,4'b1111,4'b0110,3'b010,enb,errs,v);
+//  chk_alloc(2'h0,13'h000,14'h000,4'b1111,4'b0110,3'b010,enb,errs,v);
 
 //  //a:00002001
 //  rd_req({14'h001,13'h001,3'h7,2'h0},4'b1111,v);

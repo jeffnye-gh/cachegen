@@ -25,7 +25,7 @@ always @(top.dut0.fsm0.state) begin
     IDLE:      ps_fsm_st = "IDLE";
     WR_ALLOC:  ps_fsm_st = "WR_ALLOC";
     RD_ALLOC:  ps_fsm_st = "RD_ALLOC";
-    ALLOC_FILL:ps_fsm_st = "FILL";
+    FILL:      ps_fsm_st = "FILL";
     WR_EVICT:  ps_fsm_st = "WR_EVICT";
     RD_EVICT:  ps_fsm_st = "RD_EVICT";
     READ:      ps_fsm_st = "READ";
@@ -164,10 +164,15 @@ wire [31:0] p_w0_i1_wd07 = top.dut0.dsram0.ram[1][255:224];
 // ---------------------------------------------------------------------
 // Main memory First 4 locations for each main memory bank, by word
 // ---------------------------------------------------------------------
-wire [31:0] p_mm_ram0_0 = top.dut0.mm0.ram0[0];
-wire [31:0] p_mm_ram0_1 = top.dut0.mm0.ram0[1];
-wire [31:0] p_mm_ram0_2 = top.dut0.mm0.ram0[2];
-wire [31:0] p_mm_ram0_3 = top.dut0.mm0.ram0[3];
+wire [255:0] p_mm_a4000 = top.dut0.mm0.ram[26'h04000];
+wire [255:0] p_mm_a0000 = top.dut0.mm0.ram[26'h00000];
+wire [255:0] p_mm_a0001 = top.dut0.mm0.ram[26'h00001];
+wire [255:0] p_mm_a0002 = top.dut0.mm0.ram[26'h00002];
+wire [255:0] p_mm_a0003 = top.dut0.mm0.ram[26'h00003];
+wire [255:0] p_mm_a0004 = top.dut0.mm0.ram[26'h00004];
+wire [255:0] p_mm_a0005 = top.dut0.mm0.ram[26'h00005];
+wire [255:0] p_mm_a0006 = top.dut0.mm0.ram[26'h00006];
+wire [255:0] p_mm_a0007 = top.dut0.mm0.ram[26'h00007];
 
 wire [31:0] p_mm_rd_word0 = top.dut0.mm0.rd[ 31:  0];
 wire [31:0] p_mm_rd_word1 = top.dut0.mm0.rd[ 63: 32];

@@ -25,8 +25,6 @@ module mainmemory #(
   input  wire         clk
 );
 
-//localparam ENTRIES = 2 ** ADDR_WIDTH;
-
 reg [255:0] ram[0:64000-1];
 reg [255:0] rd_q,rd_q2;
 reg [26:0] aq;
@@ -52,7 +50,7 @@ always @(posedge clk) begin
 
   read_q   <= read & !read_q;
   read_q2  <= read_q;
-  ram[aq]  <= write ? wd : ram[aq];
+  ram[aq]  <= write_q ? wd : ram[aq];
 end
 // ------------------------------------------------------------------------
 // debug Probes

@@ -100,6 +100,7 @@ wire [3:0] way_mod_d;
 wire       way_is_selected_d;
 wire [3:0] lru_selected_way_d;
 //wire [3:0] select_by_invalid_d;
+wire fsm_cc_ready_d;
 // --------------------------------------------------------------------------
 // Fix up the names so it's clear what pipe stage they are in
 // --------------------------------------------------------------------------
@@ -156,7 +157,6 @@ assign ready_d    = fsm_cc_ready_d;
 
 // --------------------------------------------------------------------------
 //wire cc_fsm_req_hit_d =  way_is_selected_d & pe_access_d;
-wire fsm_cc_ready_d;
 //assign req_hit_d = fsm_cc_ready_d;
 //assign req_hit_d      =  cc_fsm_req_hit_d
 //                      |  cc_fill_d

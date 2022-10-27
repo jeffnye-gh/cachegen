@@ -19,7 +19,7 @@ module compare #(
 
   input  wire [WIDTH-1:0] pe_tag_d,
 
-  input  wire [3:0] lru_output_d,
+  input  wire [2:0] lru_output_d,
   input  wire [3:0] val_output_d,
   input  wire [3:0] mod_output_d,
 
