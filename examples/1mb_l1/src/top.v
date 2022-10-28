@@ -189,7 +189,7 @@ begin
       basicWrAllocTest(basic_wr_alloc_errs,basic_wr_alloc_flag,0);
 
     if(_bt_rd_evict_test)
-      basicRdEvictTest(basic_rd_evict_errs,basic_rd_evict_flag,0);
+      basicRdEvictTest(basic_rd_evict_errs,basic_rd_evict_flag,1);
 
     if(_bt_wr_evict_test)
       basicWrEvictTest(basic_wr_evict_errs,basic_wr_evict_flag,0);

@@ -18,30 +18,30 @@ wire [255:0] p_dary_out_3 = top.dut0.dary_out[3];
 // ---------------------------------------------------------------------
 // Icarus verilog does not dump strings to the vcd
 // ---------------------------------------------------------------------
-reg [10*8-1:0] ps_fsm_st;
-//string ps_fsm_st;
+reg [10*8-1:0] p_fsm_st;
+//string p_fsm_st;
 always @(top.dut0.fsm0.state) begin
   case(top.dut0.fsm0.state)
-    IDLE:      ps_fsm_st = "IDLE";
-    WR_ALLOC:  ps_fsm_st = "WR_ALLOC";
-    RD_ALLOC:  ps_fsm_st = "RD_ALLOC";
-    FILL:      ps_fsm_st = "FILL";
-    WR_EVICT:  ps_fsm_st = "WR_EVICT";
-    RD_EVICT:  ps_fsm_st = "RD_EVICT";
-    READ:      ps_fsm_st = "READ";
-    INVAL_ALL: ps_fsm_st = "INVAL_ALL";
+    IDLE:      p_fsm_st = "IDLE";
+    WR_ALLOC:  p_fsm_st = "WR_ALLOC";
+    RD_ALLOC:  p_fsm_st = "RD_ALLOC";
+    FILL:      p_fsm_st = "FILL";
+    WR_EVICT:  p_fsm_st = "WR_EVICT";
+    RD_EVICT:  p_fsm_st = "RD_EVICT";
+    READ:      p_fsm_st = "READ";
+    INVAL_ALL: p_fsm_st = "INVAL_ALL";
   endcase
 end
 // ---------------------------------------------------------------------
 // ---------------------------------------------------------------------
-string ps_way_hit;
+reg[10*8-1:0] p_way_hit;
 always @(top.dut0.way_hit_d) begin
   case(top.dut0.way_hit_d)
-    4'b0001: ps_way_hit = "WAY0";
-    4'b0010: ps_way_hit = "WAY1";
-    4'b0100: ps_way_hit = "WAY2";
-    4'b1000: ps_way_hit = "WAY3";
-    default: ps_way_hit = "x";
+    4'b0001: p_way_hit = "WAY0";
+    4'b0010: p_way_hit = "WAY1";
+    4'b0100: p_way_hit = "WAY2";
+    4'b1000: p_way_hit = "WAY3";
+    default: p_way_hit = "x";
   endcase
 end
 // ---------------------------------------------------------------------

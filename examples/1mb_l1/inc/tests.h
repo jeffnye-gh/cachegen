@@ -71,9 +71,23 @@ begin
   // main memory at 26'h04000 should contain:
   // 00207000_00206000_00205000_00204000_00203000_00202000_00201000_00200000
   //
+  // After allocation
+  //
   // tag at index 0 way 2 should contain:
-  // 00 0000 0000 0100  -> 0004 
-  // Af
+  //   00 0000 0000 0100  -> 0004 
+  //
+  // data at index 0 way 2 should contain (the contents of mm @0x8000):
+  //   8000707f_8000607f_8000507f_8000407f_8000307f_8000407f_8000107f_8000007f
+  //
+  // control bits at index 0 should be 
+  //   val = 1111 (no change) 
+  //   mod = 1011 (w2 no longer modified)
+  //   lru =  100 (was 010, after read allocate to way2 becomes [1 0 b0])
+  //
+  // The captured data should be the 
+  //     address 32'h0010000C
+  //     data    32'h8000307F (word 3 of the return data)
+  //
   //a:00008000
   rd_req({14'h004,13'h000,3'h3,2'h0},4'b1111,v);//miss, victim is dirty
 
@@ -139,12 +153,21 @@ begin
 
   nop(4); //let state propagate
 
-  check_main_memory (errs,0,15,v);
-  check_data_arrays (errs,0,15,v);
-  //check tags and bits
-  check_tb_tags_bits(errs,0,15,v);
-  //check captured values
-  check_tb_capture_info (errs,0,11,v); //only 11
+  $display("BEGIN Main memory checks");
+  check_main_memory (errs,0,16384,0);
+  $display("END   Main memory checks");
+
+  $display("BEGIN Data array checks");
+  check_data_arrays (errs,0,1,v);
+  $display("END   Data array checks");
+
+  $display("BEGIN Tag array checks");
+  check_tb_tags_bits(errs,0,1,v);
+  $display("END   Tag array checks");
+
+  $display("BEGIN Capture checks");
+  check_tb_capture_info (errs,0,1,v); //only 11
+  $display("END   Capture checks");
 
   endTestMsg(testName,errs,flag);
   nop(4);
