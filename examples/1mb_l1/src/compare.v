@@ -45,10 +45,10 @@ assign way_mod_d[2] = fill_or_victim_way_d[2] & mod_output_d[2];
 assign way_mod_d[3] = fill_or_victim_way_d[3] & mod_output_d[3];
 
 wire [3:0] lru_dirty_d;
-assign lru_dirty_d[0]  = mod_output_d[0] & lru_output_d == 2'b00;
-assign lru_dirty_d[1]  = mod_output_d[1] & lru_output_d == 2'b01;
-assign lru_dirty_d[2]  = mod_output_d[2] & lru_output_d == 2'b10;
-assign lru_dirty_d[3]  = mod_output_d[3] & lru_output_d == 2'b11;
+assign lru_dirty_d[0] = mod_output_d[0] & lru_selected_way_d[0];
+assign lru_dirty_d[1] = mod_output_d[1] & lru_selected_way_d[1];
+assign lru_dirty_d[2] = mod_output_d[2] & lru_selected_way_d[2];
+assign lru_dirty_d[3] = mod_output_d[3] & lru_selected_way_d[3];
 
 assign way_is_selected_d = |way_hit_d;
 wire no_victim = !way_is_selected_d;

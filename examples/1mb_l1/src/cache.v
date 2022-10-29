@@ -57,7 +57,8 @@ localparam integer WAYS =  4;
 //n/a
 // ------------------------------------------------------------------------
 //assign mm_be = 32'hFFFFFFFF;
-assign mm_a = fsm_cc_use_evict_add_d ? {evict_tag_add_d,18'b0} : a;
+//assign mm_a = fsm_cc_use_evict_add_d ? {evict_tag_add_d,18'b0} : a;
+assign mm_a = fsm_cc_use_evict_add_d ? {evict_tag_add_d,pe_index_d,5'b0} : a;
 // ------------------------------------------------------------------------
 wire [CACHELINE_BITS-1:0] fsm_cc_wd;
 wire [CACHELINE_BITS-1:0] dary_out[3:0];

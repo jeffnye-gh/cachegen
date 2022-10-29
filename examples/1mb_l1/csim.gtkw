@@ -1,18 +1,17 @@
 [*]
 [*] GTKWave Analyzer v3.3.113 (w)1999-2022 BSI
-[*] Fri Oct 28 01:51:17 2022
+[*] Sat Oct 29 21:41:57 2022
 [*]
 [dumpfile] "/home/jeff/Development/gitbox/cachegen/examples/1mb_l1/csim.vcd"
-[dumpfile_mtime] "Fri Oct 28 01:50:55 2022"
-[dumpfile_size] 643932
+[dumpfile_mtime] "Sat Oct 29 21:41:12 2022"
+[dumpfile_size] 692279
 [savefile] "/home/jeff/Development/gitbox/cachegen/examples/1mb_l1/csim.gtkw"
-[timestart] 42875
+[timestart] 45075
 [size] 1732 831
 [pos] -1 -1
-*-10.549181 48450 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+*-10.549181 50050 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
 [treeopen] top.
 [treeopen] top.dut0.
-[treeopen] top.dut0.dirty0.
 [treeopen] top.dut0.fsm0.
 [treeopen] top.dut0.tags[0].
 [treeopen] top.dut0.valid0.
@@ -38,12 +37,22 @@ top.cc_tb_ready
 top.dut0.cc_fill_d
 top.dut0.fsm0.fsm_cc_evict_d
 top.dut0.mm_read_d
-top.dut0.mm_write_d
 top.dut0.mm_readdata_valid
 @22
 top.dut0.mm_readdata[255:0]
+@28
+top.dut0.mm_write_d
+@22
+top.dut0.mm_writedata[255:0]
+top.dut0.mm_a[31:0]
 @820
 top._prb.p_fsm_st[79:0]
+@28
+top.dut0.fsm0.pe_read_d
+top.dut0.fsm0.cc_fsm_req_hit_d
+top.dut0.fsm0.cmp_fsm_req_clean_d
+@22
+top.dut0.pe_index_d[12:0]
 @c00200
 -FSM
 @28
@@ -72,7 +81,7 @@ top.dut0.cmp0.select_by_invalid_d[3:0]
 top.dut0.cmp0.way_mod_d[3:0]
 @1401200
 -CMP
-@c00200
+@c00201
 -TAGS
 @28
 top._prb.p_tag0_wr
@@ -88,10 +97,16 @@ top._prb.p_tag_out_d2[13:0]
 top._prb.p_tag_out_d3[13:0]
 top._prb.p_tag2_ram_0[13:0]
 top._prb.p_tag2_ram_0[13:0]
-@1401200
+@1401201
 -TAGS
-@c00200
+@800200
 -MM
+@22
+top.dut0.evict_tag_add_d[13:0]
+top._prb.p_tag_out_d0[13:0]
+top._prb.p_tag_out_d1[13:0]
+top._prb.p_tag_out_d2[13:0]
+top._prb.p_tag_out_d3[13:0]
 @28
 top.dut0.mm_write_d
 top.dut0.mm_read_d
@@ -115,7 +130,7 @@ top._prb.p_mm_a0004[255:0]
 top._prb.p_mm_a0005[255:0]
 top._prb.p_mm_a0006[255:0]
 top._prb.p_mm_a0007[255:0]
-@1401200
+@1000200
 -MM
 @c00200
 -VAL
@@ -132,13 +147,13 @@ top._prb.p_val_2[3:0]
 top._prb.p_val_3[3:0]
 @1401200
 -VAL
-@800200
+@c00200
 -LRU
-@29
+@28
 top.dut0.lrurf0.wr
 top.dut0.lrurf0.wd[2:0]
 top._prb.p_lru_0[2:0]
-@1000200
+@1401200
 -LRU
 @c00200
 -DARY
@@ -188,9 +203,20 @@ top.dut0.rd[31:0]
 -DARY
 @c00200
 -DIRTY
+@22
+top.dut0.cmp0.mod_output_d[3:0]
+top.dut0.cmp0.lru_dirty_d[3:0]
+@28
+top.dut0.cmp0.lru_output_d[2:0]
+top.dut0.cmp0.lru_way_is_dirty_d
+@22
+top.dut0.dirty0.index[12:0]
 @28
 top.dut0.dirty0.wr
 top._prb.p_mod_0[3:0]
+@22
+top.dut0.dirty0.q[3:0]
+top._prb.p_mod_1[3:0]
 @1401200
 -DIRTY
 @c00200
