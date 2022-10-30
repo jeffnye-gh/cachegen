@@ -93,7 +93,6 @@ module fsm #(
   input  wire pe_read_d,
   input  wire pe_write_d,
 
-//  input  wire  cc_fsm_req_hit_d,
   input  wire  way_is_selected_d,
 
   input  wire  cmp_fsm_req_clean_d,

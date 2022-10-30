@@ -195,17 +195,17 @@ endtask
 // Loads the 64bit memh file and converts the entries to 4x14b tag
 // initialization data
 // -----------------------------------------------------------------
-task load_initial_tags(input string fn,input int verbose=0);
+task load_initial_tags(input string fn,input int verbose=0,int spec=0);
 integer i;
 reg  [63:0]  tmp_data[0:EXP_DATA_ENTRIES];
 begin
   if(verbose) $display("-I: loading expect tags");
   $readmemh(fn,tmp_data);
   for(i=0;i<EXP_DATA_ENTRIES;i=i+1) begin
-    top.dut0.tags[0].tag.ram[i] = tmp_data[i][13:0];
-    top.dut0.tags[1].tag.ram[i] = tmp_data[i][29:16];
-    top.dut0.tags[2].tag.ram[i] = tmp_data[i][45:32];
-    top.dut0.tags[3].tag.ram[i] = tmp_data[i][61:48];
+    top.dut0.tags[0].tag.ram[i] <= tmp_data[i][13:0];
+    top.dut0.tags[1].tag.ram[i] <= tmp_data[i][29:16];
+    top.dut0.tags[2].tag.ram[i] <= tmp_data[i][45:32];
+    top.dut0.tags[3].tag.ram[i] <= tmp_data[i][61:48];
   end
 end
 endtask

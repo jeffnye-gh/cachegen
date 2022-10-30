@@ -12,12 +12,18 @@ module compare #(
   output reg   [3:0] lru_selected_way_d,
   output wire  [3:0] fill_or_victim_way_d,
 
-  input  wire [WIDTH-1:0] tag_way0_d,
-  input  wire [WIDTH-1:0] tag_way1_d,
-  input  wire [WIDTH-1:0] tag_way2_d,
-  input  wire [WIDTH-1:0] tag_way3_d,
+//  input  wire [WIDTH-1:0] tag_way0_d,
+//  input  wire [WIDTH-1:0] tag_way1_d,
+//  input  wire [WIDTH-1:0] tag_way2_d,
+//  input  wire [WIDTH-1:0] tag_way3_d,
 
-  input  wire [WIDTH-1:0] pe_tag_d,
+  input  wire [14-1:0] tag_way0_d,
+  input  wire [14-1:0] tag_way1_d,
+  input  wire [14-1:0] tag_way2_d,
+  input  wire [14-1:0] tag_way3_d,
+
+  input  wire [14-1:0] pe_tag_d,
+//  input  wire [WIDTH-1:0] pe_tag_d,
 
   input  wire [2:0] lru_output_d,
   input  wire [3:0] val_output_d,

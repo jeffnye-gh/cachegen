@@ -25,7 +25,7 @@ module mainmemory #(
   input  wire         clk
 );
 
-reg [255:0] ram[0:64000-1];
+reg [255:0] ram[0:ENTRIES-1];
 reg [255:0] rd_q,rd_q2;
 reg [26:0] aq;
 reg read_q,read_q2;
@@ -38,7 +38,8 @@ assign ready = write_q2;
 // ------------------------------------------------------------------------
 always @(posedge clk) begin
   if(a > ENTRIES & (read | write)) begin
-    $display("-E: access exceeds main memory size %08x",a);
+    $display("-E: access exceeds main memory size, a:%08x s:%08x",a,ENTRIES);
+    $finish();
   end
 
   aq   <= a;

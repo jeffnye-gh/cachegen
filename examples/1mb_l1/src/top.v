@@ -11,7 +11,7 @@ module top;
 
 localparam integer MAX = 5000;
 localparam integer MM_ADDR_WIDTH     = 20;
-localparam integer EXP_MM_ENTRIES    = 32768;
+localparam integer EXP_MM_ENTRIES    = 131072;
 localparam integer EXP_DATA_ENTRIES  = 256;
 
 localparam integer L1_READ_HIT_LAT   = 1;
@@ -189,7 +189,7 @@ begin
       basicWrAllocTest(basic_wr_alloc_errs,basic_wr_alloc_flag,0);
 
     if(_bt_rd_evict_test)
-      basicRdEvictTest(basic_rd_evict_errs,basic_rd_evict_flag,1);
+      basicRdEvictTest(basic_rd_evict_errs,basic_rd_evict_flag,0);
 
     if(_bt_wr_evict_test)
       basicWrEvictTest(basic_wr_evict_errs,basic_wr_evict_flag,0);

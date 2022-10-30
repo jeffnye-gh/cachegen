@@ -47,14 +47,17 @@ end
 // ---------------------------------------------------------------------
 //LRU bit probes, 1st 8 indexes
 // ---------------------------------------------------------------------
-wire [2:0]   p_lru_0 = top.dut0.lrurf0.regs[0];
-wire [2:0]   p_lru_1 = top.dut0.lrurf0.regs[1];
-wire [2:0]   p_lru_2 = top.dut0.lrurf0.regs[2];
-wire [2:0]   p_lru_3 = top.dut0.lrurf0.regs[3];
-wire [2:0]   p_lru_4 = top.dut0.lrurf0.regs[4];
-wire [2:0]   p_lru_5 = top.dut0.lrurf0.regs[5];
-wire [2:0]   p_lru_6 = top.dut0.lrurf0.regs[6];
-wire [2:0]   p_lru_7 = top.dut0.lrurf0.regs[7];
+wire [2:0]   p_lru_0  = top.dut0.lrurf0.regs[0];
+wire [2:0]   p_lru_1  = top.dut0.lrurf0.regs[1];
+wire [2:0]   p_lru_2  = top.dut0.lrurf0.regs[2];
+wire [2:0]   p_lru_3  = top.dut0.lrurf0.regs[3];
+wire [2:0]   p_lru_4  = top.dut0.lrurf0.regs[4];
+wire [2:0]   p_lru_5  = top.dut0.lrurf0.regs[5];
+wire [2:0]   p_lru_6  = top.dut0.lrurf0.regs[6];
+wire [2:0]   p_lru_7  = top.dut0.lrurf0.regs[7];
+wire [2:0]   p_lru_8  = top.dut0.lrurf0.regs[8];
+wire [2:0]   p_lru_9  = top.dut0.lrurf0.regs[9];
+wire [2:0]   p_lru_10 = top.dut0.lrurf0.regs[10];
 // ---------------------------------------------------------------------
 //Mod bit probes, 1st 8 indexes
 // ---------------------------------------------------------------------
@@ -82,6 +85,16 @@ wire [13:0]  p_tag_out_d0 = top.dut0.tag_out_d[0];
 wire [13:0]  p_tag_out_d1 = top.dut0.tag_out_d[1];
 wire [13:0]  p_tag_out_d2 = top.dut0.tag_out_d[2];
 wire [13:0]  p_tag_out_d3 = top.dut0.tag_out_d[3];
+
+wire [13:0]  p_tag0_idx9 = top.dut0.tags[0].tag.ram[9];
+wire [13:0]  p_tag1_idx9 = top.dut0.tags[1].tag.ram[9];
+wire [13:0]  p_tag2_idx9 = top.dut0.tags[2].tag.ram[9];
+wire [13:0]  p_tag3_idx9 = top.dut0.tags[3].tag.ram[9];
+
+wire [13:0]  p_tag0_idx10 = top.dut0.tags[0].tag.ram[10];
+wire [13:0]  p_tag1_idx10 = top.dut0.tags[1].tag.ram[10];
+wire [13:0]  p_tag2_idx10 = top.dut0.tags[2].tag.ram[10];
+wire [13:0]  p_tag3_idx10 = top.dut0.tags[3].tag.ram[10];
 
 wire [13:0]  p_tag0_ram_0 = top.dut0.tags[0].tag.ram[0];
 wire [13:0]  p_tag0_ram_1 = top.dut0.tags[0].tag.ram[1];

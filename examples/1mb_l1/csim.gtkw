@@ -1,15 +1,15 @@
 [*]
 [*] GTKWave Analyzer v3.3.113 (w)1999-2022 BSI
-[*] Sat Oct 29 21:41:57 2022
+[*] Sun Oct 30 19:20:26 2022
 [*]
 [dumpfile] "/home/jeff/Development/gitbox/cachegen/examples/1mb_l1/csim.vcd"
-[dumpfile_mtime] "Sat Oct 29 21:41:12 2022"
-[dumpfile_size] 692279
+[dumpfile_mtime] "Sun Oct 30 19:20:15 2022"
+[dumpfile_size] 788671
 [savefile] "/home/jeff/Development/gitbox/cachegen/examples/1mb_l1/csim.gtkw"
-[timestart] 45075
+[timestart] 54875
 [size] 1732 831
 [pos] -1 -1
-*-10.549181 50050 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+*-10.549181 59850 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
 [treeopen] top.
 [treeopen] top.dut0.
 [treeopen] top.dut0.fsm0.
@@ -49,10 +49,15 @@ top.dut0.mm_a[31:0]
 top._prb.p_fsm_st[79:0]
 @28
 top.dut0.fsm0.pe_read_d
+top.dut0.fsm0.way_is_selected_d
 top.dut0.fsm0.cc_fsm_req_hit_d
 top.dut0.fsm0.cmp_fsm_req_clean_d
 @22
-top.dut0.pe_index_d[12:0]
+top.dut0.cmp0.way_hit_d[3:0]
+@28
+top.dut0.cmp0.lru_selected_way_d[3:0]
+@29
+top._prb.p_lru_10[2:0]
 @c00200
 -FSM
 @28
@@ -81,7 +86,7 @@ top.dut0.cmp0.select_by_invalid_d[3:0]
 top.dut0.cmp0.way_mod_d[3:0]
 @1401200
 -CMP
-@c00201
+@c00200
 -TAGS
 @28
 top._prb.p_tag0_wr
@@ -97,16 +102,12 @@ top._prb.p_tag_out_d2[13:0]
 top._prb.p_tag_out_d3[13:0]
 top._prb.p_tag2_ram_0[13:0]
 top._prb.p_tag2_ram_0[13:0]
-@1401201
+@1401200
 -TAGS
 @800200
 -MM
 @22
 top.dut0.evict_tag_add_d[13:0]
-top._prb.p_tag_out_d0[13:0]
-top._prb.p_tag_out_d1[13:0]
-top._prb.p_tag_out_d2[13:0]
-top._prb.p_tag_out_d3[13:0]
 @28
 top.dut0.mm_write_d
 top.dut0.mm_read_d

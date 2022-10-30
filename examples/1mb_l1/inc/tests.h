@@ -10,8 +10,8 @@
 // 
 // --------------------------------------------------------------------------
 task basicRdEvictTest(inout int errs,inout flag,input int verbose);
-integer i,j,mod,lclerrs;
-int v,enb,num;
+integer i,j,mod,n;
+int v,enb;
 reg [2:0] lru_exp,lru_act;
 reg [31:0] addr;
 string state;
@@ -37,15 +37,15 @@ begin
   $readmemh("data/basicRdEvict.dsram2.memh",top.dut0.dsram2.ram);
   $readmemh("data/basicRdEvict.dsram3.memh",top.dut0.dsram3.ram);
   //load tags
-  load_initial_tags("data/basicRdEvict.tags.memh",v);
+  load_initial_tags("data/basicRdEvict.tags.memh",v,1);
   //load control bits
   load_initial_bits("data/basicRdEvict.bits.memb",v);
   top.dut0.valid0.regs[0]  <= 4'b1111;
   top.dut0.dirty0.regs[0]  <= 4'b1111;
-//  top.dut0.valid0.regs[10] <= 4'b1101;
+  top.dut0.lrurf0.regs[10]   <= 3'b010;
   @(posedge clk);
-  nop(1);
-  num = 4;
+  n = 0;
+  nop(n);
   // ======================================================================
   // #0
   //  This first access should detect a miss, evict modified entry pointed
@@ -93,7 +93,7 @@ begin
   //a:00008000 #0
   // ======================================================================
   rd_req({14'h004,13'h000,3'h3,2'h0},4'b1111,v);//miss, victim is dirty
-  nop(1);
+  nop(n);
   // ======================================================================
   // #1
   // Access is to 0000 0000 0000 0100 0000 0000 0011 1100 -> 0004003C hex
@@ -140,7 +140,7 @@ begin
   //a:00002001 #1
   // ======================================================================
   rd_req({14'h001,13'h001,3'h7,2'h0},4'b1111,v);
-  nop(1);
+  nop(n);
   // ======================================================================
   // #2
   // Access is to 0000 0000 0000 1000 0000 0000 0101 1000 -> 00080058 hex
@@ -186,7 +186,7 @@ begin
   //a:00004002
   // ======================================================================
   rd_req({14'h002,13'h002,3'h6,2'h0},4'b1111,v);
-  nop(1);
+  nop(n);
   // ======================================================================
   // #3
   //              0000 0000 0000 1100 0000 0000 0111 1000
@@ -205,6 +205,7 @@ begin
   // 00 0000 0000 0100    0 0000 0000 0011    00000
   // 0000 0000 0001 0000 0000 0000 0110 0000
   // 0000 0000 0001 0000 0000 0000 0110 0000 -> 00100060 byte address
+  //  000 0000 0000 1000 0000 0000 0011       -> 00100060 byte address
   //  000 0000 0000 1000 0000 0000 0011       ->  0001003 line address
   //
   // At the end of the access:
@@ -233,29 +234,321 @@ begin
   //a:00006003 #3
   // ======================================================================
   rd_req({14'h003,13'h003,3'h6,2'h0},4'b1111,v);
-  nop(1);
-////
-////  //a:00006004
-////  rd_req({14'h003,13'h004,3'h5,2'h0},4'b1111,v);
-////
-////  //a:00002005
-////  rd_req({14'h001,13'h005,3'h1,2'h0},4'b1111,v);
-////
-////  //a:00004006
-////  rd_req({14'h002,13'h006,3'h5,2'h0},4'b1111,v);
-////
-////  //a:00006007
-////  rd_req({14'h003,13'h007,3'h3,2'h0},4'b1111,v);
-////
-////  //a:00002008
-////  rd_req({14'h001,13'h008,3'h2,2'h0},4'b1111,v);
-////
-////  //a:00000009
-//  rd_req({14'h000,13'h009,3'h1,2'h0},4'b1111,v);
-//
-//  //a:0000200a
-//  rd_req({14'h001,13'h00a,3'h1,2'h0},4'b1111,v);
-
+  nop(n);
+  // ======================================================================
+  // #4
+  // Access is to 0000 0000 0000 1100 0000 0000 1000 0000 -> 000c0094 hex
+  // Line addr is       000 0000 0000 0110 0000 0000 0100 ->  0006004 hex
+  // Index addr   0 0000 0000 0100                        ->     0004 hex
+  // Word  addr                101                        ->        5 hex
+  // LRU bits are 001 -> lru way is 3
+  //
+  // Tag at index 4/way 3 is: 14'hxxxx (14'b00 0000 0000 0111)
+  // The data at index 4/way 3  is:
+  // 03307004_03306004_03305004_03304004_03303004_03302004_03301004_03300004 
+  //
+  // The main memory (line) address for the write back is {tag,index,5'b0}
+  // <--- tag ----> <-- index --> <-0->
+  // 00000000000111 0000000000100 00000
+  // 0000 0000 0001 1100 0000 0000 1000 0000 -> 001c0080 byte address
+  // 000 0000 0000 1110 0000 0000 0100       ->  000E004 line address
+  //
+  // At the end of the access:
+  //
+  // main memory at 26'h0E004 should contain:
+  // 03307004_03306004_03305004_03304004_03303004_03302004_03301004_03300004
+  //
+  // ----------------------------------------------------------------------
+  // After allocation
+  // ----------------------------------------------------------------------
+  // tag at index 4 way 3 should contain:
+  //   00 0000 0000 0011  -> 0003 (from upper 14b of the access that missed)
+  //
+  // data at index 4 way 3 should contain (the contents of mm @06004):
+  //   6400707f_6400607f_6400507f_6400407f_6400307f_6400407f_6400107f_6400007f 
+  //
+  // control bits at index x should be 
+  //   val = 1111 (no change) 
+  //   mod = 0111 (w3 no longer modified)
+  //   lru =  111 (was 001, after read allocate to way3 becomes [1 1 b0])
+  //
+  // The captured data should be the 
+  //     address 32'h000c0094
+  //     data    32'h6400507f (word 5 of the return data)
+  //
+  //a:00006004
+  // ======================================================================
+  rd_req({14'h003,13'h004,3'h5,2'h0},4'b1111,v);
+  nop(n);
+  // ======================================================================
+  // #5
+  // Access is to 0000 0000 0000 0100 0000 0000 1010 0100 -> 000400a4 hex
+  // Line addr is 000 0000 0000 0010 0000 0000 0101       ->  0002005 hex
+  // Index addr   0 0000 0000 0101                        ->     0005 hex
+  // Word  addr                001                        ->        1 hex
+  // LRU bits are 101 -> lru way is 0
+  //
+  // Tag at index 5/way 0 is: 14'h0006 (14'b00 0000 0000 0110)
+  // The data at index 5/way 0  is:
+  // 00007005_00006005_00005005_00004005_00003005_00002005_00001005_00000005 
+  //
+  // The main memory (line) address for the write back is {tag,index,5'b0}
+  // <--- tag ----> <-- index --> <-0->
+  // 00000000000011 0000000000101 00000
+  // 0000 0000 0000 1100 0000 0000 1010 0000 -> 000c00a0 byte address
+  // 000 0000 0000 0110 0000 0000 0101       ->  0006005 line address
+  //
+  // At the end of the access:
+  //
+  // main memory at 26'h6005 should contain:
+  // 00007005_00006005_00005005_00004005_00003005_00002005_00001005_00000005_
+  //
+  // ----------------------------------------------------------------------
+  // After allocation
+  // ----------------------------------------------------------------------
+  // tag at index 5 way 0 should contain:
+  //   00 0000 0000 0001  -> 0001 (from upper 14b of the access that missed)
+  //
+  // data at index x way x should contain (the contents of mm @02005):
+  //   2500707f_2500607f_2500507f_2500407f_2500307f_2500407f_2500107f_2500007f 
+  //
+  // control bits at index x should be 
+  //   val = 1111 (no change) 
+  //   mod = 1110 (wx no longer modified)
+  //   lru =  000 (was 101, after read allocate to way0 becomes [0 b1 0])
+  //
+  // The captured data should be the 
+  //     address 32'h000400a4
+  //     data    32'h2500107f (word 1 of the return data)
+  //
+  //a:00002005 #5
+  // ======================================================================
+  rd_req({14'h001,13'h005,3'h1,2'h0},4'b1111,v);
+  nop(n);
+  // ======================================================================
+  // #6
+  // Access is to 0000 0000 0000 1000 0000 0000 1101 0100 -> 000800d4 hex
+  // Line addr is 000 0000 0000 0100 0000 0000 0110       ->  0004006 hex
+  // Index addr   0 0000 0000 0110                        ->     0006 hex
+  // Word  addr                101                        ->        5 hex
+  // LRU bits are 010 -> lru way is 2
+  //
+  // Tag at index 6/way 2 is: 14'hxxxx (14'b00 0000 0000 0111)
+  // The data at index 6/way 2  is:
+  // 00207006_00206006_00205006_00204006_00203006_00202006_00201006_00200006 
+  //
+  // The main memory (line) address for the write back is {tag,index,5'b0}
+  // <--- tag ----> <-- index --> <-0->
+  // 00000000000111 0000000000101 00000
+  // 0000 0000 0001 1100 0000 0000 1100 0000 -> 001c00c0 byte address
+  // 000 0000 0000 1110 0000 0000 0110       ->  000e006 line address
+  //
+  // At the end of the access:
+  //
+  // main memory at 26'h000e006 should contain:
+  // 00207006_00206006_00205006_00204006_00203006_00202006_00201006_00200006 
+  //
+  // ----------------------------------------------------------------------
+  // After allocation
+  // ----------------------------------------------------------------------
+  // tag at index 6 way 2 should contain:
+  //   00 0000 0000 0010  -> 0002 (from upper 14b of the access that missed)
+  //
+  // data at index 6 way 2 should contain (the contents of mm @0004006):
+  //   4600707f_4600607f_4600507f_4600467f_4600307f_4600467f_4600107f_4600007f 
+  //
+  // control bits at index 6 should be 
+  //   val = 1111 (no change) 
+  //   mod = 1011 (wx no longer modified)
+  //   lru =  100 (was 010, after read allocate to way2 becomes [1 0 b0])
+  //
+  // The captured data should be the 
+  //     address 32'h000800d4
+  //     data    32'h4600507f (word 5 of the return data)
+  //
+  //a:00004006 #6
+  // ======================================================================
+  rd_req({14'h002,13'h006,3'h5,2'h0},4'b1111,v);
+  nop(n);
+  // ======================================================================
+  // #7
+  // Access is to 0000 0000 0000 1100 0000 0000 1110 1100 -> 000c00ec hex
+  // Line addr is 000 0000 0000 0110 0000 0000 0111       ->  0006007 hex
+  // Index addr   0 0000 0000 0111                        ->     0007 hex
+  // Word  addr                011                        ->        3 hex
+  // LRU bits are 001 -> lru way is 3
+  //
+  // Tag at index 7/way 3 is: 14'h0008 (14'b00 0000 0000 1000 )
+  // The data at index 7/way 3  is:
+  // 00307007_00306007_00305007_00304007_00303007_00302007_00301007_00300007 
+  //
+  // The main memory (line) address for the write back is {tag,index,5'b0}
+  // <--- tag ----> <-- index --> <-0->
+  // xxxxxxxxxxxxxx xxxxxxxxxxxxx xxxxx
+  // 0000 0000 0010 0000 0000 0000 1110 1100 -> 002000ec byte address
+  // 000 0000 0001 0000 0000 0000 0111       ->  0010007 line address
+  //
+  // At the end of the access:
+  //
+  // main memory at 26'h0010007 should contain:
+  // 00307007_00306007_00305007_00304007_00303007_00302007_00301007_00300007 
+  //
+  // ----------------------------------------------------------------------
+  // After allocation
+  // ----------------------------------------------------------------------
+  // tag at index 7 way 3 should contain:
+  //   00 0000 0000 1000  -> 0008 (from upper 14b of the access that missed)
+  //
+  // data at index 7 way 3 should contain (the contents of mm @0006007):
+  //   6700707f_6700607f_6700507f_6700407f_6700307f_6700407f_6700107f_6700007f 
+  //
+  // control bits at index x should be 
+  //   val = 1111 (no change) 
+  //   mod = 0111 (w3 no longer modified)
+  //   lru =  111 (was 011, after read allocate to way3 becomes [1 1 b0])
+  //
+  // The captured data should be the 
+  //     address 32'h000c00ec
+  //     data    32'h00303007 (word 3 of the return data)
+  //
+  //a:00006007 #7
+  // ======================================================================
+  rd_req({14'h003,13'h007,3'h3,2'h0},4'b1111,v);
+  nop(n);
+  // ======================================================================
+  // #8
+  // Access is to 0000 0000 0000 0100 0000 0001 0000 1000 -> 00040108 hex
+  // Line addr is 000 0000 0000 0010 0000 0000 1000       ->  0002008 hex
+  // Index addr   0 0000 0000 1000                        ->     xxxx hex
+  // Word  addr                010                        ->        x hex
+  // LRU bits are 111 -> lru way is 0
+  //
+  // Tag at index 8/way 0 is: 14'h0009 (14'b00 0000 0000 1001)
+  // The data at index 8/way 0  is:
+  // 00007008_00006008_00005008_00004008_00003008_00002008_00001008_00000008 
+  //
+  // The main memory (line) address for the write back is {tag,index,5'b0}
+  // <--- tag ----> <-- index --> <-0->
+  // xxxxxxxxxxxxxx xxxxxxxxxxxxx xxxxx
+  // 0000 0000 0010 0100 0000 0001 0000 0000 -> 00240100 byte address
+  // 000 0000 0001 0010 0000 0000 1000       ->  0012008 line address
+  //
+  // At the end of the access:
+  //
+  // main memory at 26'hxxxxx should contain:
+  // 00007008_00006008_00005008_00004008_00003008_00002008_00001008_00000008 
+  //
+  // ----------------------------------------------------------------------
+  // After allocation
+  // ----------------------------------------------------------------------
+  // tag at index 8 way 0 should contain:
+  //   00 0000 0000 0001  -> 0001 (from upper 14b of the access that missed)
+  //
+  // data at index 8 way 0 should contain (the contents of mm @0002008):
+  //   2800707f_2800607f_2800507f_2800407f_2800307f_2800407f_2800107f_2800007f 
+  //
+  // control bits at index 8 should be 
+  //   val = 1111 (no change) 
+  //   mod = 1110 (wx no longer modified)
+  //   lru =  010 (was 111, after read allocate to way0 becomes [0 b1 0])
+  //
+  // The captured data should be the 
+  //     address 32'h00040108
+  //     data    32'h2800407f (word 2 of the return data)
+  //
+  //a:00002008 #8
+  // ======================================================================
+  rd_req({14'h001,13'h008,3'h2,2'h0},4'b1111,v);
+  nop(n);
+  // ======================================================================
+  // #9
+  // Access is to 0000 0000 0000 0000 0000 0001 0010 0100 -> 00000124 hex
+  // Line addr is 000 0000 0000 0000 0000 0000 1001       ->  0000009 hex
+  // Index addr   0 0000 0000 1001                        ->     0009 hex
+  // Word  addr                001                        ->        1 hex
+  // LRU bits are 101 -> lru way is 0
+  //
+  // Tag at index 9/way 0 is: 14'h0003 (14'b00 0000 0000 0011)
+  // The data at index 9/way 0  is:
+  // 00007009_00006009_00005009_00004009_00003009_00002009_00001009_00000009 
+  //
+  // The main memory (line) address for the write back is {tag,index,5'b0}
+  // <--- tag ----> <-- index --> <-0->
+  // xxxxxxxxxxxxxx xxxxxxxxxxxxx xxxxx
+  // 0000 0000 0000 1100 0000 0001 0010 0000 -> 0x000c0120 byte address
+  // 000 0000 0000 0110 0000 0000 1001       ->  0x0006009 line address
+  //
+  // At the end of the access:
+  //
+  // main memory at 26'h0006009 should contain:
+  // 00007009_00006009_00005009_00004009_00003009_00002009_00001009_00000009 
+  //
+  // ----------------------------------------------------------------------
+  // After allocation
+  // ----------------------------------------------------------------------
+  // tag at index 9 way 0 should contain:
+  //   00 0000 0000 0000  -> 0000 (from upper 14b of the access that missed)
+  //
+  // data at index 9 way 0 should contain (the contents of mm @0000009):
+  //   F0007009_00006009_00005009_00004009_00003009_00002009_00001009_00000009 
+  //
+  // control bits at index 9 should be 
+  //   val = 1111 (no change) 
+  //   mod = 1110 (w0 no longer modified)
+  //   lru =  000 (was 101, after read allocate to way0 becomes [0 b1 0])
+  //
+  // The captured data should be the 
+  //     address 32'h00000124
+  //     data    32'h00001009 (word 1 of the return data)
+  //
+  //a:00000009 #9
+  // ======================================================================
+  rd_req({14'h000,13'h009,3'h1,2'h0},4'b1111,v);
+  nop(n);
+  // ======================================================================
+  // #10
+  // Access is to 0000 0000 0000 0100 0000 0001 0100 0100 -> 00040144 hex
+  // Line addr is 000 0000 0000 0010 0000 0000 1010       ->  000200a hex
+  // Index addr   0 0000 0000 1010                        ->     000a hex
+  // Word  addr                001                        ->        1 hex
+  // LRU bits are 010 -> lru way is 2
+  //
+  // Tag at index 10/way 2 is: 14'h000e (14'b00 0000 0000 1110)
+  // The data at index 10/way 2  is:
+  // 0020700a_0020600a_0020500a_0020400a_0020300a_0020200a_0020100a_0020000a 
+  //
+  // The main memory (line) address for the write back is {tag,index,5'b0}
+  // <--- tag ----> <-- index --> <-0->
+  // xxxxxxxxxxxxxx xxxxxxxxxxxxx xxxxx
+  // 0000 0000 0011 1000 0000 0001 0100 0000 -> 00380140 byte address
+  // 000 0000 0001 1100 0000 0000 1010       ->  001c00a line address
+  //
+  // At the end of the access:
+  //
+  // main memory at 26'h001c00a (writeback line address) should contain:
+  // 0020700a_0020600a_0020500a_0020400a_0020300a_0020200a_0020100a_0020000a 
+  //
+  // ----------------------------------------------------------------------
+  // After allocation
+  // ----------------------------------------------------------------------
+  // tag at index 10 way 2 should contain:
+  //   00 0000 0000 0001  -> 0001 (from upper 14b of the access that missed)
+  //
+  // data at index 10 way 2 should contain (the contents of mm @000200a):
+  //   2a00707f_2a00607f_2a00507f_2a00407f_2a00307f_2a00407f_2a00107f_2a00007f 
+  //
+  // control bits at index 10 should be 
+  //   val = 1111 (no change) 
+  //   mod = 1011 (w2 no longer modified)
+  //   lru =  100 (was 010, after read allocate to way2 becomes [1 0 b0])
+  //
+  // The captured data should be the 
+  //     address 32'h00040144
+  //     data    32'h2a00107f (word 1 of the return data)
+  //
+  //a:0000200a #10
+  // ======================================================================
+  rd_req({14'h001,13'h00a,3'h1,2'h0},4'b1111,v);
   nop(1);
 
   //load expect main memory
@@ -275,21 +568,21 @@ begin
 
   nop(4); //let state propagate
 
-  $display("BEGIN Main memory checks");
+  if(v) $display("BEGIN Main memory checks");
   check_main_memory (errs,0,16384,0);
-  $display("END   Main memory checks");
+  if(v) $display("END   Main memory checks");
 
-  $display("BEGIN Data array checks");
-  check_data_arrays (errs,0,num,v);
-  $display("END   Data array checks");
+  if(v) $display("BEGIN Data array checks");
+  check_data_arrays (errs,0,11,v);
+  if(v) $display("END   Data array checks");
 
-  $display("BEGIN Tag array checks");
-  check_tb_tags_bits(errs,0,num,v);
-  $display("END   Tag array checks");
+  if(v) $display("BEGIN Tag array checks");
+  check_tb_tags_bits(errs,0,11,v);
+  if(v) $display("END   Tag array checks");
 
-  $display("BEGIN Capture checks");
-  check_tb_capture_info (errs,0,num,v); //only 11
-  $display("END   Capture checks");
+  if(v) $display("BEGIN Capture checks");
+  check_tb_capture_info (errs,0,11,v); //only 11
+  if(v) $display("END   Capture checks");
 
   endTestMsg(testName,errs,flag);
   nop(4);
@@ -301,7 +594,7 @@ endtask
 // The LRU way is dirty, write it back, allocate and merge write data
 // --------------------------------------------------------------------------
 task basicWrEvictTest(inout int errs,inout flag,input int verbose);
-integer i,j,mod,lclerrs;
+integer i,j,mod;
 int v,enb;
 reg [2:0] lru_exp,lru_act;
 reg [31:0] addr;
@@ -416,7 +709,7 @@ endtask
 // Mod bits are initially arbitrarily set
 // --------------------------------------------------------------------------
 task basicWrAllocTest(inout int errs,inout flag,input int verbose);
-integer i,j,mod,lclerrs;
+integer i,j,mod;
 int v,enb;
 reg [2:0] lru_exp,lru_act;
 reg [31:0] addr;
@@ -531,7 +824,7 @@ endtask
 // Mod bits are initially arbitrarily set
 // --------------------------------------------------------------------------
 task basicRdAllocTest(inout int errs,inout flag,input int verbose);
-integer i,j,mod,lclerrs;
+integer i,j,mod;
 int v,enb;
 reg [2:0] lru_exp,lru_act;
 reg [31:0] addr;
@@ -758,7 +1051,7 @@ endtask
 //
 // --------------------------------------------------------------------------
 task basicRdHitTest(inout int errs,inout flag,input int verbose);
-integer i,j,mod,lclerrs;
+integer i,j,mod;
 int v;
 reg [2:0] lru_exp,lru_act;
 reg [31:0] addr;
@@ -1032,7 +1325,7 @@ endtask
   //
   // Tag at index x/way x is: 14'hxxxx (14'bxx xxxx xxxx xxxx)
   // The data at index x/way x  is:
-  // xxxxxxxx_xxxxxxxx_xxxxxxxx_xxxxxxxx_xxxxxxxx_xxxxxxxx_xxxxxxxx_xxxxxxxx_
+  // xxxxxxxx_xxxxxxxx_xxxxxxxx_xxxxxxxx_xxxxxxxx_xxxxxxxx_xxxxxxxx_xxxxxxxx 
   //
   // The main memory (line) address for the write back is {tag,index,5'b0}
   // <--- tag ----> <-- index --> <-0->
@@ -1043,7 +1336,7 @@ endtask
   // At the end of the access:
   //
   // main memory at 26'hxxxxx should contain:
-  // xxxxxxxx_xxxxxxxx_xxxxxxxx_xxxxxxxx_xxxxxxxx_xxxxxxxx_xxxxxxxx_xxxxxxxx_
+  // xxxxxxxx_xxxxxxxx_xxxxxxxx_xxxxxxxx_xxxxxxxx_xxxxxxxx_xxxxxxxx_xxxxxxxx 
   //
   // ----------------------------------------------------------------------
   // After allocation
@@ -1052,7 +1345,7 @@ endtask
   //   xx xxxx xxxx xxxx  -> xxxx (from upper 14b of the access that missed)
   //
   // data at index x way x should contain (the contents of mm @0xxxxx):
-  //   xxxxxxxx_xxxxxxxx_xxxxxxxx_xxxxxxxx_xxxxxxxx_xxxxxxxx_xxxxxxxx_xxxxxxxx_
+  //   xxxxxxxx_xxxxxxxx_xxxxxxxx_xxxxxxxx_xxxxxxxx_xxxxxxxx_xxxxxxxx_xxxxxxxx 
   //
   // control bits at index x should be 
   //   val = 1111 (no change) 

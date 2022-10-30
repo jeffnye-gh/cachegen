@@ -390,7 +390,6 @@ fsm #(.IDX_BITS(IDX_BITS),
   .pe_read_d    (pe_read_d),
   .pe_write_d   (pe_write_d),
 
-//  .cc_fsm_req_hit_d (cc_fsm_req_hit_d),
   .way_is_selected_d  (way_is_selected_d),
   .cmp_fsm_req_clean_d(cmp_fsm_req_clean_d),
 
