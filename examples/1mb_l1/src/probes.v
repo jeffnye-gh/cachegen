@@ -23,12 +23,13 @@ reg [10*8-1:0] p_fsm_st;
 always @(top.dut0.fsm0.state) begin
   case(top.dut0.fsm0.state)
     IDLE:      p_fsm_st = "IDLE";
-    WR_ALLOC:  p_fsm_st = "WR_ALLOC";
     RD_ALLOC:  p_fsm_st = "RD_ALLOC";
-    FILL:      p_fsm_st = "FILL";
-    WR_EVICT:  p_fsm_st = "WR_EVICT";
+    WR_ALLOC:  p_fsm_st = "WR_ALLOC";
     RD_EVICT:  p_fsm_st = "RD_EVICT";
+    WR_EVICT:  p_fsm_st = "WR_EVICT";
     READ:      p_fsm_st = "READ";
+    WRITE:     p_fsm_st = "WRITE";
+    FILL:      p_fsm_st = "FILL";
     INVAL_ALL: p_fsm_st = "INVAL_ALL";
   endcase
 end

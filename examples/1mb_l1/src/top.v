@@ -11,8 +11,8 @@ module top;
 
 localparam integer MAX = 5000;
 localparam integer MM_ADDR_WIDTH     = 20;
-localparam integer EXP_MM_ENTRIES    = 131072;
-localparam integer EXP_DATA_ENTRIES  = 256;
+localparam integer EXP_MM_ENTRIES    = 1048576;
+localparam integer EXP_DATA_ENTRIES  = 8192;
 
 localparam integer L1_READ_HIT_LAT   = 1;
 localparam integer L1_WRITE_HIT_TPUT = 1;
@@ -42,10 +42,10 @@ localparam   _bt_wr_hit_test   = 1'b1;
 localparam   _bt_rd_alloc_test = 1'b1;
 localparam   _bt_wr_alloc_test = 1'b1;
 localparam   _bt_rd_evict_test = 1'b1;
-localparam   _bt_wr_evict_test = 1'b0;
+localparam   _bt_wr_evict_test = 1'b1;
 
-localparam   _bt_rd_clean_test = 1'b0;
-localparam   _bt_wr_clean_test = 1'b0;
+//localparam   _bt_rd_clean_test = 1'b0;
+//localparam   _bt_wr_clean_test = 1'b0;
 // ----------------------------------------------------------------------
 reg lru_flag;
 reg basic_rd_hit_flag;
@@ -54,8 +54,8 @@ reg basic_rd_alloc_flag;
 reg basic_wr_alloc_flag;
 reg basic_rd_evict_flag;
 reg basic_wr_evict_flag;
-reg basic_rd_clean_flag;
-reg basic_wr_clean_flag;
+//reg basic_rd_clean_flag;
+//reg basic_wr_clean_flag;
 // ----------------------------------------------------------------------
 int count;
 int lru_errs            = -1;
@@ -65,8 +65,8 @@ int basic_rd_alloc_errs = -1;
 int basic_wr_alloc_errs = -1;
 int basic_rd_evict_errs = -1;
 int basic_wr_evict_errs = -1;
-int basic_rd_clean_errs = -1;
-int basic_wr_clean_errs = -1;
+//int basic_rd_clean_errs = -1;
+//int basic_wr_clean_errs = -1;
 // ----------------------------------------------------------------------
 reg master_clk,clk,reset;
 //icarus does not report strings in vcd
@@ -192,7 +192,7 @@ begin
       basicRdEvictTest(basic_rd_evict_errs,basic_rd_evict_flag,0);
 
     if(_bt_wr_evict_test)
-      basicWrEvictTest(basic_wr_evict_errs,basic_wr_evict_flag,0);
+      basicWrEvictTest(basic_wr_evict_errs,basic_wr_evict_flag,1);
   end
   nop(1);
   terminate();
@@ -209,6 +209,25 @@ end
 // ----------------------------------------------------------------
 _probes _prb();
 // ----------------------------------------------------------------
+//dut #(
+//  .L1_READ_HIT_LAT(L1_READ_HIT_LAT),
+//  .L1_WRITE_HIT_TPUT(L1_WRITE_HIT_TPUT),
+//  .EXP_MM_ENTRIES(EXP_MM_ENTRIES),
+//  .MM_READ_LAT(MM_READ_LAT),
+///  .MM_WRITE_TPUT(MM_WRITE_TPUT)) dut0
+//(
+//  .cc_tb_readdata(cc_tb_readdata),
+//  .cc_tb_readdata_valid(cc_tb_readdata_valid),
+//  .cc_tb_ready(cc_tb_ready),
+//
+//  .tb_cc_address(tb_cc_address),
+//  .tb_cc_byteenable(tb_cc_byteenable),
+//  .tb_cc_read(tb_cc_read),
+//  .tb_cc_write(tb_cc_write),
+//  .tb_cc_writedata(tb_cc_writedata)
+//);
+
+
 cache #(.READ_HIT_LAT(L1_READ_HIT_LAT),
         .WRITE_HIT_TPUT(L1_WRITE_HIT_TPUT)
 ) dut0(

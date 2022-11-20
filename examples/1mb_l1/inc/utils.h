@@ -11,8 +11,6 @@ int debug;
 begin
   debug = 0;
   watchdog = 0;
-  //if(verbose) $display("-I: rd req : a:%08x  be:%04b",a,be);
-  //$display("-I: rd req : a:%08x  be:%04b",a[31:5],be);
   top.tb_cc_address    <= `FF a;
   if(debug)$display("RD ADDR %08x",a);
   top.tb_cc_byteenable <= `FF be;
@@ -357,7 +355,7 @@ begin
       if(!match) pfx = "-E:";
 
       if(!match) begin
-        $display("%0s index %0d mismatch",pfx,i);
+        $display("%0s index %0x mismatch",pfx,i);
         $display("%0s exp:%032x ",     pfx,top.mm_expect_mm[i]);
         $display("%0s act:%032x m:%0d",pfx,top.dut0.mm0.ram[i],match);
         errs = errs + 1;
@@ -590,15 +588,37 @@ end
 endtask
 // -----------------------------------------------------------------
 // -----------------------------------------------------------------
+//task nop(input int count,input int verbose=0);
+//integer i;
+//begin
+//  tb_cmd = TB_CMD_NOP;
+//  top.tb_cc_read  = `FF 1'b0;
+//  top.tb_cc_write = `FF 1'b0;
+//  if(verbose) $display("-I: NOP");
+//  for(i=0;i<count;i=i+1) @(posedge clk);
+//end
+//endtask
+// -----------------------------------------------------------------
+// -----------------------------------------------------------------
 task nop(input int count,input int verbose=0);
-integer i;
+int watchdog;
+int debug;
+int i;
+reg sig;
 begin
-  tb_cmd = TB_CMD_NOP;
-  tb_cc_read     = 1'b0;
-  tb_cc_write    = 1'b0;
+  debug = 0;
+  watchdog = 0;
+  top.tb_cc_address    = `FF 32'bx;
   if(verbose) $display("-I: NOP");
-  //@(posedge clk);
-  for(i=0;i<count;i=i+1) @(posedge clk);
+  top.tb_cc_byteenable = `FF 4'b0000;
+  top.tb_cc_read       = `FF 1'b0;
+  top.tb_cc_write      = `FF 1'b0;
+  sig = 1'b0;
+  for(i=0;i<count;i=i+1) begin
+    @(posedge clk);
+    sig <= `FF 1'b1;
+  end
+  sig <= `FF 1'b0;
 end
 endtask
 // -----------------------------------------------------------------
@@ -614,8 +634,8 @@ begin
              + abserr(basic_wr_alloc_errs,1000)
              + abserr(basic_rd_evict_errs,1000)
              + abserr(basic_wr_evict_errs,1000)
-             + abserr(basic_rd_clean_errs,1000)
-             + abserr(basic_wr_clean_errs,1000)
+//             + abserr(basic_rd_clean_errs,1000)
+//             + abserr(basic_wr_clean_errs,1000)
              ;
 
   pfx = "-I:";
@@ -633,8 +653,8 @@ begin
   $display("%0s basic wr alloc errors : %0d",pfx,basic_wr_alloc_errs);
   $display("%0s basic rd evict errors : %0d",pfx,basic_rd_evict_errs);
   $display("%0s basic wr evict errors : %0d",pfx,basic_wr_evict_errs);
-  $display("%0s basic rd clean errors : %0d",pfx,basic_rd_clean_errs);
-  $display("%0s basic wr clean errors : %0d",pfx,basic_wr_clean_errs);
+//  $display("%0s basic rd clean errors : %0d",pfx,basic_rd_clean_errs);
+//  $display("%0s basic wr clean errors : %0d",pfx,basic_wr_clean_errs);
   $display("");
   $display("%0s Total errors          : %0d",pfx,total_errs);
   $display("==================================================");

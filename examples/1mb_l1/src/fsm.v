@@ -82,7 +82,7 @@
 // -------------------------------------------------------------------------
 //
 // -------------------------------------------------------------------------
-`include "functions.h"
+//`include "functions.h"
 module fsm #(
   parameter IDX_BITS     = 13,
   parameter TAG_BITS     = 14,
@@ -245,6 +245,26 @@ always @* begin
         next = RD_EVICT;
       end
 
+      // WRITE MISS MODIFIED
+      // - there is a write miss
+      // -    all ways are valid
+      // -    the LRU way is modified
+      // - (1) assert write to MM and wait for mm ready
+      // - (2) assert read to the MM and way for mm valid
+      // - HERE
+      //mux down to the critical word in the mm data in flight
+      // - assert valid and return the critical word
+      // - write the return data to the selected way 
+      // - update the LRU
+      // - set the valid bit
+      // - clear the dirty bit
+      else if(pe_write_d & !cc_fsm_req_hit_d & !cmp_fsm_req_clean_d) begin
+        fsm_mm_write_d = 1'b1;
+        fsm_cc_evict_d = 1'b1;
+        fsm_cc_use_evict_add_d = 1'b1;
+        next = WR_EVICT;
+      end
+
     end //end of IDLE
     // ------------------------------------------------------------------
     RD_ALLOC: begin
@@ -293,25 +313,10 @@ always @* begin
     end
     // ------------------------------------------------------------------
     RD_EVICT: begin
-      if(mm_ready) begin //when ready update cache state
-        //fsm_cc_readdata_valid_d = 1'b1;
-
-        //fsm_cc_ary_write_d = 1'b1;
-        //fsm_cc_lru_write_d = 1'b1;
-
-        //fsm_cc_mod_write_d = 1'b1;
-        //fsm_cc_is_mod_d    = 1'b0; //clear the mod bit
-
-        //fsm_cc_tag_write_d = 1'b1; 
-
-        //fsm_cc_val_write_d = 1'b1; 
-        //fsm_cc_is_val_d    = 1'b1;
-
+      if(mm_ready) begin
         fsm_cc_evict_d = 1'b1;
-
         fsm_mm_read_d = 1'b1;
-        //fsm_cc_use_evict_add_d = 1'b1;
-        next = READ; //read the replacement
+        next = READ; 
       end else begin
         fsm_mm_write_d = 1'b1;  //hold write until ready,to write back victim
         fsm_cc_evict_d = 1'b1;
@@ -320,9 +325,24 @@ always @* begin
       end
     end
     // ------------------------------------------------------------------
+    WR_EVICT: begin
+      if(mm_ready) begin
+        fsm_cc_evict_d = 1'b1;
+        fsm_mm_read_d = 1'b1;
+        next = WRITE; 
+      end else begin
+        fsm_mm_write_d = 1'b1;  //hold write until ready,to write back victim
+        fsm_cc_evict_d = 1'b1;
+        fsm_cc_use_evict_add_d = 1'b1;
+        next = WR_EVICT;
+      end
+    end
+    // ------------------------------------------------------------------
     FILL: begin
       next = IDLE;
     end
+    // ------------------------------------------------------------------
+    // READ AS PART OF AN EVICTION
     // ------------------------------------------------------------------
     READ: begin //state has been updated, hit is ensured, read data is ready
       if(mm_readdata_valid) begin
@@ -342,108 +362,45 @@ always @* begin
         fsm_cc_rd_fill_d   = 1'b1;
         next = FILL;
       end else begin
-        fsm_cc_wr_fill_d = 1'b1;
+        fsm_cc_rd_fill_d = 1'b1;
         fsm_cc_evict_d   = 1'b1;
         fsm_mm_read_d    = 1'b1; //keep reading until ready
         next = READ;
       end
     end
-//    RD_EVICT: begin
-//      if(FIXME_mm_readdata_valid) begin
-//        next = RD_ALLOC;
-//      end else begin
-//        next = RD_EVICT;
-//      end
-//    end
-//
-//    WR_ALLOC: begin
-//      if(FIXME_mm_readdata_valid) begin
-//        next = IDLE;
-//      end else begin
-//        next = WR_ALLOC;
-//      end
-//    end
-//
-//    WR_EVICT: begin
-//      if(FIXME_mm_readdata_valid) begin
-//        next = WR_ALLOC;
-//      end else begin
-//        next = WR_EVICT;
-//      end
-//    end
-//
-//    FLUSH_ALL: begin
-//      next = IDLE;
-//    end
-//
-//    INVAL_ALL: begin
-//      next = IDLE;
-//    end
-//
-//    TEMP: begin
-//      next = TEMP;
-//    end
+
+    // ------------------------------------------------------------------
+    // WRITE AS PART OF AN EVICTION
+    // ------------------------------------------------------------------
+    WRITE: begin //state has been updated, hit is ensured, read data is ready
+      if(mm_readdata_valid) begin
+        //fsm_cc_readdata_valid_d = 1'b1;
+        fsm_cc_ary_write_d = 1'b1;
+        fsm_cc_lru_write_d = 1'b1;
+
+        fsm_cc_mod_write_d = 1'b1;
+        fsm_cc_is_mod_d    = 1'b1; //set the mod bit
+
+        fsm_cc_tag_write_d = 1'b1; 
+
+        fsm_cc_val_write_d = 1'b1; 
+        fsm_cc_is_val_d    = 1'b1;
+
+        fsm_cc_ready_d     = 1'b1;
+        fsm_cc_wr_fill_d   = 1'b1;
+        next = FILL;
+      end else begin
+        fsm_cc_wr_fill_d = 1'b1;
+        fsm_cc_evict_d   = 1'b1;
+        fsm_mm_read_d    = 1'b1; //keep reading mm until ready
+        next = WRITE;
+      end
+    end
 
     default: begin
-//      //synthesis translate_off
-//      $display("fsm state fall through"):
-//      //synthesis translate_on
       next = IDLE;
     end
   endcase
 
 end
 endmodule
-
-// MORE IDLE CASES
-//      // WRITE MISS CLEAN
-//      else if(pe_write_d & !pe_req_miss_d & !cc_fsm_req_mod_d) begin
-//        next = WR_ALLOC;
-//      end
-//
-//      // READ MISS DIRTY
-//      else if(pe_read_d & !pe_req_miss_d &  cc_fsm_req_mod_d) begin
-//        next = RD_EVICT;
-//      end
-//
-//      // WRITE MISS DIRTY
-//      else if(pe_write_d & !pe_req_miss_d &  cc_fsm_req_mod_d) begin
-//        next = WR_EVICT;
-//      end
-//
-//      // FLUSH
-//      else if(pe_flush) begin
-//        next = IDLE;
-//      end
-//
-//      // FLUSH ALL
-//      else if(pe_flush_all) begin
-//        next = FLUSH_ALL;
-//      end
-//
-//      // INVALIDATE
-//      else if(pe_invalidate) begin
-//        next = IDLE;
-//      end
-//
-//      // INVALIDATE ALL
-//      else if(pe_invalidate_all) begin
-//        next = INVAL_ALL;
-//      end
-//
-//      // RAM TEST READ
-//      else if(tb_ram_test & pe_read_d) begin
-//        next = IDLE;
-//      end
-//
-//      // RAM TEST WRITE
-//      else if(tb_ram_test & pe_write_d) begin
-//        next = IDLE;
-//      end
-//      
-//      // FALL THROUGH IDLE CONDITION
-//      else begin
-//        next = IDLE;
-//        //$display("-E: fall through in fsm IDLE state");      
-//      end
-

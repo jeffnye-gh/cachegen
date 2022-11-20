@@ -5,8 +5,8 @@ module compare #(
 (
   output wire  [3:0] way_hit_d,
   output wire  way_is_selected_d,
-  output wire  victim_way_is_dirty_d,
-  output wire  lru_way_is_dirty_d,
+//  output wire  victim_way_is_dirty_d,
+//  output wire  lru_way_is_dirty_d,
   output wire  req_clean_d,
 
   output reg   [3:0] lru_selected_way_d,
@@ -58,8 +58,8 @@ assign lru_dirty_d[3] = mod_output_d[3] & lru_selected_way_d[3];
 
 assign way_is_selected_d = |way_hit_d;
 wire no_victim = !way_is_selected_d;
-assign victim_way_is_dirty_d = no_victim ? 1'b0 : |way_mod_d;
-assign lru_way_is_dirty_d    = |lru_dirty_d;
+//assign victim_way_is_dirty_d = no_victim ? 1'b0 : |way_mod_d;
+wire lru_way_is_dirty_d    = |lru_dirty_d;
 
 // req is clean if there is one invalid, or the lru selected way is not dirty
 assign req_clean_d = one_invalid_d | !lru_way_is_dirty_d;

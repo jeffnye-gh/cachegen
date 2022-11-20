@@ -79,7 +79,7 @@ wire fsm_cc_use_evict_add_d;
 wire fsm_cc_readdata_valid;
 
 wire fsm_cc_ary_write_d;
-//wire fsm_cc_tag_write_d;
+wire fsm_cc_tag_write_d;
 wire fsm_cc_val_write_d;
 wire fsm_cc_mod_write_d;
 wire fsm_cc_lru_write_d;
@@ -191,21 +191,6 @@ reg [3:0] tag_way_sel_d;
 reg [3:0] val_way_sel_d;
 reg [3:0] mod_way_sel_d;
 reg [3:0] lru_way_sel_d;
-
-// ------------------------------------------------------------------------
-// ------------------------------------------------------------------------
-//function [31:0] mux_bytes;
-//input [3:0] be;
-//input [31:0] wd,rd;
-//reg [7:0] b0,b1,b2,b3;
-//begin
-//  b0 = be[0] ? wd[ 7: 0] : rd[ 7: 0];
-//  b1 = be[1] ? wd[15: 8] : rd[15: 8];
-//  b2 = be[2] ? wd[23:16] : rd[23:16];
-//  b3 = be[3] ? wd[31:24] : rd[31:24];
-//  mux_bytes = {b3,b2,b1,b0};
-//end
-//endfunction
 // ------------------------------------------------------------------------
 // ------------------------------------------------------------------------
 always @* begin
@@ -359,8 +344,8 @@ compare #(.WIDTH(TAG_BITS)
   .way_is_selected_d(way_is_selected_d),
   .req_clean_d (cmp_fsm_req_clean_d),
 
-  .victim_way_is_dirty_d(victim_way_is_dirty_d),
-  .lru_way_is_dirty_d(lru_way_is_dirty_d),
+//  .victim_way_is_dirty_d(victim_way_is_dirty_d),
+//  .lru_way_is_dirty_d(lru_way_is_dirty_d),
 
   .lru_selected_way_d(lru_selected_way_d),
   .fill_or_victim_way_d(fill_or_victim_way_d),

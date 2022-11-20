@@ -3,11 +3,11 @@ module merge
 (
   output reg [255:0] y,
 
-  input wire [255:0] rd, //read data
-  input wire [31:0]  wd, //pe_wd_d
+  input wire [255:0] rd, //mm read data
+  input wire [31:0]  wd, //pe write data
 
-  input wire [3:0] be,
-  input wire [2:0] sel
+  input wire [3:0] be,   //pe be
+  input wire [2:0] sel   //word alignment
 );
 
 function [31:0] mux_bytes;

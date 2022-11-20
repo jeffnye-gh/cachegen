@@ -3,6 +3,238 @@
 `include "bitcmds.h"
 `include "functions.h"
 // --------------------------------------------------------------------------
+// Write miss evict dirty way and allocate
+//
+// The LRU way is dirty, write it back, allocate and merge write data
+// --------------------------------------------------------------------------
+task basicWrEvictTest(inout int errs,inout flag,input int verbose);
+integer i,j,mod,n,num;
+int v,enb;
+reg [2:0] lru_exp,lru_act;
+reg [31:0] addr;
+string state;
+begin
+  enb   = 1;
+  state = "OFF";
+  if(enb) state = "ON";
+
+  beginTestMsg("basicWrEvictTest",errs,flag);
+  if(verbose) $display("-I: CHECK ENABLE IS %s",state);
+
+  v = verbose;
+
+  clear_tb_data(0,EXP_DATA_ENTRIES,v);
+
+  @(posedge clk);
+//  if(verbose) $display("-I: setting initial configuration ");
+  //load main memory
+  $readmemh("data/basicWrEvict.mm.memh",top.mm0.ram);
+  //load data arrays
+  $readmemh("data/basicWrEvict.d0.memh",top.dut0.dsram0.ram);
+  $readmemh("data/basicWrEvict.d1.memh",top.dut0.dsram1.ram);
+  $readmemh("data/basicWrEvict.d2.memh",top.dut0.dsram2.ram);
+  $readmemh("data/basicWrEvict.d3.memh",top.dut0.dsram3.ram);
+  //load tags
+  load_initial_tags("data/basicWrEvict.tags.memh",v);
+  //load control bits
+  load_initial_bits("data/basicWrEvict.bits.memb",v);
+
+//  $display("HERE 0 %x",top.dut0.dsram0.ram[0]);
+//  top.dut0.dsram0.ram[0]
+//    <= 256'h1230700000006000000050000000400000003000000020000000100000000000;
+  @(posedge clk);
+//  $display("HERE 1 %x",top.dut0.dsram0.ram[0]);
+
+//  top.dut0.valid0.regs[0] <= 4'b1110;
+//  top.dut0.dirty0.regs[0] <= 4'b0111;
+//  top.dut0.valid0.regs[10] <= 4'b1101;
+
+  @(posedge clk);
+  $display("HERE 2 %x",top.dut0.dsram0.ram[0]);
+
+  nop(1);
+  n = 0;
+  num = 3;
+  // ======================================================================
+  // #0
+  // Access is to 0000 0000 0000 0000 0000 0000 0000 0000  -> 0x00000000 hex
+  // Line addr is       000 0000 0000 0000 0000 0000 0000  ->  0x0000000 hex
+  // Index addr                          0 0000 0000 0000  ->     0x0000 hex
+  // Word  addr                                       011  ->        0x3 hex
+  // Byte  enbs                                      1010 ->        1010 bin
+  // Write data                                               0x11111111 hex
+  // LRU bits are 010 -> lru way is 2
+  //
+  // Tag at index 0/way 2 is: 14'h0002 (14'b00 0000 0000 0010)
+  // The data at index 0/way 2  is:
+  // 00207000_00206000_00205000_00204000_00203000_00202000_00201000_00200000
+  //
+  // The main memory (line) address for the write back is {tag,index,5'b0}
+  // tag 14b idx 13b lin  5b
+  //
+  // <----- tag ----->   <--- index  --->  <-0->
+  // 00 0000 0000 0010   0 0000 0000 0000  00000
+  // 0000 0000 0000 1000 0000 0000 0000 0000
+  // 0000 0000 0000 1000 0000 0000 0000 0000 -> 00080000 byte address
+  // 000 0000 0000 0100 0000 0000 0000       ->  0004000 line address
+  //
+  // At the end of the access:
+  //
+  // main memory at 26'h0004000 should contain:
+  // 00207000_00206000_00205000_00204000_00203000_00202000_00201000_00200000 
+  //
+  // ----------------------------------------------------------------------
+  // After allocation
+  // ----------------------------------------------------------------------
+  // tag at index 0 way 2 should contain:
+  //   00 0000 0000 0000  -> 0000 (from upper 14b of the access that missed)
+  //
+  // data at index 0 way 2 should contain (the contents of mm @0000000):
+  //   F0007000_00006000_00005000_00004000_11001100_00002000_00001000_00000000 
+  //
+  // control bits at index 0 should be 
+  //   val = 1111 (no change) 
+  //   mod = 1111 (all are modified)
+  //   lru =  100 (was 010, after read allocate to way2 becomes [1 0 b0])
+  //a:0x0000000c #0
+  // ======================================================================
+  //      tag/way   index  wrd byt      be       data
+  wr_req({14'h000,13'h000,3'h3,2'h0},4'b1010,32'h11111111,v);
+  nop(n);
+  // ======================================================================
+  // #1
+  // Access is to 0000 0000 0000 0100 0000 0000 0011 1100  -> 0x0004003c hex
+  // Line addr is       000 0000 0000 0010 0000 0000 0001  ->  0x0002001 hex
+  // Index addr                          0 0000 0000 0001  ->     0x0001 hex
+  // Word  addr                                       111  ->        0x7 hex
+  // Byte  enbs                                      1111 ->        1111 bin
+  // LRU bits are 100 -> lru way is 1
+  //
+  // Tag at index 1/way 1 is: 14'h0003 (14'b00 0000 0000 0011)
+  // The data at index 1/way 1  is:
+  // 00107001_00106001_00105001_00104001_00103001_00102001_00101001_00100001 
+  //
+  // The main memory (line) address for the write back is {tag,index,5'b0}
+  // <--- tag ----> <-- index --> <-0->
+  // 00000000000011 0000000000001 00000
+  // 0000 0000 0000 1100 0000 0000 0010 0000 -> 000c0020 byte address
+  //  000 0000 0000 0110 0000 0000 0001      ->  0006001 line address
+  //
+  // At the end of the access:
+  //
+  // main memory at 26'h06001  should contain:
+  // 00107001_00106001_00105001_00104001_00103001_00102001_00101001_00100001 
+  //
+  // ----------------------------------------------------------------------
+  // After allocation
+  // ----------------------------------------------------------------------
+  // tag at index 1 way 1 should contain:
+  //   00 0000 0000 0001  -> 0001 (from upper 14b of the access that missed)
+  //
+  // data at index 1 way 1 should contain (the contents of mm @0002001):
+  //   22222222_2000607f_2000507f_2000407f_2000307f_2000207f_2000107f_2000007f 
+  //
+  // control bits at index x should be 
+  //   val = 1111 (no change) 
+  //   mod = 1111 (no change)
+  //   lru =  001 (was 100, after read allocate to way1 becomes [0 b1 1])
+  //a:0x0004003c #1
+  // ======================================================================
+
+  wr_req({14'h001,13'h001,3'h7,2'h0},4'b1111,32'h22222222,v);
+  nop(n);
+  // ======================================================================
+  // #2
+  // Access is to 0000 0000 0000 1000 0000 0000 0101 1000  -> 0x00080058 hex
+  // Line addr is       000 0000 0000 0100 0000 0000 0010  ->  0x0004002 hex
+  // Index addr                          0 0000 0000 0010  ->     0x0002 hex
+  // Word  addr                                       110  ->        0x6 hex
+  // Byte  enbs                                      1100 ->        1100 bin
+  // LRU bits are 000 -> lru way is 3
+  //
+  // Tag at index 2/way 3 is: 14'h0001 (14'b00 0000 0000 0001)
+  // The data at index 2/way 3  is:
+  // 00307002_00306002_00305002_00304002_00303002_00302002_00301002_00300002 
+  //
+  // The main memory (line) address for the write back is {tag,index,5'b0}
+  // <--- tag ----> <-- index --> <-0->
+  // 00000000000001 0000000000010 00000
+  // 0000 0000 0000 0100 0000 0000 0100 0000 -> 00040040 byte address
+  //       000 0000 0000 0010 0000 0000 0010 ->  0002002 line address
+  //
+  // At the end of the access:
+  //
+  // main memory at 26'h02002 should contain:
+  // 00307002_00306002_00305002_00304002_00303002_00302002_00301002_00300002 
+  //
+  // ----------------------------------------------------------------------
+  // After allocation
+  // ----------------------------------------------------------------------
+  // tag at index 2 way 3 should contain:
+  //   00 0000 0000 0010  -> 0002 (from upper 14b of the access that missed)
+  //
+  // data at index 2 way 3 should contain (the contents of mm @004002):
+  //   4000707f_3232607f_4000507f_4000407f_4000307f_4000407f_4000107f_4000007f 
+  //
+  // control bits at index x should be 
+  //   val = 1111 (no change) 
+  //   mod = 1111 (no change)
+  //   lru =  110 (was 000, after read allocate to way3 becomes [1 1  b0])
+  //a:0x00080058 #2
+  // ======================================================================
+  wr_req({14'h002,13'h002,3'h6,2'h0},4'b1100,32'h23232323,v);
+  nop(n);
+  // Do these as needed after writing the cpp and SystemC model
+  //  //a:00006003
+  //  wr_req({14'h003,13'h003,3'h6,2'h0},4'b1111,32'h34353637,v);
+  //  //a:00006004
+  //  wr_req({14'h003,13'h004,3'h5,2'h0},4'b1111,32'h45464748,v);
+  //  //a:00002005  way 1 index 5 be 1010
+  //  wr_req({14'h001,13'h005,3'h1,2'h0},4'b1010,32'hFFFFFFFF,v);
+  //  //a:00004006  way 2 index 6 be 0101
+  //  wr_req({14'h002,13'h006,3'h5,2'h0},4'b0101,32'h77777777,v);
+  //  //a:00006007
+  //  wr_req({14'h003,13'h007,3'h3,2'h0},4'b1111,32'h98979695,v);
+  //  //a:00002008
+  //  wr_req({14'h001,13'h008,3'h2,2'h0},4'b1111,32'habacadae,v);
+  //  //a:00000009
+  //  wr_req({14'h000,13'h009,3'h1,2'h0},4'b1111,32'hbeefb0da,v);
+  //  //a:0000200a
+  //  wr_req({14'h001,13'h00a,3'h1,2'h0},4'b1111,32'hab109876,v);
+
+  nop(5);
+  //load expect main memory
+  load_expect_main_memory("./golden/basicWrEvict.mm.memh",v);
+  //load expect data arrays
+  load_expect_dary_data("./golden/basicWrEvict.d0.memh",
+                        "./golden/basicWrEvict.d1.memh",
+                        "./golden/basicWrEvict.d2.memh",
+                        "./golden/basicWrEvict.d3.memh",v);
+  //load expect tags
+  load_expect_tags("./golden/basicWrEvict.tags.memh",v);
+  //load expect control bits
+  load_expect_bits("./golden/basicWrEvict.bits.memb",v);
+
+  nop(4); //let state propagate
+
+  if(v) $display("BEGIN Main memory checks");
+  check_main_memory (errs,0,16384,0);
+  if(v) $display("END   Main memory checks");
+
+  if(v) $display("BEGIN Data array checks");
+  check_data_arrays (errs,0,num,v);
+  if(v) $display("END   Data array checks");
+
+  //check tags and bits
+  if(v) $display("BEGIN Tag array checks");
+  check_tb_tags_bits(errs,0,num,v);
+  if(v) $display("END   Tag array checks");
+
+  endTestMsg(testName,errs,flag);
+  nop(4);
+end
+endtask
+// --------------------------------------------------------------------------
 // Read miss evict dirty way and allocate
 //
 // The LRU way is dirty, write it back, allocate and return critical word
@@ -589,117 +821,6 @@ begin
 end
 endtask
 // --------------------------------------------------------------------------
-// Write miss evict dirty way and allocate
-//
-// The LRU way is dirty, write it back, allocate and merge write data
-// --------------------------------------------------------------------------
-task basicWrEvictTest(inout int errs,inout flag,input int verbose);
-integer i,j,mod;
-int v,enb;
-reg [2:0] lru_exp,lru_act;
-reg [31:0] addr;
-string state;
-begin
-  enb   = 1;
-  state = "OFF";
-  if(enb) state = "ON";
-
-  beginTestMsg("basicWrEvictTest",errs,flag);
-  if(verbose) $display("-I: CHECK ENABLE IS %s",state);
-
-  v = verbose;
-
-  clear_tb_data(0,EXP_DATA_ENTRIES,v);
-
-  @(posedge clk);
-  if(verbose) $display("-I: setting initial configuration ");
-  //load main memory
-  $readmemh("data/basicWrEvict.mm.memh",top.mm0.ram);
-  //load data arrays
-  $readmemh("data/basicWrEvict.dsram0.memh",top.dut0.dsram0.ram);
-  $readmemh("data/basicWrEvict.dsram1.memh",top.dut0.dsram1.ram);
-  $readmemh("data/basicWrEvict.dsram2.memh",top.dut0.dsram2.ram);
-  $readmemh("data/basicWrEvict.dsram3.memh",top.dut0.dsram3.ram);
-  //load tags
-  load_initial_tags("data/basicWrEvict.tags.memh",v);
-  //load control bits
-  load_initial_bits("data/basicWrEvict.bits.memb",v);
-  top.dut0.valid0.regs[0] <= 4'b1110;
-  top.dut0.dirty0.regs[0] <= 4'b0111;
-  top.dut0.valid0.regs[10] <= 4'b1101;
-  @(posedge clk);
-  nop(1);
-
-          //tag/way index   word
-  //a:00000000
-  wr_req({14'h000,13'h000,3'h3,2'h0},4'b1111,32'h11111111,v);
-  //        way   index    tag      val     mod    lru
-  chk_alloc(2'h0,13'h000,14'h000,4'b1111,4'b0111,3'b010,enb,errs,v);
-
-  //a:00002001
-  wr_req({14'h001,13'h001,3'h7,2'h0},4'b1111,32'h22222222,v);
-  chk_alloc(2'h1,13'h001,14'h001,4'b1111,4'b0110,3'b001,enb,errs,v);
-
-  //a:00004002
-  wr_req({14'h002,13'h002,3'h6,2'h0},4'b1111,32'h23232323,v);
-  chk_alloc(2'h2,13'h002,14'h002,4'b1111,4'b0110,3'b100,enb,errs,v);
-
-  //a:00006003
-  wr_req({14'h003,13'h003,3'h6,2'h0},4'b1111,32'h34353637,v);
-  chk_alloc(2'h3,13'h003,14'h003,4'b1111,4'b1111,3'b111,enb,errs,v);
-
-  //a:00006004
-  wr_req({14'h003,13'h004,3'h5,2'h0},4'b1111,32'h45464748,v);
-  chk_alloc(2'h3,13'h004,14'h003,4'b1111,4'b1111,3'b110,enb,errs,v);
-
-  //a:00002005  way 1 index 5 be 1010
-  wr_req({14'h001,13'h005,3'h1,2'h0},4'b1010,32'hFFFFFFFF,v);
-  chk_alloc(2'h1,13'h005,14'h001,4'b1111,4'b0010,3'b001,enb,errs,v);
-
-  //a:00004006  way 2 index 6 be 0101
-  wr_req({14'h002,13'h006,3'h5,2'h0},4'b0101,32'h77777777,v);
-  chk_alloc(2'h2,13'h006,14'h002,4'b1100,4'b0100,3'b100,enb,errs,v);
-
-  //a:00006007
-  wr_req({14'h003,13'h007,3'h3,2'h0},4'b1111,32'h98979695,v);
-  chk_alloc(2'h3,13'h007,14'h003,4'b1101,4'b1110,3'b111,enb,errs,v);
-
-  //a:00002008
-  wr_req({14'h001,13'h008,3'h2,2'h0},4'b1111,32'habacadae,v);
-  chk_alloc(2'h1,13'h008,14'h001,4'b1110,4'b0010,3'b011,enb,errs,v);
-
-  //a:00000009
-  wr_req({14'h000,13'h009,3'h1,2'h0},4'b1111,32'hbeefb0da,v);
-  chk_alloc(2'h0,13'h009,14'h000,4'b1111,4'b1001,3'b000,enb,errs,v);
-
-  //a:0000200a
-  wr_req({14'h001,13'h00a,3'h1,2'h0},4'b1111,32'hab109876,v);
-  chk_alloc(2'h1,13'h00a,14'h001,4'b1111,4'b1111,3'b011,enb,errs,v);
-
-  //load expect main memory
-  load_expect_main_memory("./golden/basicWrEvict.mm.memh",v);
-  //load expect data arrays
-  load_expect_dary_data("./golden/basicWrEvict.d0.memh",
-                        "./golden/basicWrEvict.d1.memh",
-                        "./golden/basicWrEvict.d2.memh",
-                        "./golden/basicWrEvict.d3.memh",v);
-  //load expect tags
-  load_expect_tags("./golden/basicWrEvict.tags.memh",v);
-  //load expect control bits
-  load_expect_bits("./golden/basicWrEvict.bits.memb",v);
-
-  nop(4); //let state propagate
-
-  check_main_memory (errs,0,15,v);
-  check_data_arrays (errs,0,15,v);
-  //check tags and bits
-  check_tb_tags_bits(errs,0,15,v);
-
-  endTestMsg(testName,errs,flag);
-  nop(4);
-end
-endtask
-// --------------------------------------------------------------------------
 // Write miss allocate to invalid way
 //
 // Writes to invalid ways should allocate from main memory.
@@ -967,7 +1088,7 @@ reg [31:0] addr;
 reg [31:0] incr;
 reg [2:0]  act_lru,exp_lru;
 string pfx;
-integer n,m;
+integer n;
 begin
   beginTestMsg("basicLruTest",errs,flag);
   clear_tb_data(0,EXP_DATA_ENTRIES,verbose);
@@ -992,16 +1113,15 @@ begin
   //this quick basic test. random testing will fully test this.
 
   n = 0;
-  m = 0;
   //(read) access way 3 of index 0    plru 000 -> 110
   addr  = {14'h003,index,word,_byte};
   rd_req(addr,4'b1111,verbose);
-  nop(m);
+  nop(n);
 
   //(write) access way 1 of index 0    plru 110 -> 011
   addr  = {14'h001,index,word,_byte};
   wr_req(addr,4'b1111,32'h11111111,verbose);
-  nop(m);
+  nop(n);
 
   //(read) access way 2 of index 0     plru 011 -> 101
   addr  = {14'h002,index,word,_byte};
@@ -1309,18 +1429,15 @@ begin
   nop(1);
 end
 endtask
-// --------------------------------------------------------------------------
-// --------------------------------------------------------------------------
-//task initState;
-//begin
-//  testName = "initState";
-//end
-//endtask
+
   // ======================================================================
+  // READ EVICT VERSION
+  // #N
   // Access is to xxxx xxxx xxxx xxxx xxxx xxxx xxxx xxxx -> xxxxxxxx hex
   // Line addr is xxx xxxx xxxx xxxx xxxx xxxx xxxx       ->  xxxxxxx hex
   // Index addr   x xxxx xxxx xxxx                        ->     xxxx hex
   // Word  addr                xxx                        ->        x hex
+  // Byte  enbs               xxxx                        ->        x hex
   // LRU bits are xxx -> lru way is x
   //
   // Tag at index x/way x is: 14'hxxxx (14'bxx xxxx xxxx xxxx)
@@ -1349,13 +1466,54 @@ endtask
   //
   // control bits at index x should be 
   //   val = 1111 (no change) 
-  //   mod = xxxx (wx no longer modified)
-  //   lru =  xxx (was xxx, after read allocate to wayx becomes [x x  x])
+  //   mod = xxxx (only wx is modified)
+  //   lru =  xxx (was xxx, after write allocate to wayx becomes [x x  x])
   //
-  // The captured data should be the 
-  //     address 32'hxxxxxxxx
-  //     data    32'hxxxxxxxx (word x of the return data)
+  //a:xxxxxxxx #N
+  // ======================================================================
+
+  // ======================================================================
+  // WRITE EVICT VERSION
+  // #0
+  // Access is to xxxx xxxx xxxx xxxx xxxx xxxx xxxx xxxx  -> 0xXXXXXXXX hex
+  // Line addr is       xxx xxxx xxxx xxxx xxxx xxxx xxxx  ->  0xXXXXXXX hex
+  // Index addr                          x xxxx xxxx xxxx  ->     0xXXXX hex
+  // Word  addr                                       011  ->        0xX hex
+  // Byte  enbs                                      1010 ->        xxxx bin
+  // Write data                                               0xxxxxxxxx hex
+  // LRU bits are xxx -> lru way is x
   //
-  //a:xxxxxxxx
+  // Tag at index x/way x is: 14'hxxxx (14'bxx xxxx xxxx xxxx)
+  // The data at index 0/way 2  is:
+  // xxxxxxxx_xxxxxxxx_xxxxxxxx_xxxxxxxx_xxxxxxxx_xxxxxxxx_xxxxxxxx_xxxxxxxx_
+  //
+  // The main memory (line) address for the write back is {tag,index,5'b0}
+  // tag 14b idx 13b lin  5b
+  //
+  // <----- tag ----->   <--- index  --->  <-0->
+  // xx xxxx xxxx xxxx   x xxxx xxxx xxxx  xxxxx
+  // xxxx xxxx xxxx xxxx xxxx xxxx xxxx xxxx
+  // xxxx xxxx xxxx xxxx xxxx xxxx xxxx xxxx -> xxxxxxxx byte address
+  // xxx xxxx xxxx xxxx xxxx xxxx xxxx       ->  xxxxxxx line address
+  //
+  // At the end of the access:
+  //
+  // main memory at 26'hxxxxxxxx should contain:
+  // xxxxxxxx_xxxxxxxx_xxxxxxxx_xxxxxxxx_xxxxxxxx_xxxxxxxx_xxxxxxxx_xxxxxxxx 
+  //
+  // ----------------------------------------------------------------------
+  // After allocation
+  // ----------------------------------------------------------------------
+  // tag at index x way x should contain:
+  //   xx xxxx xxxx xxxx  -> xxxx (from upper 14b of the access that missed)
+  //
+  // data at index 0 way 2 should contain (the contents of mm @0000000):
+  //   xxxxxxxx_xxxxxxxx_xxxxxxxx_xxxxxxxx_xxxxxxxx_xxxxxxxx_xxxxxxxx_xxxxxxxx 
+  //
+  // control bits at index 0 should be 
+  //   val = 1111 (no change) 
+  //   mod = 1111 (all are modified)
+  //   lru =  xxx (was xxx, after read allocate to wayX becomes [x x x])
+  //a:0xxxxxxxxx #x
   // ======================================================================
 

@@ -4,7 +4,6 @@ ALL_INC = $(wildcard inc/*.h)
 
 VLIBS   = -lsrc/parts.v
 VLG_SRC = $(filter-out src/parts.v,$(ALL_SRC))
-#VLG_SRC = $(ALL_SRC)
 
 IVL      = iverilog
 IVL_DEF  = 
@@ -40,9 +39,11 @@ wave:
 drom:
 	$(DROM)
 
-_IVL_OPTS = -g2012  -I./inc $(IVL_DEF) $(VLIBS)
-one:
-	$(IVL) $(_IVL_OPTS) src/fsm.v
+#_IVL_OPTS = -g2012  -I./inc $(IVL_DEF) $(VLIBS)
+#
+#one:
+#	$(IVL) $(_IVL_OPTS) src/fsm.v
+
 clean:
 	-rm -f $(TARGET)
 	-rm -f $(WV_VCD_FILE)
