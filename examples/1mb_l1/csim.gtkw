@@ -1,22 +1,21 @@
 [*]
 [*] GTKWave Analyzer v3.3.113 (w)1999-2022 BSI
-[*] Sun Oct 30 19:20:26 2022
+[*] Sun Nov 20 20:59:03 2022
 [*]
-[dumpfile] "/home/jeff/Development/gitbox/cachegen/examples/1mb_l1/csim.vcd"
-[dumpfile_mtime] "Sun Oct 30 19:20:15 2022"
-[dumpfile_size] 788671
+[dumpfile] "(null)"
 [savefile] "/home/jeff/Development/gitbox/cachegen/examples/1mb_l1/csim.gtkw"
-[timestart] 54875
+[timestart] 1582
 [size] 1732 831
 [pos] -1 -1
-*-10.549181 59850 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+*-9.240106 2650 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
 [treeopen] top.
 [treeopen] top.dut0.
 [treeopen] top.dut0.fsm0.
+[treeopen] top.dut0.mrg0.
 [treeopen] top.dut0.tags[0].
 [treeopen] top.dut0.valid0.
 [sst_width] 279
-[signals_width] 338
+[signals_width] 354
 [sst_expanded] 1
 [sst_vpaned_height] 355
 @28
@@ -34,42 +33,28 @@ top.cc_tb_readdata[31:0]
 @28
 top.cc_tb_readdata_valid
 top.cc_tb_ready
-top.dut0.cc_fill_d
-top.dut0.fsm0.fsm_cc_evict_d
 top.dut0.mm_read_d
-top.dut0.mm_readdata_valid
-@22
-top.dut0.mm_readdata[255:0]
-@28
-top.dut0.mm_write_d
-@22
-top.dut0.mm_writedata[255:0]
-top.dut0.mm_a[31:0]
+@800200
+-FSM
 @820
 top._prb.p_fsm_st[79:0]
-@28
-top.dut0.fsm0.pe_read_d
-top.dut0.fsm0.way_is_selected_d
-top.dut0.fsm0.cc_fsm_req_hit_d
-top.dut0.fsm0.cmp_fsm_req_clean_d
-@22
-top.dut0.cmp0.way_hit_d[3:0]
-@28
-top.dut0.cmp0.lru_selected_way_d[3:0]
-@29
-top._prb.p_lru_10[2:0]
-@c00200
--FSM
 @28
 top.dut0.fsm0.fsm_mm_write_d
 top.dut0.fsm0.mm_ready
 top.dut0.fsm0.fsm_mm_read_d
-top.dut0.cc_fill_d
 top.dut0.fsm_cc_evict_d
 top.dut0.fsm0.pe_read_d
 top.dut0.fsm0.pe_write_d
+@29
 top.dut0.fsm0.cc_fsm_req_hit_d
-@1401200
+@28
+top.dut0.fsm0.fsm_cc_wr_fill_d
+@22
+top.dut0.mrg0.y[255:0]
+@28
+top.dut0.fsm0.fsm_cc_ary_write_d
+top.dut0.dary_way_sel_d[3:0]
+@1000200
 -FSM
 @c00200
 -CMP
@@ -156,7 +141,7 @@ top.dut0.lrurf0.wd[2:0]
 top._prb.p_lru_0[2:0]
 @1401200
 -LRU
-@c00200
+@800200
 -DARY
 @22
 top._prb.p_dary_out_0[255:0]
@@ -177,7 +162,7 @@ top.dut0.dsram1.a[12:0]
 top.dut0.dsram1.rd[255:0]
 @1401200
 -DARY1
-@c00200
+@800200
 -DARY2
 @22
 top.dut0.dsram2.p_ram_a0[255:0]
@@ -185,8 +170,11 @@ top.dut0.dsram2.p_ram_a0[255:0]
 top.dut0.dsram2.write
 @22
 top.dut0.dsram2.a[12:0]
+top.dut0.dsram2.wd[255:0]
 top.dut0.dsram2.rd[255:0]
-@1401200
+top.dut0.dsram2.be[31:0]
+top.dut0.dsram2.p_ram_a0[255:0]
+@1000200
 -DARY2
 @c00200
 -DARY3
@@ -201,6 +189,7 @@ top.dut0.dsram3.rd_tmp[255:0]
 top.dut0.rd[31:0]
 @1401200
 -DARY3
+@1000200
 -DARY
 @c00200
 -DIRTY
