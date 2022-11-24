@@ -3,11 +3,27 @@
 CPP = g++
 
 TARGET = ./bin/cgen
-OPTS = --dry_run --output_file_prefix="tc_" --output_dir="output" \
-       --l1_capacity=1048576 --l1_line_size=32 --l1_associativity=4 \
+OPTS = \
+       --generate --run \
+       --output_file_prefix="tc_1" \
+       --output_dir="output" \
+       \
+       --l1_capacity=1048576 \
+       --l1_line_size=32 \
+       --l1_associativity=4 \
+       --l1_read_miss_policy="allocate" \
+       --l1_write_miss_policy="allocate" \
+       --l1_write_hit_policy="no-write-thru" \
+       --l1_replacement_policy="plru" \
+       --l1_victim_buffer_size=0 \
+       --l1_store_buffer_size=0 \
+       --l1_tag_type="physical" \
        --l1_critical_word_first \
-       --mm_address_bits=32 --mm_capacity=4294967296 \
+       \
+       --mm_address_bits=32 \
+       --mm_capacity=4294967296 \
        --mm_fetch_size=32
+
 
 ALL_SRC = $(wildcard src/*.cpp)
 ALL_INC = $(wildcard inc/*.h)

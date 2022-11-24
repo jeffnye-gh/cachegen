@@ -4,7 +4,7 @@ using namespace std;
 
 // ----------------------------------------------------------------
 // ----------------------------------------------------------------
-string CacheGen::getUpperHeader(uint32_t msb,uint32_t lsb)
+string Utils::getUpperHeader(uint32_t msb,uint32_t lsb)
 {
   string ret;
 
@@ -18,7 +18,7 @@ string CacheGen::getUpperHeader(uint32_t msb,uint32_t lsb)
 }
 // ----------------------------------------------------------------
 // ----------------------------------------------------------------
-string CacheGen::getLowerHeader(uint32_t msb,uint32_t lsb)
+string Utils::getLowerHeader(uint32_t msb,uint32_t lsb)
 {
   string ret;
 
@@ -31,7 +31,7 @@ string CacheGen::getLowerHeader(uint32_t msb,uint32_t lsb)
 }
 // ----------------------------------------------------------------
 // ----------------------------------------------------------------
-ValueUnit CacheGen::getValueAndUnits(uint64_t v)
+ValueUnit Utils::getValueAndUnits(uint64_t v)
 { 
   ValueUnit vu; 
   uint64_t kb = 1024;
@@ -44,4 +44,9 @@ ValueUnit CacheGen::getValueAndUnits(uint64_t v)
   
   return vu;
 }
-
+// ----------------------------------------------------------------
+// ----------------------------------------------------------------
+uint32_t Utils::makeMask(uint32_t msb,uint32_t lsb)
+{
+  return (1 << (msb-lsb+1)) - 1; 
+}

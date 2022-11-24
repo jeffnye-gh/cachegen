@@ -56,6 +56,15 @@ void Options::buildOpts(po::options_description &stdOpts,
     ("version,v","Report version and exit")
     ("release_notes,r","Report release notes and exit")
 
+    //Command options
+    ("generate",
+      po::bool_switch(&generate)->default_value(false),
+      "Generate the data files for simulation")
+
+    ("run",
+      po::bool_switch(&run)->default_value(false),
+      "Run a simulation")
+
     //Output options
     ("dry_run",
       po::bool_switch(&dry_run)->default_value(false),
@@ -66,7 +75,7 @@ void Options::buildOpts(po::options_description &stdOpts,
      "Output file prefix, typ. test case name")
 
     ("output_dir,o",
-      po::value<string>(&output_file_prefix)->default_value("output"),
+      po::value<string>(&output_dir)->default_value("output"),
      "Output directory")
 
     //L1 options
@@ -82,9 +91,49 @@ void Options::buildOpts(po::options_description &stdOpts,
       po::value<uint64_t>(&l1_associativity)->default_value(4),
      "L1 associativity")
 
+    ("l1_read_miss_policy",
+      po::value<string>(&l1_read_miss_policy)->default_value("ALLOCATE"),
+     "X")
+
+    ("l1_write_miss_policy",
+      po::value<string>(&l1_write_miss_policy)->default_value("ALLOCATE"),
+     "X")
+
+    ("l1_write_hit_policy",
+      po::value<string>(&l1_write_hit_policy)->default_value("NO-WRITE-THRU"),
+     "X")
+
+    ("l1_replacement_policy",
+      po::value<string>(&l1_replacement_policy)->default_value("PLRU"),
+     "Read and write miss replacement policy")
+
+    ("l1_coherency_protocol",
+      po::value<string>(&l1_coherency_protocol)->default_value("NONE"),
+     "X")
+
+    ("l1_victim_buffer_size",
+      po::value<uint32_t>(&l1_victim_buffer_size)->default_value(0),
+     "X")
+
+    ("l1_store_buffer_size",
+      po::value<uint32_t>(&l1_store_buffer_size)->default_value(0),
+     "X")
+
+    ("l1_tag_type",
+      po::value<string>(&l1_tag_type)->default_value("PHYSICAL"),
+     "X")
+
     ("l1_critical_word_first",
       po::bool_switch(&l1_critical_word_first)->default_value(true),
      "On miss, return the target word in parallel with fill.")
+
+    ("l1_mmu_present",
+      po::bool_switch(&l1_mmu_present)->default_value(false),
+     "X")
+
+    ("l1_mpu_present",
+      po::bool_switch(&l1_mpu_present)->default_value(false),
+     "X")
 
     //MM options
     ("mm_address_bits",
@@ -114,6 +163,13 @@ void Options::buildOpts(po::options_description &stdOpts,
 }
 // ----------------------------------------------------------------
 // ----------------------------------------------------------------
+void Options::to_upper(string &in)
+{
+  transform(in.begin(),in.end(),
+            in.begin(),[](char s){ return toupper(s); });
+}
+// ----------------------------------------------------------------
+// ----------------------------------------------------------------
 bool Options::checkOpts(po::variables_map &vm)
 {
   if(vm.count("version"))       { version();       return true; }
@@ -136,13 +192,26 @@ bool Options::checkOpts(po::variables_map &vm)
     return false;
   }
 
-//  if(mm_address_bits != 32) {
-//    return reportBadOption("mm_address_bits",32);
-//  }
+  //FIXME: add checks for limited values
+  to_upper(l1_replacement_policy);
+  to_upper(l1_read_miss_policy);
+  to_upper(l1_write_miss_policy);
+  to_upper(l1_write_hit_policy);
+  to_upper(l1_tag_type);
 
-//  if(mm_capacity != 8388608) {
-//    return reportBadOption("mm_capacity",8388608);
-//  }
+  to_upper(l1_replacement_policy);
+  if(l1_replacement_policy != "PLRU") {
+    return reportBadOption("l1_replacement_policy","PLRU");
+    return false;
+  }
+
+  if(l1_victim_buffer_size != 0) {
+    return reportBadOption("l1_victim_buffer_size",0);
+  }
+
+  if(l1_store_buffer_size != 0) {
+    return reportBadOption("l1_store_buffer_size",0);
+  }
 
   if(mm_fetch_size != l1_line_size) {
     return reportBadOption("mm_fetch_size",l1_line_size);
@@ -153,8 +222,12 @@ bool Options::checkOpts(po::variables_map &vm)
 // ----------------------------------------------------------------
 // ----------------------------------------------------------------
 bool Options::reportBadOption(string opt, uint64_t val)
+  { return reportBadOption(opt,::to_string(val)); }
+// ----------------------------------------------------------------
+// ----------------------------------------------------------------
+bool Options::reportBadOption(string opt, string val)
 {
-  msg.emsg("Bad option: "+opt+" must equal "+::to_string(val));
+  msg.emsg("Bad option: "+opt+" must equal "+val);
   return false;
 }
 // ----------------------------------------------------------------
