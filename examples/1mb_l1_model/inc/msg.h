@@ -46,16 +46,6 @@ struct Msg
   void wmsg(std::ostream& o,std::string m="",int v=2) { mmsg(o,"-W: ",m); }
   void imsg(std::ostream& o,std::string m="",int v=3) { mmsg(o,"-I: ",m); }
   // --------------------------------------------------------------------
-//  void imsg(std::ostream& o,std::string m,uint32_t a,uint32_t be)
-//  {
-//    std::bitset<4>  _be(be);
-//    std::stringstream ss;
-//   ss<<m<<" 0x"<<std::hex<<std::setw(8)<<std::setfill('0')<<a<<" "<<"0b"<<_be;
-//
-//    mmsg(o,"-I: ",ss.str());
-//  }
-
-  // --------------------------------------------------------------------
   std::string w;
   int  verbose;
   bool TR{false};

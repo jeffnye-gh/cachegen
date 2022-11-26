@@ -1,16 +1,11 @@
 #pragma once
-//#include <boost/dynamic_bitset.hpp>
 #include <string>
+#include <fstream>
 #include <vector>
 #include <map>
 // ===========================================================================
 typedef uint32_t word_t;
 typedef std::vector<word_t> line_t;
-//struct RamEntry
-//{
-//  RamEntry(uint32_t nwords)
-//  std::vector<word_t> words;
-//};
 // ===========================================================================
 struct Ram
 {
@@ -20,6 +15,8 @@ struct Ram
       width(_width)
   {}
 
+  void info(std::ostream&,uint32_t begin,uint32_t end);
+
   uint32_t ld(uint32_t a,uint32_t be);
   void     st(uint32_t a,uint32_t be,uint32_t d);
 
@@ -27,7 +24,7 @@ struct Ram
   void   st_line(uint32_t a,uint32_t be,line_t d);
 
   std::map<uint32_t,line_t>::iterator q;
-  std::map<uint32_t,line_t> ram;
+  std::map<uint32_t,line_t> mem;
 
   std::string name;
   uint32_t entries;

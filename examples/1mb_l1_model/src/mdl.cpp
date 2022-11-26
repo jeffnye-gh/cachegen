@@ -1,13 +1,20 @@
-#include "cachemodel.h"
+#include "mdl.h"
 #include "msg.h"
 #include "ram.h"
+#include <fstream>
 
 using namespace std;
 // -----------------------------------------------------------------------
-CacheModel::CacheModel(Options &_opts,Utils &_utils)
-  : out(opts.transactions),opts(_opts),u(_utils)
+CacheModel::CacheModel(int _ac,char **_av)
+  : out(opts.transactions)
 {
-  msg.setWho("model");
+  msg.setWho("cmdl");
+  msg.imsg("+CacheModel::CacheModel");
+  opts.msg.setWho("cmdl_opt");
+
+  if(!opts.setupOptions(_ac,_av)) {
+    throw std::invalid_argument("Option parsing failed");
+  }
 
   tags = new Ram("tags",opts.l1_sets,opts.l1_tagBits);
 
@@ -24,12 +31,21 @@ CacheModel::CacheModel(Options &_opts,Utils &_utils)
 
   bits = new Ram("bits",opts.default_mm_entries,numBits);
 
-  initializeMM();
 }
 // -----------------------------------------------------------------------
 // -----------------------------------------------------------------------
-void CacheModel::initializeMM()
+bool CacheModel::initializeMM()
 {
+  string fn = opts.mm_file;
+  ifstream in(fn);
+  if(!in.is_open()) {
+    msg.emsg("Can not open file "+u.tq(fn));
+    return false;
+  }
+
+  if(!u.loadRamFromVerilog(mm,in)) { return false; }
+  in.close();
+  return true;
 }
 // -----------------------------------------------------------------------
 // -----------------------------------------------------------------------
@@ -54,8 +70,8 @@ uint32_t CacheModel::ld(uint32_t a,uint32_t be)
 // -----------------------------------------------------------------------
 bool CacheModel::tagLookup(bool verbose) 
 {
-  tags->q = tags->ram.find(pckt.tag);
-  if(tags->q == tags->ram.end()) {
+  tags->q = tags->mem.find(pckt.tag);
+  if(tags->q == tags->mem.end()) {
     if(verbose) u.tag_msg(cout,"MISS :",pckt.a,pckt.tag);
     return false;
   } 
@@ -110,16 +126,12 @@ uint32_t CacheModel::readMiss(bool verbose)
 uint32_t CacheModel::rdAllocate(uint32_t targetWay)
 {
   //read mm and load the dary @ targetWay
-  mm->q = mm->ram.find(pckt.mmAddr);
+  mm->q = mm->mem.find(pckt.mmAddr);
 
   //FIXME: possibly create data on the fly and update both mm and L1 ?
   //this should not have happened, must abort
-  if(mm->q == mm->ram.end()) {
-    cout<<"HERE targetWay "<<targetWay<<" a:"<<pckt.a<<" "<<pckt.mmAddr<<endl;
-    cout<<"HERE size "<<mm->ram.size()<<endl;
-  }
-  ASSERT(mm->q != mm->ram.end(),"missing main memory entry in rdAllocate()");
-//
+  ASSERT(mm->q != mm->mem.end(),"missing main memory entry in rdAllocate()");
+
   line_t tmp =  mm->q->second;
 
 //
@@ -133,7 +145,7 @@ uint32_t CacheModel::rdAllocate(uint32_t targetWay)
 // -----------------------------------------------------------------------
 //uint32_t CacheModel::readTag(uint32_t idx,uint32_t way)
 //{
-//  tags->q = tags->ram.find(idx);
+//  tags->q = tags->mem.find(idx);
 //  //this should not have happened, must abort
 //  ASSERT(tags->q != tags.end(),"missing index in readTag()");
 //

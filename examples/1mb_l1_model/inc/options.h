@@ -1,5 +1,7 @@
 #pragma once
 #include "msg.h"
+#include "utils.h"
+#include "json/json.h"
 #include <boost/program_options.hpp>
 
 #include <fstream>
@@ -26,16 +28,21 @@ struct Options
                  po::options_description&,
                  po::positional_options_description&);
 
+  bool loadFromJson();
+  void info();
+
   bool checkOpts(po::variables_map&);
-  bool reportBadOption(std::string,uint64_t);
+  bool reportBadOption(std::string,uint32_t);
   bool reportBadOption(std::string,std::string);
-  void to_upper(std::string&);
+  //void to_upper(std::string&);
 
   void usage(po::options_description&);
   void relNotes();
   void version();
 
   Msg msg;
+  Utils u;
+
   po::variables_map vm;
 
   uint32_t verbose{2};
@@ -47,14 +54,18 @@ struct Options
   //Commands
   bool generate{false};
   bool run{false};
+  bool load_json{false};
 
   //file io
   std::ofstream transactions;
-
+  std::string json_format_version{"0.0.1"};
+  //
   //params
-  uint64_t l1_capacity;
-  uint64_t l1_line_size;
-  uint64_t l1_associativity;
+  uint32_t    l1_capacity;
+  uint32_t    l1_capacity_value;
+  std::string l1_capacity_units;
+  uint32_t    l1_line_size;     //bytes
+  uint32_t    l1_associativity;
 
   //FIXME: add enums
   std::string l1_read_miss_policy;
@@ -69,18 +80,27 @@ struct Options
   bool        l1_critical_word_first;
   bool        l1_mmu_present;
   bool        l1_mpu_present;
+  bool        interactive; //model input only
 
-  uint64_t mm_address_bits;
-  uint64_t mm_capacity;
-  uint64_t mm_fetch_size;
-  uint64_t mm_entries;
+  uint32_t    mm_address_bits;
+  uint64_t    mm_capacity;
+  uint64_t    mm_capacity_value;
+  std::string mm_capacity_units;
+  uint32_t mm_fetch_size;
+  uint32_t mm_entries;
+  uint32_t mm_lineMsb;
+  uint32_t mm_lineLsb;
+  uint32_t mm_lineShift;
+  uint32_t mm_lineMask;
 
-  std::string output_file_prefix;
-  std::string output_dir;
+  std::string tc_prefix{""}; //gen output and model input
+  std::string data_dir{""};  //gen output and model input
+  std::string json_file{""}; //gen output and model input
+  std::string cmd_file{""};  //model input
 
   //default parameters
   //FIXME add cmd line option 
-  uint32_t default_mm_entries{1048576>>2}; //256K
+  uint32_t default_mm_entries{1024}; //1048576>>2}; //256K
   uint32_t l1_word_size{32}; //bits
 
   //derived parameters
@@ -104,7 +124,7 @@ struct Options
   uint32_t l1_setMask;
   uint32_t l1_setShift;
 
-  uint32_t l1_offsetBits;
+  uint32_t l1_offBits;
   uint32_t l1_offMsb;
   uint32_t l1_offLsb;
   uint32_t l1_offMask;
@@ -113,13 +133,12 @@ struct Options
   uint32_t l1_lru_bits;
   double   l1_tagKB;
 
-  uint32_t mm_lineMask;
-  uint32_t mm_lineShift;
-
-  std::string bitsFile;
-  std::string tagsFile;
-  std::string mmFile;
+  std::string datasheet;
+  std::string bits_file;
+  std::string tags_file;
+  std::string mm_file;
   std::vector<std::string> daryFiles;
 
+  Json::Value json;
 
 };

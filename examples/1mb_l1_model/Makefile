@@ -1,12 +1,16 @@
-.PHONY: clean default run
+.PHONY: clean default gen sim lib mdl
 
 CPP = g++
 
-TARGET = ./bin/cgen
-OPTS = \
+GEN_TARGET = ./bin/cgen
+LIB_TARGET = ./lib/libcache.a
+MDL_TARGET = ./bin/cmdl
+
+GEN_OPTS = \
        --generate --run \
-       --output_file_prefix="tc_1" \
-       --output_dir="output" \
+       --tc_prefix="tc_1" \
+       --data_dir="data" \
+       --json_file="data"/"tc_1.json" \
        \
        --l1_capacity=1048576 \
        --l1_line_size=32 \
@@ -24,9 +28,27 @@ OPTS = \
        --mm_capacity=4294967296 \
        --mm_fetch_size=32
 
+MDL_OPTS = \
+       --load_json \
+       --interactive  \
+       --json_file="data"/"tc_1.json" \
+       --cmd_file="data/tc_1.cmd"
 
-ALL_SRC = $(wildcard src/*.cpp)
-ALL_INC = $(wildcard inc/*.h)
+GEN_SRC = $(wildcard src/gen*.cpp)
+GEN_OBJ = $(subst src/,obj/,$(GEN_SRC:.cpp=.o))
+GEN_INC = $(wildcard inc/gen*.h)
+
+# src/options.cpp
+LIB_SRC = src/ram.cpp src/utils.cpp src/options.cpp src/jsoncpp.cpp
+
+LIB_OBJ = $(subst src/,obj/,$(LIB_SRC:.cpp=.o))
+LIB_INC = inc/ram.h inc/utils.h inc/options.h inc/msg.h
+
+MDL_SRC = $(wildcard src/mdl*.cpp)
+MDL_OBJ = $(subst src/,obj/,$(MDL_SRC:.cpp=.o))
+MDL_INC = $(wildcard inc/mdl*.h)
+
+ALL_SRC = $(GEN_SRC) $(LIB_SRC) $(MDL_SRC)
 ALL_OBJ = $(subst src/,obj/,$(ALL_SRC:.cpp=.o))
 ALL_DEP = $(ALL_OBJ:.o=.d)
 
@@ -38,28 +60,44 @@ BOOST_LIB = -L$(BOOST)/lib /usr/local/boost/lib/libboost_program_options.a
 DEF  = -DVERSION=\"0.0.1\"
 DEP  = -MP -MD
 INC  = -I./inc $(BOOST_INC)
-LIBS = $(BOOST_LIB) 
+LIBS = $(LIB_TARGET) $(BOOST_LIB)
+
 OPT  = -g -O0
 STD  = -std=c++17
 WARN = -Wall
 
 CPPFLAGS = $(DEF) $(DEP) $(INC) $(OPT) $(STD) $(WARN)
 LDFLAGS  = 
+ARFLAGS  = rvs
 
-default: run
+default: $(LIB_TARGET) $(GEN_TARGET) $(MDL_TARGET) sim
 
 obj/%.o: src/%.cpp
 	-mkdir -p obj
 	$(CPP) -c $(CPPFLAGS) $< -o $@
 
-$(TARGET): $(ALL_OBJ)
+lib: $(LIB_TARGET)
+
+$(LIB_TARGET): $(LIB_OBJ)
+	ar $(ARFLAGS) $(LIB_TARGET) $(LIB_OBJ)
+
+$(GEN_TARGET): $(LIB_TARGET) $(GEN_OBJ)
 	-mkdir -p bin
 	$(CPP) $(LDFLAGS) $^ -o $@ $(LIBS)
 
-run: $(TARGET)
-	$(TARGET) $(OPTS)
+$(MDL_TARGET): $(LIB_TARGET) $(MDL_OBJ)
+	-mkdir -p bin
+	$(CPP) $(LDFLAGS) $^ -o $@ $(LIBS)
+
+gen: $(GEN_TARGET)
+	$(GEN_TARGET) $(GEN_OPTS)
+
+mdl: sim
+
+sim: $(LIB_TARGET) $(MDL_TARGET)
+	$(MDL_TARGET) $(MDL_OPTS)
 
 -include $(ALL_DEP)
 
 clean:
-	-rm -f obj/* $(TARGET)
+	-rm -f obj/* bin/* lib/*

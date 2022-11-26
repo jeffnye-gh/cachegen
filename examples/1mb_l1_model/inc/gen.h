@@ -5,7 +5,6 @@
 #include <string>
 #include <ostream>
 
-struct CacheModel;
 // ====================================================================
 // ====================================================================
 struct CacheGen
@@ -16,25 +15,17 @@ struct CacheGen
 
   ValueUnit getValueAndUnits(uint64_t);
 
-  bool execute();
-
-  void createDataSheet(std::ostream&);
-
+  bool run();
   bool generate();
   bool generateMainMemoryData();
   bool generateTags();
   bool generateDary();
   bool generateBits();
 
-  bool run();
-  bool runFileChecks();
-
-  bool simulate();
+  void createDataSheet(std::ostream&);
+  bool createJsonFile(std::ostream&);
 
   Msg msg;
   Utils u;
   Options opts;
-  CacheModel *model;
-
-  static const std::string vlgSep;
 };

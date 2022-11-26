@@ -40,10 +40,12 @@ struct AddressPacket
 // ====================================================================
 struct CacheModel
 {
-  CacheModel(Options&,Utils&);
+  CacheModel(int ac,char** av);
 
   // ------------------------------------------------------------------
-  void initializeMM();
+  bool initializeMM();
+  bool runFileChecks();
+  bool simulate();
   // ------------------------------------------------------------------
   // ------------------------------------------------------------------
   uint32_t ld(uint32_t a,uint32_t be);
@@ -97,8 +99,8 @@ struct CacheModel
   AddressPacket pckt;
 
   std::ofstream &out;
-  Options &opts;
+  Options opts;
   Msg msg;
-  Utils &u;
+  Utils u;
 
 };
