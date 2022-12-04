@@ -1093,6 +1093,9 @@ begin
   beginTestMsg("basicLruTest",errs,flag);
   clear_tb_data(0,EXP_DATA_ENTRIES,verbose);
 
+  $display("ADD SUPPORT FOR NEW DATA/BITS ARRAY INITIAL VALUE FILE FORMAT");
+  ++errs;
+
   if(verbose) $display("-I: setting initial configuration ");
   $readmemh("data/basicLru.dsram0.memh",top.dut0.dsram0.ram);
   $readmemh("data/basicLru.dsram1.memh",top.dut0.dsram1.ram);

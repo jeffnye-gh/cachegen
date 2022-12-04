@@ -1,14 +1,21 @@
 #pragma once
 #include "msg.h"
-//#include <string>
-//#include <fstream>
 #include <sstream>
-//#include <bitset>
-//#include <cstdlib>
 #include <algorithm>
-
+#include <string>
+#include <vector>
 // --------------------------------------------------------------------
+#ifndef ADDR
+#define ADDR(T,I,W,B) \
+    ((T & opts.l1_tagMask ) << opts.l1_tagShift) \
+  | ((I & opts.l1_setMask ) << opts.l1_setShift) \
+  | ((W & opts.l1_offMask ) << opts.l1_offShift) \
+  | B
+#endif
+// --------------------------------------------------------------------
+#ifndef HEX
 #define HEX std::hex<<std::setw(8)<<std::setfill('0')
+#endif
 // --------------------------------------------------------------------
 #ifndef NDEBUG
   #ifndef ASSERT
@@ -22,6 +29,8 @@
 #endif
 // --------------------------------------------------------------------
 struct Ram;
+struct Tag;
+struct BitArray;
 // ====================================================================
 // FIXME: Change to std::pair
 // ====================================================================
@@ -45,9 +54,14 @@ struct Utils
   std::string getUpperHeader(uint32_t,uint32_t);
   std::string getLowerHeader(uint32_t,uint32_t);
 
-  std::string tostr(uint32_t i) { std::stringstream ss; ss<<i; return ss.str(); }
-  std::string tostr(uint64_t i) { std::stringstream ss; ss<<i; return ss.str(); }
-  std::string tostr(double i)   { std::stringstream ss; ss<<i; return ss.str(); }
+  std::string tostr(uint32_t i)
+    { std::stringstream ss; ss<<i; return ss.str(); }
+  std::string tostr(uint64_t i)
+    { std::stringstream ss; ss<<i; return ss.str(); }
+  std::string tostr(double i)
+    { std::stringstream ss; ss<<i; return ss.str(); }
+
+  std::string tostr(std::vector<uint32_t>&);
 
   // ------------------------------------------------------------------
   //bool runFileChecks();
@@ -67,7 +81,31 @@ struct Utils
     msg.imsg(o,"tag:"+ss.str());
   }
   // ------------------------------------------------------------------
-  bool loadRamFromVerilog(Ram *,std::ifstream&);
+  bool loadRamFromVerilog(Ram*,std::string,bool=false);
+  bool loadRamFromVerilog(Ram*,std::ifstream&,bool=false);
+  bool loadRamFromVerilog(BitArray*,std::string,bool=false);
+  bool loadRamFromVerilog(std::vector<Tag*>&,std::string,bool=false);
+
+  bool loadCaptureFromVerilog(std::vector<uint32_t>&,std::string,bool=false);
+  // ------------------------------------------------------------------
+  void info(std::ostream &out,std::vector<uint32_t> &vec) {
+    uint32_t idx = 0;
+    for(auto v : vec) out<<std::dec<<idx++<<" "<<HEX<<v<<std::endl;
+  }
+  // ------------------------------------------------------------------
+  bool sizeChecks(uint32_t &,size_t,size_t);
+
+  bool compare(std::vector<uint32_t> &exp,std::vector<uint32_t> &act,
+               uint32_t&,size_t start, size_t end,bool verbose=false);
+
+  bool compare(std::vector<Ram*> &exp,std::vector<Ram*> &act,
+               uint32_t&,size_t start, size_t end,bool verbose=false);
+
+  bool compare(std::vector<Tag*> &exp,std::vector<Tag*> &act,
+               uint32_t&,size_t start, size_t end,bool verbose=false);
+
+  bool compare(BitArray &exp,BitArray &act,
+               uint32_t&,size_t start, size_t end,bool verbose=false);
   // ------------------------------------------------------------------
   uint32_t hexStrToUint(std::string s);
 
@@ -81,4 +119,3 @@ struct Utils
   static const std::string vlgSep;
 
 };
-#undef HEX

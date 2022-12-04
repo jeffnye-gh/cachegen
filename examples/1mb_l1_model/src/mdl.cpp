@@ -8,80 +8,59 @@ using namespace std;
 CacheModel::CacheModel(int _ac,char **_av)
   : out(opts.transactions)
 {
-  msg.setWho("cmdl");
+  msg.setWho("cmdl ");
   msg.imsg("+CacheModel::CacheModel");
   opts.msg.setWho("cmdl_opt");
+
 
   if(!opts.setupOptions(_ac,_av)) {
     throw std::invalid_argument("Option parsing failed");
   }
 
-  tags = new Ram("tags",opts.l1_sets,opts.l1_tagBits);
-
-  for(size_t way;way<opts.l1_associativity;++way) {
-    string name = "d"+::to_string(way);
-    dary.emplace_back(new Ram(name,opts.l1_sets,opts.l1_line_size*8));
-  }
-
-  mm   = new Ram("mm",opts.default_mm_entries,opts.mm_fetch_size*8);
-
   size_t numBits = opts.l1_associativity //valid
                  + opts.l1_associativity //modified
                  + (opts.l1_lru_bits+1); //pad LRU to 4 bits to match vlg
 
-  bits = new Ram("bits",opts.default_mm_entries,numBits);
+  bits = new BitArray("bits",opts.default_mm_entries,numBits);
 
+//  if(opts.preload_mm) {
+//    //If this fails sim can not continue
+//    ASSERT(initializeMM(),"main memory init failed");
+//  }
+//
+//  initSize(bits,numBits,"bits");
+  initSize(tags,"tags");
+  initSize(dary,"dary");
 }
 // -----------------------------------------------------------------------
 // -----------------------------------------------------------------------
-bool CacheModel::initializeMM()
-{
-  string fn = opts.mm_file;
-  ifstream in(fn);
-  if(!in.is_open()) {
-    msg.emsg("Can not open file "+u.tq(fn));
-    return false;
-  }
-
-  if(!u.loadRamFromVerilog(mm,in)) { return false; }
-  in.close();
-  return true;
-}
-// -----------------------------------------------------------------------
-// -----------------------------------------------------------------------
-uint32_t CacheModel::ld(uint32_t a,uint32_t be) 
+uint32_t CacheModel::ld(uint32_t a,uint32_t be,bool verbose) 
 {
   u.req_msg(cout,"LOAD :",a,be);
 
   pckt = AddressPacket(a,be,getTagField(a),getIndexField(a),
-                       getOffsetField(a),getMMAddr(a));
+                            getOffsetField(a),getMMAddr(a));
 
-  pckt.hit = tagLookup(true);
+
+  bitsLookup(pckt,verbose);
+  tagLookup(pckt,verbose);
+
+  //if(verbose) pckt.info(cout);
 
   uint32_t value;
-  if(pckt.hit) value = readHit();
+  if(pckt.hit) value = readHit(); 
   else         value = readMiss();
+
   //FIXME: form a logging packet and store to log
   return value;
-}
-// -----------------------------------------------------------------------
-// Address look up combines tag look up and setting the packet control 
-// bits
-// -----------------------------------------------------------------------
-bool CacheModel::tagLookup(bool verbose) 
-{
-  tags->q = tags->mem.find(pckt.tag);
-  if(tags->q == tags->mem.end()) {
-    if(verbose) u.tag_msg(cout,"MISS :",pckt.a,pckt.tag);
-    return false;
-  } 
-  return true;
 }
 // -----------------------------------------------------------------------
 // -----------------------------------------------------------------------
 uint32_t CacheModel::readHit(bool verbose)
 {
-  return 0;
+  uint32_t data = dary[pckt.wayHit]->ld(pckt);
+  bits->updateLru(pckt);
+  return data;
 }
 // -----------------------------------------------------------------------
 // if(not all valid) 
@@ -104,6 +83,8 @@ uint32_t CacheModel::readHit(bool verbose)
 // -----------------------------------------------------------------------
 uint32_t CacheModel::readMiss(bool verbose)
 {
+  msg.imsg("+CacheModel::readMiss");
+
   //select either by Val or Lru
   int32_t valWaySel = waySelectByVal();
   int32_t lruWaySel = waySelectByLru();
@@ -113,7 +94,7 @@ uint32_t CacheModel::readMiss(bool verbose)
 
   //if using LRU check for dirty and write back if needed
   if(lruSel && wayIsMod(waySel)) writeBack(waySel);
-
+  
   return rdAllocate(waySel);
 }
 // -----------------------------------------------------------------------
@@ -125,37 +106,169 @@ uint32_t CacheModel::readMiss(bool verbose)
 // -----------------------------------------------------------------------
 uint32_t CacheModel::rdAllocate(uint32_t targetWay)
 {
+  msg.imsg("+CacheModel::rdAllocate");
   //read mm and load the dary @ targetWay
   mm->q = mm->mem.find(pckt.mmAddr);
 
-  //FIXME: possibly create data on the fly and update both mm and L1 ?
   //this should not have happened, must abort
-  ASSERT(mm->q != mm->mem.end(),"missing main memory entry in rdAllocate()");
+  stringstream ss;ss<<HEX<<pckt.mmAddr;
+  ASSERT(mm->q != mm->mem.end(),
+         "missing main memory entry in rdAllocate() 0x"+ss.str());
+  //Check the ranges, none of this should happen, must abort
+  //this assumes all arrays have the same number of indexs as tags
+  ASSERT(targetWay < opts.l1_associativity,
+         "rdAllocate(): targetWay is corrupted");
 
-  line_t tmp =  mm->q->second;
+  //Main memory data, this will be stored in dary pckt.idx, targetWay
+  line_t line =  mm->q->second;
 
-//
-//  dary[targetWay]->st_line(
-//  uint32_t idx = pckt.idx;
-//  uint32_t tag = readTag(idx,way); //read tags to get value in 'way'
-//  
-  return 0;
+  ASSERT(pckt.off < line.size(),  "rdAllocate(): pckt.off is corrupted");
+  ASSERT(pckt.idx < opts.l1_sets, "rdAllocate(): pckt.idx is corrupted");
+
+  //update the dary at way = targetWay
+  dary[targetWay]->mem.emplace(pckt.idx,line);
+
+  //update the tag  at way = targetWay
+  tags[targetWay]->mem.emplace(pckt.idx,pckt.tag);
+
+  //update the bits  - set the way valid, clear the mod, update lru
+  bits->q = bits->mem.find(pckt.idx);
+  if(bits->q == bits->mem.end()) {
+    bits->mem.emplace(pckt.idx,0);
+  }
+
+  bits->updateLru(targetWay);
+  //return the critical word
+  return line[pckt.off];
+}
+// -----------------------------------------------------------------------
+// STORE
+// -----------------------------------------------------------------------
+void CacheModel::st(uint32_t a,uint32_t be,uint32_t data, bool verbose) 
+{
+  u.req_msg(cout,"STORE :",a,be);
+
+  pckt = AddressPacket(a,be,getTagField(a),getIndexField(a),
+                            getOffsetField(a),getMMAddr(a));
+
+
+  bitsLookup(pckt,verbose);
+  tagLookup(pckt,verbose);
+
+  if(verbose) pckt.info(cout);
+
+  if(pckt.hit) writeHit(data);
+  else         writeMiss(data);
 }
 // -----------------------------------------------------------------------
 // -----------------------------------------------------------------------
-//uint32_t CacheModel::readTag(uint32_t idx,uint32_t way)
+void CacheModel::writeHit(uint32_t d,bool verbose)
+{
+  dary[pckt.wayHit]->st(pckt,d);
+  bits->updateLru(pckt);
+}
+// -----------------------------------------------------------------------
+// -----------------------------------------------------------------------
+void CacheModel::writeMiss(uint32_t d,bool verbose)
+{
+cout<<"HERE writeMiss"<<endl;
+  //FIXME: incomplete 
+  bits->updateLru(pckt);
+}
+// -----------------------------------------------------------------------
+// INIT FUNCTIONS
+// -----------------------------------------------------------------------
+// FIXME: I do not know why this core dumps when inserting values,
+// new does not have this problem.
+// -----------------------------------------------------------------------
+//void CacheModel::initSize(BitArray *_bits,uint32_t numBits,std::string name)
 //{
-//  tags->q = tags->mem.find(idx);
-//  //this should not have happened, must abort
-//  ASSERT(tags->q != tags.end(),"missing index in readTag()");
-//
-//  uint32_t tagSel = way*4;
-//
-//  uint32_t tag = (tags >> tagSel);
-//  uint32_t mmAddr = (tag & opts.l1_tagMask) << opts.l1_tagShift 
-//                  | (idx & opts.l1_idxMask) << opts.l1_idxShift;
-//
+//  //if(_bits) delete _bits;
+//  _bits = new BitArray(name,opts.default_mm_entries,numBits);
 //}
+// -----------------------------------------------------------------------
+void CacheModel::initSize(std::vector<Tag*> &_tags,std::string name)
+{
+  for (auto _tp : _tags) delete _tp;
+  _tags.clear();
+
+  for(size_t i=0;i<opts.l1_associativity;++i) {
+    Tag *empty = new Tag(name+::to_string(i),opts.l1_sets,opts.l1_tagBits);
+    _tags.push_back(empty); //push vs emplace, just better txt formatting
+  }
+}
+// -----------------------------------------------------------------------
+void CacheModel::initSize(std::vector<Ram*> &_dary,std::string name)
+{
+  for (auto _dp : _dary) delete _dp;
+  _dary.clear();
+
+  for(size_t i=0;i<opts.l1_associativity;++i) {
+    Ram *empty = new Ram(name+::to_string(i),opts.l1_sets,opts.l1_line_size*8);
+    _dary.push_back(empty);
+  }
+}
+// -----------------------------------------------------------------------
+// -----------------------------------------------------------------------
+bool CacheModel::initializeMM()
+{
+  string fn = opts.mm_file;
+  ifstream in(fn);
+  if(!in.is_open()) {
+    msg.emsg("Can not open file "+u.tq(fn));
+    return false;
+  }
+
+  mm = new Ram("mm",opts.default_mm_entries,opts.mm_fetch_size*8);
+
+  msg.imsg("loading MM ram from file: "+u.tq(fn));
+
+  if(!u.loadRamFromVerilog(mm,in)) { return false; }
+  in.close();
+  return true;
+}
+// -----------------------------------------------------------------------
+// -----------------------------------------------------------------------
+void CacheModel::bitsLookup(AddressPacket &pckt,bool verbose) 
+{
+  pckt.val = 0;
+  pckt.mod = 0;
+  pckt.lru = 0;
+
+  bits->q = bits->mem.find(pckt.idx);
+  if(bits->q != bits->mem.end()) {
+    pckt.val = bits->getVal();
+    pckt.mod = bits->getVal();
+    pckt.lru = bits->getVal();
+  }
+}
+// -----------------------------------------------------------------------
+// Scan the 4 tags, in pckt.idx of each compare contents to pckt.tag
+// -----------------------------------------------------------------------
+void CacheModel::tagLookup(AddressPacket &pckt,bool verbose) 
+{
+  for(int i=tags.size()-1;i>=0;--i) {
+
+    //Does this tag have this index
+    tags[i]->q = tags[i]->mem.find(pckt.idx);
+    //Yes 
+    if(tags[i]->q != tags[i]->mem.end()) {
+      //this tag has this index, compare the contents and valid bit
+      uint32_t contents = tags[i]->q->second;
+      //The contents match
+      if(contents == pckt.tag && pckt.val[i] == 1) {
+        if(verbose) u.tag_msg(cout,"HIT  :",pckt.a,pckt.tag);
+        pckt.hit    = true;
+        pckt.wayHit = i;
+        return;
+      }
+    }
+  }
+
+  pckt.hit = false;
+  if(verbose) u.tag_msg(cout,"MISS :",pckt.a,pckt.tag);
+  pckt.hit = false;
+}
 // -----------------------------------------------------------------------
 // -----------------------------------------------------------------------
 void CacheModel::writeBack(uint32_t way)

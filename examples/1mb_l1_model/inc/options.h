@@ -80,7 +80,11 @@ struct Options
   bool        l1_critical_word_first;
   bool        l1_mmu_present;
   bool        l1_mpu_present;
-  bool        interactive; //model input only
+  bool        interactive;    //model input only
+  bool        preload_mm;     //model input only
+  bool        preload_tags;   //model input only
+  bool        preload_bits;   //model input only
+  bool        preload_dary;   //model input only
 
   uint32_t    mm_address_bits;
   uint64_t    mm_capacity;
@@ -100,7 +104,7 @@ struct Options
 
   //default parameters
   //FIXME add cmd line option 
-  uint32_t default_mm_entries{1024}; //1048576>>2}; //256K
+  uint32_t default_mm_entries{1048576>>2}; //1048576>>2}; //256K
   uint32_t l1_word_size{32}; //bits
 
   //derived parameters
@@ -130,6 +134,9 @@ struct Options
   uint32_t l1_offMask;
   uint32_t l1_offShift;
 
+  uint32_t l1_wrdShift{2};
+  uint32_t l1_wrdMask{7};
+
   uint32_t l1_lru_bits;
   double   l1_tagKB;
 
@@ -138,6 +145,16 @@ struct Options
   std::string tags_file;
   std::string mm_file;
   std::vector<std::string> daryFiles;
+
+  //test switches
+  bool basicTests{false};
+  bool basicLruTest{false};
+  bool basicRdHitTest{false};
+  bool basicWrHitTest{false};
+  bool basicRdAllocTest{false};
+  bool basicWrAllocTest{false};
+  bool basicRdEvictTest{false};
+  bool basicWrEvictTest{false};
 
   Json::Value json;
 

@@ -43,7 +43,6 @@ bool Options::setupOptions(int ac,char**av)
   //Only display the visible options
   if(vm.count("help")) { usage(stdOpts); return true; }
   if(load_json) { if(!loadFromJson()) return false; }
-//  if(vm.count("load_json"))  { if(!loadFromJson()) return false; }
   if(!checkOpts(vm)) return false;
   return true;
 }
@@ -68,10 +67,6 @@ void Options::buildOpts(po::options_description &stdOpts,
       po::bool_switch(&generate)->default_value(false),
       "Generate the data files for simulation")
 
-    ("load_json",
-      po::bool_switch(&load_json)->default_value(false),
-      "Load simulator options from json file")
-
     ("run",
       po::bool_switch(&run)->default_value(false),
       "Run the simulator model")
@@ -84,9 +79,29 @@ void Options::buildOpts(po::options_description &stdOpts,
       po::bool_switch(&interactive)->default_value(false),
       "Start simulator interactive session after option parsing")
 
+    ("load_json",
+      po::bool_switch(&load_json)->default_value(false),
+      "Load simulator options from json file")
+
     ("json_file",
       po::value<string>(&json_file)->default_value("data/config.json"),
       "Configuration data file")
+
+    ("preload_bits",
+      po::bool_switch(&preload_bits)->default_value(false),
+      "Preload bit array")
+
+    ("preload_dary",
+      po::bool_switch(&preload_dary)->default_value(false),
+      "Preload data array")
+
+    ("preload_tags",
+      po::bool_switch(&preload_tags)->default_value(false),
+      "Preload tag arrays")
+
+    ("preload_mm",
+      po::bool_switch(&preload_mm)->default_value(true),
+      "Preload main memory")
 
     // data generation and access
     ("tc_prefix,p",
@@ -283,6 +298,9 @@ bool Options::loadFromJson()
   l1_offShift = json["l1_offShift"].asUInt();
   l1_offBits  = json["l1_offBits"].asUInt();
 
+  l1_wrdShift = json["l1_wrdShift"].asUInt();
+  l1_wrdMask  = json["l1_wrdMask"].asUInt();
+
   l1_setMsb = json["l1_setMsb"].asUInt();
   l1_setLsb = json["l1_setLsb"].asUInt();
   l1_setBits = json["l1_setBits"].asUInt();
@@ -307,11 +325,35 @@ bool Options::loadFromJson()
   mm_fetch_size = json["mm_fetch_size"].asUInt();
   mm_lineLsb    = json["mm_lineLsb"].asUInt();
 
-//  mm_lineMask = json["mm_lineMask"].asUInt();
-  mm_lineMsb = json["mm_lineMsb"].asUInt();
+  mm_lineMask  = json["mm_lineMask"].asUInt();
+  mm_lineMsb   = json["mm_lineMsb"].asUInt();
   mm_lineShift = json["mm_lineShift"].asUInt();
-  tc_prefix = json["tc_prefix"].asString();
+  tc_prefix    = json["tc_prefix"].asString();
 
+  preload_mm   = json["preload_mm"].asBool();
+  preload_tags = json["preload_tags"].asBool();
+  preload_bits = json["preload_bits"].asBool();
+  preload_dary = json["preload_dary"].asBool();
+
+  mm_file   = json["mm_file"].asString();
+  bits_file = json["bits_file"].asString();
+  tags_file = json["tags_file"].asString();
+
+  Json::Value r = json["dary_files"];
+
+  if(r.isNull()) {
+    msg.wmsg("No dary files detected");
+  } else {
+    if(!r.isArray()) {
+      msg.emsg("Expected a JSON array for dary files");
+      return false;
+    }
+  }
+
+  for(Json::Value::iterator q=r.begin();q!=r.end();++q) {
+    string name  = (*q).get("name","").asString();
+    if(name.length() > 0) daryFiles.push_back(name);
+  }
 
   return true;
 }
@@ -417,14 +459,22 @@ void Options::info()
   cout<<"l1_offMask "<< l1_offMask<<'\n';
   cout<<"l1_offShift "<< l1_offShift<<'\n';
 
+  cout<<"l1_wrdMask "<< l1_wrdMask<<'\n';
+  cout<<"l1_wrdShift "<< l1_wrdShift<<'\n';
+
   cout<<"l1_lru_bits "<< l1_lru_bits<<'\n';
   cout<<"l1_tagKB "<< l1_tagKB<<'\n';
+
+  cout<<"preload_mm   "<< preload_mm<<endl;
+  cout<<"preload_tags "<< preload_tags<<endl;
+  cout<<"preload_bits "<< preload_bits<<endl;
+  cout<<"preload_dary "<< preload_dary<<endl;
 
   cout<<"bits_file "<< bits_file<<'\n';
   cout<<"tags_file "<< tags_file<<'\n';
   cout<<"mm_file "<< mm_file<<'\n';
-//  for(auto s : daryFiles) {
-//    cout<<"daryFile "<<s<<'\n';
-//  }
+  for(auto s : daryFiles) {
+    cout<<"daryFile "<<s<<'\n';
+  }
 }
 

@@ -1,3 +1,7 @@
 
 examples/1mb_l1/bin/*
 examples/1mb_l1/*.vcd
+examples/1mb_l1_model/data/*
+examples/1mb_l1_model/bin/*
+examples/1mb_l1_model/obj/*
+examples/1mb_l1_model/lib/*

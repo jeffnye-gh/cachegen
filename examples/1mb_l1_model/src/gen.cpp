@@ -61,13 +61,14 @@ bool CacheGen::generate()
     return false;
   }
 
-  createDataSheet(out);
-  if(!createJsonFile(out)) return false;
-
   if(!generateMainMemoryData()) return false;
   if(!generateTags()) return false;
   if(!generateDary()) return false;
   if(!generateBits()) return false;
+
+  createDataSheet(out);
+  if(!createJsonFile(out)) return false;
+
   msg.imsg("End generate");
   return true;
 }
@@ -330,14 +331,14 @@ void CacheGen::createDataSheet(ostream &out)
   out<<'\n';
 
   opts.l1_address_bits = log2(opts.l1_capacity);
-  opts.l1_offBits   = log2(opts.l1_line_size);
+  opts.l1_offBits      = log2(opts.l1_line_size/4);//word offset,4 bytes/word
   opts.l1_blocks       = opts.l1_capacity/opts.l1_line_size;
   opts.l1_blockBits    = log2(opts.l1_blocks);
   opts.l1_setBits      = log2(opts.l1_blocks/opts.l1_associativity);
   opts.l1_assocBits    = log2(opts.l1_associativity);
 
   opts.json["l1_address_bits"] = opts.l1_address_bits;
-  opts.json["l1_offBits"]   = opts.l1_offBits;
+  opts.json["l1_offBits"]      = opts.l1_offBits;
   opts.json["l1_blocks"]       = opts.l1_blocks;
   opts.json["l1_blockBits"]    = opts.l1_blockBits;
   opts.json["l1_setBits"]      = opts.l1_setBits;
@@ -352,7 +353,7 @@ void CacheGen::createDataSheet(ostream &out)
   out<<'\n';
 
   out<<"  #Blocks = Capacity / Block size = 2^"<<opts.l1_address_bits
-     <<                                 " / 2^"<<opts.l1_offBits
+     <<                                 " / 2^"<<(opts.l1_offBits+2)
      <<                                 " = 2^"<<opts.l1_blockBits<<'\n';
 
   out<<"  #Sets   = #Blocks  / #Ways      = 2^"<<opts.l1_blockBits
@@ -360,7 +361,7 @@ void CacheGen::createDataSheet(ostream &out)
      <<                                 " = 2^"<<opts.l1_setBits<<'\n';
 
   opts.l1_tagBits
-    = opts.mm_address_bits - opts.l1_setBits - opts.l1_offBits;
+    = opts.mm_address_bits - opts.l1_setBits - opts.l1_offBits - 2;
 
   opts.l1_tagMsb  = opts.mm_address_bits - 1;
   opts.l1_tagLsb  = opts.l1_tagMsb - opts.l1_tagBits + 1;
@@ -409,6 +410,10 @@ void CacheGen::createDataSheet(ostream &out)
   out<<"    offset width = "<<opts.l1_offBits<<" bits "
      <<"          -> ["<<opts.l1_offMsb<<":"<<opts.l1_offLsb<<"]\n";
 
+  opts.json["l1_wrdShift"] = opts.l1_wrdShift;
+  opts.json["l1_wrdMask"]  = opts.l1_wrdMask;
+
+
   string upper = u.getUpperHeader(31,0);
   string lower = u.getLowerHeader(31,0);
 
@@ -431,16 +436,16 @@ void CacheGen::createDataSheet(ostream &out)
   uint32_t indexBits = opts.l1_setBits;
   opts.l1_lru_bits = opts.l1_replacement_policy == "PLRU" 
                    ? numWays - 1 : 0;
-  opts.l1_sets  = pow(2,opts.l1_setBits)/1024;
-  uint32_t sets = opts.l1_sets;
+  opts.l1_sets  = pow(2,opts.l1_setBits);
+  uint32_t setsKB = opts.l1_sets/1024;
 
   opts.json["l1_lru_bits"]  = opts.l1_lru_bits;
   opts.json["l1_sets"]  = opts.l1_sets;
 
-  out<<"  Tags      :  "<<sets<<"K x "<<numWays<<" x "<<indexBits<<"b\n";
-  out<<"  Valid bits:  "<<sets<<"K x "<<numWays<<" x 1b\n";
-  out<<"  Dirty bits:  "<<sets<<"K x "<<numWays<<" x 1b\n";
-  out<<"  LRU bits  :  "<<sets<<"K x "<<opts.l1_lru_bits<<"b\n";
+  out<<"  Tags      :  "<<setsKB<<"K x "<<numWays<<" x "<<indexBits<<"b\n";
+  out<<"  Valid bits:  "<<setsKB<<"K x "<<numWays<<" x 1b\n";
+  out<<"  Dirty bits:  "<<setsKB<<"K x "<<numWays<<" x 1b\n";
+  out<<"  LRU bits  :  "<<setsKB<<"K x "<<opts.l1_lru_bits<<"b\n";
 
   out<<dec<<'\n';
 
@@ -479,6 +484,9 @@ void CacheGen::createDataSheet(ostream &out)
   out<<"  l1_offMask        "<<l1_offMask<<'\n';
   out<<"  l1_offShift       "<<opts.l1_offShift<<'\n';
   out<<'\n';
+  out<<"  l1_wrdMask        "<<opts.l1_wrdMask<<'\n';
+  out<<"  l1_wrdShift       "<<opts.l1_wrdShift<<'\n';
+  out<<'\n';
   out<<"  l1_sets           "<<opts.l1_sets<<'\n';
   //out<<"  l1_blocks         "<<opts.l1_blocks<<'\n'; not pertinent
   //out<<"  l1_blockBits      "<<opts.l1_blockBits<<'\n'; confusing
@@ -510,9 +518,9 @@ void CacheGen::createDataSheet(ostream &out)
   opts.mm_entries = opts.default_mm_entries;
 
   ValueUnit mm_cap = u.getValueAndUnits(opts.mm_capacity);
-  out<<"  Capacity          "<<FLT<<mm_cap.first<<" "<<mm_cap.second<<'\n';
-  out<<"  Populated entries "<<opts.mm_entries<<'\n';
-  out<<"  Fetch size        "<<DEC<<opts.mm_fetch_size<<'\n';
+  out<<"  MM Capacity          "<<FLT<<mm_cap.first<<" "<<mm_cap.second<<'\n';
+  out<<"  MM Populated entries "<<opts.mm_entries<<'\n';
+  out<<"  MM Fetch size        "<<DEC<<opts.mm_fetch_size<<'\n';
 
   opts.json["mm_entries"]        = opts.mm_entries;
   opts.json["mm_capacity"]       = (Json::Value::UInt64)opts.mm_capacity;
@@ -520,10 +528,35 @@ void CacheGen::createDataSheet(ostream &out)
   opts.json["mm_capacity_units"] = mm_cap.second;
   opts.json["mm_fetch_size"]     = opts.mm_fetch_size;
 
-  //
+  out<<"\nFiles\n";
+
+  out<<"  preload_mm   " << opts.preload_mm   <<'\n';
+  out<<"  preload_tags " << opts.preload_tags <<'\n';
+  out<<"  preload_bits " << opts.preload_bits <<'\n';
+  out<<"  preload_dary " << opts.preload_dary <<'\n';
+
+  opts.json["preload_mm"]   = opts.preload_mm;
+  opts.json["preload_tags"] = opts.preload_tags;
+  opts.json["preload_bits"] = opts.preload_bits;
+  opts.json["preload_dary"] = opts.preload_dary;
+
+  out<<"\n";
+
+  out<<"  bits_file  "<<opts.bits_file<<'\n';
+  out<<"  tags_file  "<<opts.tags_file<<'\n';
+  out<<"  mm_file    "<<opts.mm_file<<'\n';
+
   opts.json["bits_file"] = opts.bits_file;
   opts.json["tags_file"] = opts.tags_file;
   opts.json["mm_file"]   = opts.mm_file;
+
+  opts.json["dary_files"] = Json::arrayValue;
+  for(auto f : opts.daryFiles) {
+    out<<"  dary_file  "<<f<<'\n';
+    Json::Value v;
+    v["name"] = f;
+    opts.json["dary_files"].append(v);
+  }
 
   out<<'\n';
 }
