@@ -5,7 +5,9 @@ using namespace std;
 // ----------------------------------------------------------------
 void CacheModel::basicRdHitTest(uint32_t &errs,bool verbose)
 {
-  msg.imsg("Begin basicRdHitTest");
+  msg.imsg("Begin basicRdHitTest v="+::to_string(verbose));
+
+  errs = 0;
 
   string fn = "../1mb_l1/data/alt_basicRdHit.bits.memb";
   if(!u.loadRamFromVerilog(bits,fn,verbose)) { ++errs; return; }
@@ -18,10 +20,6 @@ void CacheModel::basicRdHitTest(uint32_t &errs,bool verbose)
     fn =  basefn+::to_string(i)+".memh";
     if(!u.loadRamFromVerilog(dary[i],fn,verbose)) { ++errs; return; }
   }
-
-//  bits->info(cout);
-//  u.info(tags);
-//  for(auto t : tags) { t->info(cout,0,4); }
 
   captureData.push_back(ld(ADDR(0x003,0x000,0x3,0x0),0xF,verbose));//00303000
   captureData.push_back(ld(ADDR(0x001,0x001,0x7,0x0),0xF,verbose));//00107001
@@ -62,7 +60,7 @@ void CacheModel::basicRdHitTest(uint32_t &errs,bool verbose)
   if(!u.loadRamFromVerilog(expectTags,fn,verbose)) ++errs;
 
   //BITS
-  fn = "../1mb_l1/golden/basicRdHit.b.cfg0.memb";
+  fn = "../1mb_l1/golden/alt_basicRdHit.b.cfg0.memb";
   if(!u.loadRamFromVerilog(expectBits,fn,verbose)) ++errs;
 
   // -------------------------------------------------------------------
@@ -70,15 +68,15 @@ void CacheModel::basicRdHitTest(uint32_t &errs,bool verbose)
   // -------------------------------------------------------------------
   //Check CAPTURE DATA 
   if(verbose) msg.imsg("Compare capture data");
-  if(!u.compare(expectCaptureData,captureData,errs,0,16)) ++errs;
+  if(!u.compare(expectCaptureData,captureData,errs,0,16,verbose)) ++errs;
 
   //Check TAGS 
   if(verbose) msg.imsg("Compare tags");
-  if(!u.compare(expectTags,tags,errs,0,16)) ++errs;
+  if(!u.compare(expectTags,tags,errs,0,16,verbose)) ++errs;
 
   //Check BITS 
   if(verbose) msg.imsg("Compare bits");
-  if(!u.compare(*expectBits,*bits,errs,0,16)) ++errs;
+  if(!u.compare(*expectBits,*bits,errs,0,16,verbose)) ++errs;
 
   msg.imsg("End   basicRdHitTest");
 }

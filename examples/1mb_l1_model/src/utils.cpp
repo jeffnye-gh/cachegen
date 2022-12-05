@@ -16,18 +16,19 @@ bool Utils::compare(BitArray &exp,BitArray &act,
 {
   if(!sizeChecks(errs,exp.mem.size(),act.mem.size())) return false;
 
-  bool ok = false;
-//  bool first = true;
+  bool ok = true;
 
   exp.q = exp.mem.find(start);
   if(exp.q == exp.mem.end()) {
     msg.emsg("Start index not found in exp array");
+    ++errs;
     return false;
   }
 
   act.q = act.mem.find(start);
   if(act.q == act.mem.end()) {
     msg.emsg("Start index not found in act array");
+    ++errs;
     return false;
   }
 
@@ -35,7 +36,7 @@ bool Utils::compare(BitArray &exp,BitArray &act,
     uint32_t expD = exp.q->second;
     uint32_t actD = act.q->second;
     stringstream ss;
-    ss<<dec<<setw(2)<<i<<": compare exp:"<<HEX<<expD<<" act:"<<HEX<<actD;
+    ss<<dec<<setw(2)<<i<<": compareB exp:"<<HEX<<expD<<" act:"<<HEX<<actD;
     if(expD != actD) {
       ss<<" FAIL";
       msg.emsg(ss.str());
@@ -89,11 +90,11 @@ bool Utils::compare(vector<Ram*> &exp,vector<Ram*> &act,
       if(expLine != actLine) {
         ++errs;
         ok = false;
-        msg.emsg("compare: ");
+        msg.emsg("compareR: ");
         msg.emsg("  exp:"+expLine+" FAIL");
         msg.emsg("  act:"+actLine+" FAIL");
       } else if(verbose) {
-        msg.imsg("compare: ");
+        msg.imsg("compareR: ");
         msg.imsg("  exp:"+expLine+" PASS");
         msg.imsg("  act:"+actLine+" PASS");
       }
@@ -177,7 +178,7 @@ bool Utils::compare(vector<uint32_t> &exp,vector<uint32_t> &act,
       ss<<" FAIL";
       msg.emsg(ss.str());
       ok = false;
-    } else /*if(verbose)*/ {
+    } else if(verbose) {
       ss<<" PASS";
       msg.imsg(ss.str());
     }

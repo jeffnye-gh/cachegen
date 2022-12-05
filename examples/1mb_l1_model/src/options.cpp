@@ -6,7 +6,7 @@ using namespace boost;
 // ----------------------------------------------------------------
 bool Options::setupOptions(int ac,char**av)
 {
-  msg.imsg("+Options::setupOptions");
+  //msg.imsg("+Options::setupOptions");
   po::options_description stdOpts(
     "\nUsage:: cgen [-h|-v|-r]  -o <output> { input files }"
   );
@@ -52,7 +52,7 @@ void Options::buildOpts(po::options_description &stdOpts,
                         po::options_description &hideOpts,
                         po::positional_options_description &posOpts)
 {
-  msg.imsg("+Options::buildOpts");
+  //msg.imsg("+Options::buildOpts");
   stdOpts.add_options()
     ("help,h","...")
     ("version,v","Report version and exit")
@@ -199,7 +199,7 @@ void Options::buildOpts(po::options_description &stdOpts,
 // ----------------------------------------------------------------
 bool Options::checkOpts(po::variables_map &vm)
 {
-  msg.imsg("+Options::checkOpts");
+  //msg.imsg("+Options::checkOpts");
 
   if(vm.count("version"))       { version();  return true; }
   if(vm.count("release_notes")) { relNotes(); return true; }
@@ -252,7 +252,7 @@ bool Options::checkOpts(po::variables_map &vm)
 // ----------------------------------------------------------------
 bool Options::loadFromJson()
 {
-  msg.imsg("+Options::loadFromJson");
+  //msg.imsg("+Options::loadFromJson");
 
   ifstream in(json_file);
   if(!in.is_open()) {

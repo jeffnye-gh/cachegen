@@ -8,7 +8,7 @@ int main(int ac,char **av)
 
   //FIXME should these also be cmdline options
   cm.opts.basicTests       = true;
-  cm.opts.basicLruTest     = false;
+  cm.opts.basicLruTest     = true;
   cm.opts.basicRdHitTest   = true;
   cm.opts.basicWrHitTest   = false;
   cm.opts.basicRdAllocTest = false;

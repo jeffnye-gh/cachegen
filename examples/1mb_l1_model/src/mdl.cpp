@@ -36,11 +36,10 @@ CacheModel::CacheModel(int _ac,char **_av)
 // -----------------------------------------------------------------------
 uint32_t CacheModel::ld(uint32_t a,uint32_t be,bool verbose) 
 {
-  u.req_msg(cout,"LOAD :",a,be);
+  if(verbose) u.req_msg(cout,"LOAD  :",a,be);
 
   pckt = AddressPacket(a,be,getTagField(a),getIndexField(a),
                             getOffsetField(a),getMMAddr(a));
-
 
   bitsLookup(pckt,verbose);
   tagLookup(pckt,verbose);
@@ -146,7 +145,7 @@ uint32_t CacheModel::rdAllocate(uint32_t targetWay)
 // -----------------------------------------------------------------------
 void CacheModel::st(uint32_t a,uint32_t be,uint32_t data, bool verbose) 
 {
-  u.req_msg(cout,"STORE :",a,be);
+  if(verbose) u.req_msg(cout,"STORE :",a,be);
 
   pckt = AddressPacket(a,be,getTagField(a),getIndexField(a),
                             getOffsetField(a),getMMAddr(a));
@@ -257,7 +256,7 @@ void CacheModel::tagLookup(AddressPacket &pckt,bool verbose)
       uint32_t contents = tags[i]->q->second;
       //The contents match
       if(contents == pckt.tag && pckt.val[i] == 1) {
-        if(verbose) u.tag_msg(cout,"HIT  :",pckt.a,pckt.tag);
+        if(verbose) u.tag_msg(cout,"HIT   :",pckt.a,pckt.tag);
         pckt.hit    = true;
         pckt.wayHit = i;
         return;
@@ -266,7 +265,7 @@ void CacheModel::tagLookup(AddressPacket &pckt,bool verbose)
   }
 
   pckt.hit = false;
-  if(verbose) u.tag_msg(cout,"MISS :",pckt.a,pckt.tag);
+  if(verbose) u.tag_msg(cout,"MISS  :",pckt.a,pckt.tag);
   pckt.hit = false;
 }
 // -----------------------------------------------------------------------

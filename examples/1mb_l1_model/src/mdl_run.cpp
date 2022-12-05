@@ -54,7 +54,7 @@ bool CacheModel::runTests(bool verbose)
 
     if(opts.basicLruTest)     basicLruTest(lruErrs,verbose);
     else                      lruErrs += 1000;
-    if(opts.basicRdHitTest)   basicRdHitTest(rdHitErrs,true);
+    if(opts.basicRdHitTest)   basicRdHitTest(rdHitErrs,verbose);
     else                      rdHitErrs += 1000;
     if(opts.basicWrHitTest)   basicWrHitTest(wrHitErrs,verbose);
     else                      wrHitErrs += 1000;
