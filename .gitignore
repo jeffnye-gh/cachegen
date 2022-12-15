@@ -1,7 +1,7 @@
 
-examples/1mb_l1/bin/*
-examples/1mb_l1/*.vcd
-examples/1mb_l1_model/data/*
-examples/1mb_l1_model/bin/*
-examples/1mb_l1_model/obj/*
-examples/1mb_l1_model/lib/*
+examples/1mb_l1/rtl/bin/*
+examples/1mb_l1/rtl/*.vcd
+examples/1mb_l1/model/data/*
+examples/1mb_l1/model/bin/*
+examples/1mb_l1/model/obj/*
+examples/1mb_l1/model/lib/*
