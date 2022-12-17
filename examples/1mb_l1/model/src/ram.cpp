@@ -38,6 +38,22 @@ void BitArray::updateLru(AddressPacket &pckt)
 }
 // ------------------------------------------------------------------------
 // ------------------------------------------------------------------------
+void BitArray::updateMod(uint32_t targetWay,uint32_t val)
+{
+  bitset<4> mod(getMod(q));
+  bool v = val == 1 ? true : false;
+  mod.set(targetWay,v); 
+  uint32_t _mod =  (uint32_t) (mod.to_ulong() &0xF);
+  q->second = (getVal() << 8) | (_mod << 4) | getLru(); 
+}
+// ------------------------------------------------------------------------
+void BitArray::updateMod(AddressPacket &pckt,uint32_t val)
+{
+  q = mem.find(pckt.idx);
+  updateMod(pckt.wayHit,val);
+}
+// ------------------------------------------------------------------------
+// ------------------------------------------------------------------------
 uint32_t BitArray::getVal(uint32_t idx,uint32_t way)
 {
   q = mem.find(idx);
@@ -148,18 +164,37 @@ line_t Ram::ld_line(AddressPacket &pckt)
 // ------------------------------------------------------------------------
 // FIXME: add error checking ?
 // ------------------------------------------------------------------------
-void Ram::st(AddressPacket &pckt,uint32_t d)
+void Ram::st(AddressPacket &pckt,uint32_t wd)
 {
-//  line_t line = ld_line(pckt);
-//  uint32_t w = line[pckt.off];
-//  bitset<32> bw(w);
-//  bitset<4> be(pckt.be); 
-//  uint32_t mask = 0xFFFFFFFF;
-//
-//  bitset<32> be0((mask >> (32-8)) <<  0);
-//  bitset<32> be1((mask >> (32-8)) <<  8);
-//  bitset<32> be2((mask >> (32-8)) << 16);
-//  bitset<32> be3((mask >> (32-8)) << 24);
+  //read the line
+  line_t line = ld_line(pckt);
+  //get the target word using the offset
+  uint32_t rd = line[pckt.off];
+
+  uint32_t rb0 = (rd >>  0) & 0xFF;
+  uint32_t rb1 = (rd >>  8) & 0xFF;
+  uint32_t rb2 = (rd >> 16) & 0xFF;
+  uint32_t rb3 = (rd >> 24) & 0xFF;
+
+  uint32_t wb0 = (wd >>  0) & 0xFF;
+  uint32_t wb1 = (wd >>  8) & 0xFF;
+  uint32_t wb2 = (wd >> 16) & 0xFF;
+  uint32_t wb3 = (wd >> 24) & 0xFF;
+
+  bitset<4> be(pckt.be);
+  uint32_t b0 = be[0] ? wb0 : rb0;
+  uint32_t b1 = be[1] ? wb1 : rb1;
+  uint32_t b2 = be[2] ? wb2 : rb2;
+  uint32_t b3 = be[3] ? wb3 : rb3;
+
+  uint32_t newData = (b3&0xFF) << 24
+                   | (b2&0xFF) << 16
+                   | (b1&0xFF) <<  8
+                   | (b0&0xFF) <<  0;
+
+  line[pckt.off] = newData;
+  //store to array
+  st_line(pckt,line);
 }
 // ------------------------------------------------------------------------
 // FIXME: add error checking ?

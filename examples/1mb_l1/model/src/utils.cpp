@@ -33,10 +33,22 @@ bool Utils::compare(BitArray &exp,BitArray &act,
   }
 
   for(size_t i=0;i<count;++i) {
-    uint32_t expD = exp.q->second;
-    uint32_t actD = act.q->second;
+
     stringstream ss;
-    ss<<dec<<setw(2)<<i<<": compareB exp:"<<HEX<<expD<<" act:"<<HEX<<actD;
+    ss<<"idx:"<<dec<<setw(2)<<i<<":bits:";
+
+    uint32_t expD = exp.q->second;
+    bitset<4> expV((expD>>8)&0xF);
+    bitset<4> expM((expD>>4)&0xF);
+    bitset<4> expL((expD>>0)&0xF);
+    ss<<" exp:"<<expV<<" "<<expM<<" "<<expL;
+
+    uint32_t actD = act.q->second;
+    bitset<4> actV((actD>>8)&0xF);
+    bitset<4> actM((actD>>4)&0xF);
+    bitset<4> actL((actD>>0)&0xF);
+    ss<<" act:"<<actV<<" "<<actM<<" "<<actL;
+
     if(expD != actD) {
       ss<<" FAIL";
       msg.emsg(ss.str());
@@ -87,18 +99,20 @@ bool Utils::compare(vector<Ram*> &exp,vector<Ram*> &act,
       string expLine = tostr(exp[way]->q->second);
       string actLine = tostr(act[way]->q->second);
 
+      string idxs = "w"+::to_string(way)+":"+::to_string(idx);
       if(expLine != actLine) {
         ++errs;
         ok = false;
-        msg.emsg("compareR: ");
-        msg.emsg("  exp:"+expLine+" FAIL");
-        msg.emsg("  act:"+actLine+" FAIL");
+        //msg.emsg("compareR: ");
+        msg.msg(idxs+":exp:"+expLine+" F");
+        msg.msg(idxs+":act:"+actLine+" F");
+        msg.msg("");
       } else if(verbose) {
-        msg.imsg("compareR: ");
-        msg.imsg("  exp:"+expLine+" PASS");
-        msg.imsg("  act:"+actLine+" PASS");
+        //msg.imsg("compareR: ");
+        msg.msg(idxs+":exp:"+expLine+" P");
+        msg.msg(idxs+":act:"+actLine+" P");
+        msg.msg("");
       }
-
     }
   }
   return ok;
@@ -135,7 +149,7 @@ bool Utils::compare(vector<Tag*> &exp,vector<Tag*> &act,
       uint32_t expData = exp[way]->q->second;
       uint32_t actData = act[way]->q->second;
       stringstream ss;
-      ss<<"compare "<<dec<<way<<" idx:"<<setw(4)<<dec<<idx
+      ss<<"tag way "<<dec<<way<<" idx:"<<setw(4)<<dec<<idx
         <<" exp:"<<HEX<<expData<<" act:"<<HEX<<actData;
 
       if(expData != actData) {
@@ -304,7 +318,8 @@ bool Utils::loadRamFromVerilog(vector<Tag*> &tags,string fn,bool verbose)
         lvec[0].erase(0,1);
         address = hexStrToUint(lvec[0]);
       } else {
-        msg.emsg("Address syntax error, line "+::to_string(lineNum)+", "+tq(fn));
+        msg.emsg("Address syntax error, line "
+                 +::to_string(lineNum)+", "+tq(fn));
         return false;
       }
     } else {
@@ -370,7 +385,8 @@ bool Utils::loadRamFromVerilog(BitArray *bits,string fn,bool verbose)
         lvec[0].erase(0,1);
         address = hexStrToUint(lvec[0]);
       } else {
-        msg.emsg("Address syntax error, line "+::to_string(lineNum)+", "+tq(fn));
+        msg.emsg("Address syntax error, line "
+                 +::to_string(lineNum)+", "+tq(fn));
         return false;
       }
     } else {
@@ -396,7 +412,7 @@ bool Utils::loadRamFromVerilog(BitArray *bits,string fn,bool verbose)
     runningAddr = address + 1;
   }
 
-  if(verbose) msg.imsg("Loading file complete");
+  //if(verbose) msg.imsg("Loading file complete");
   //bits->info(cout,0,16);
   in.close();
   return true; 
@@ -456,7 +472,7 @@ bool Utils::loadRamFromVerilog(Ram *ram,ifstream &in,bool verbose)
     
   }
 
-  if(verbose) msg.imsg("Loading file complete");
+  //if(verbose) msg.imsg("Loading file complete");
   //ram->info(cout,0,1024);
   return true;
 }

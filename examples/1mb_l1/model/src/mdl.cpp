@@ -17,20 +17,23 @@ CacheModel::CacheModel(int _ac,char **_av)
     throw std::invalid_argument("Option parsing failed");
   }
 
-  size_t numBits = opts.l1_associativity //valid
-                 + opts.l1_associativity //modified
-                 + (opts.l1_lru_bits+1); //pad LRU to 4 bits to match vlg
-
-  bits = new BitArray("bits",opts.default_mm_entries,numBits);
-
+//  size_t numBits = opts.l1_associativity //valid
+//                 + opts.l1_associativity //modified
+//                 + (opts.l1_lru_bits+1); //pad LRU to 4 bits to match vlg
+//
+//  bits = new BitArray("bits",opts.default_mm_entries,numBits);
+//
 //  if(opts.preload_mm) {
 //    //If this fails sim can not continue
 //    ASSERT(initializeMM(),"main memory init failed");
 //  }
 //
 //  initSize(bits,numBits,"bits");
-  initSize(tags,"tags");
-  initSize(dary,"dary");
+
+  clearResizeMdlArrays();
+
+//  initSize(tags,"tags");
+//  initSize(dary,"dary");
 }
 // -----------------------------------------------------------------------
 // -----------------------------------------------------------------------
@@ -154,37 +157,74 @@ void CacheModel::st(uint32_t a,uint32_t be,uint32_t data, bool verbose)
   bitsLookup(pckt,verbose);
   tagLookup(pckt,verbose);
 
-  if(verbose) pckt.info(cout);
-
   if(pckt.hit) writeHit(data);
   else         writeMiss(data);
+  //if(verbose) pckt.info(cout);
 }
 // -----------------------------------------------------------------------
 // -----------------------------------------------------------------------
 void CacheModel::writeHit(uint32_t d,bool verbose)
 {
+  //cout<<"HERE writeHit"<<endl;
   dary[pckt.wayHit]->st(pckt,d);
+  bits->updateMod(pckt,1);
   bits->updateLru(pckt);
 }
 // -----------------------------------------------------------------------
 // -----------------------------------------------------------------------
 void CacheModel::writeMiss(uint32_t d,bool verbose)
 {
-cout<<"HERE writeMiss"<<endl;
+  cout<<"HERE writeMiss"<<endl;
   //FIXME: incomplete 
   bits->updateLru(pckt);
+exit(1);
 }
 // -----------------------------------------------------------------------
 // INIT FUNCTIONS
 // -----------------------------------------------------------------------
-// FIXME: I do not know why this core dumps when inserting values,
-// new does not have this problem.
+// clear/resize arrays in model and expect data - but not mm
+//
+// bits        expectBits
+// tags        expectTags
+// dary        expectDary
+// captureData expectCaptureData
 // -----------------------------------------------------------------------
-//void CacheModel::initSize(BitArray *_bits,uint32_t numBits,std::string name)
-//{
-//  //if(_bits) delete _bits;
-//  _bits = new BitArray(name,opts.default_mm_entries,numBits);
-//}
+void CacheModel::clearResizeArrays()
+{
+  clearResizeMdlArrays();
+  clearResizeExpArrays();
+}
+// -----------------------------------------------------------------------
+void CacheModel::clearResizeMdlArrays()
+{
+  if(bits) delete bits;
+  size_t numBits = opts.l1_associativity //valid
+                 + opts.l1_associativity //modified
+                 + (opts.l1_lru_bits+1); //pad LRU to 4 bits to match vlg
+
+  bits = new BitArray("bits",opts.default_mm_entries,numBits);
+
+  initSize(tags,"tags");
+  initSize(dary,"dary");
+
+  captureData.clear();
+}
+// -----------------------------------------------------------------------
+void CacheModel::clearResizeExpArrays()
+{
+  if(expectBits) delete expectBits;
+  size_t numBits = opts.l1_associativity //valid
+                 + opts.l1_associativity //modified
+                 + (opts.l1_lru_bits+1); //pad LRU to 4 bits to match vlg
+
+  expectBits = new BitArray("expBits",opts.default_mm_entries,numBits);
+
+  initSize(expectTags,"expTags");
+  initSize(expectDary,"expDary");
+
+  expectCaptureData.clear();
+}
+// -----------------------------------------------------------------------
 // -----------------------------------------------------------------------
 void CacheModel::initSize(std::vector<Tag*> &_tags,std::string name)
 {
@@ -208,6 +248,7 @@ void CacheModel::initSize(std::vector<Ram*> &_dary,std::string name)
   }
 }
 // -----------------------------------------------------------------------
+// MM = main memory
 // -----------------------------------------------------------------------
 bool CacheModel::initializeMM()
 {
@@ -237,8 +278,8 @@ void CacheModel::bitsLookup(AddressPacket &pckt,bool verbose)
   bits->q = bits->mem.find(pckt.idx);
   if(bits->q != bits->mem.end()) {
     pckt.val = bits->getVal();
-    pckt.mod = bits->getVal();
-    pckt.lru = bits->getVal();
+    pckt.mod = bits->getMod();
+    pckt.lru = bits->getLru();
   }
 }
 // -----------------------------------------------------------------------
@@ -266,7 +307,7 @@ void CacheModel::tagLookup(AddressPacket &pckt,bool verbose)
 
   pckt.hit = false;
   if(verbose) u.tag_msg(cout,"MISS  :",pckt.a,pckt.tag);
-  pckt.hit = false;
+  //pckt.hit = false; >????
 }
 // -----------------------------------------------------------------------
 // -----------------------------------------------------------------------

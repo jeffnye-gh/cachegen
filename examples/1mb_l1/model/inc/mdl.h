@@ -17,6 +17,9 @@ struct CacheModel
 
   bool initializeMM();
 
+  void clearResizeArrays();
+  void clearResizeMdlArrays();
+  void clearResizeExpArrays();
   // ------------------------------------------------------------------
   bool runFileChecks();
   bool runTests(bool verbose=false);
@@ -81,26 +84,23 @@ struct CacheModel
   // ------------------------------------------------------------------
   void basicLruTest(uint32_t&,   bool verbose=false);
   void basicRdHitTest(uint32_t&, bool verbose=false);
-  void basicWrHitTest(uint32_t&, bool verbose=false)   { return ; }
-  void basicRdAllocTest(uint32_t&, bool verbose=false) { return ; }
-  void basicWrAllocTest(uint32_t&, bool verbose=false) { return ; }
-  void basicRdEvictTest(uint32_t&, bool verbose=false) { return ; }
-  void basicWrEvictTest(uint32_t&, bool verbose=false) { return ; }
+  void basicWrHitTest(uint32_t&, bool verbose=false);
+  void basicRdAllocTest(uint32_t&, bool verbose=false);
+  void basicWrAllocTest(uint32_t&, bool verbose=false);
+  void basicRdEvictTest(uint32_t&, bool verbose=false);
+  void basicWrEvictTest(uint32_t&, bool verbose=false);
   // ------------------------------------------------------------------
-  BitArray *bits;
-  std::vector<Tag*> tags;
-  std::vector<Ram*> dary;
+  BitArray *bits{nullptr};
+  std::vector<Tag*> tags{};
+  std::vector<Ram*> dary{};
   Ram *mm;
 
-  std::vector<uint32_t> captureAddr;
-  std::vector<uint32_t> captureData;
+  std::vector<uint32_t> captureData{};
+  std::vector<uint32_t> expectCaptureData{};
 
-  std::vector<uint32_t> expectCaptureAddr;
-  std::vector<uint32_t> expectCaptureData;
-
-  std::vector<Tag*> expectTags;
-  std::vector<Ram*> expectDary;
-  BitArray         *expectBits;
+  std::vector<Tag*> expectTags{};
+  std::vector<Ram*> expectDary{};
+  BitArray         *expectBits{nullptr};
 
   //This assumes max one request at a time, all that is needed atm.
   AddressPacket pckt;

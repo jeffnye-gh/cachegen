@@ -16,6 +16,9 @@
 #ifndef HEX
 #define HEX std::hex<<std::setw(8)<<std::setfill('0')
 #endif
+#ifndef HEXN
+#define HEXN(N) std::hex<<std::setw(N)<<std::setfill('0')
+#endif
 // --------------------------------------------------------------------
 #ifndef NDEBUG
   #ifndef ASSERT

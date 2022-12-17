@@ -87,11 +87,10 @@ struct BitArray
 {
   typedef std::map<uint32_t,word_t>::iterator mem_itr_t;
   BitArray(std::string _name,uint32_t _entries,uint32_t _width)
-    : name(_name),
-      entries(_entries),
-      width(_width)
-  {
-  }
+    : name(_name), entries(_entries), width(_width)
+  { }
+
+ ~BitArray() {}
 
   size_t size() { return mem.size(); }
 
@@ -100,6 +99,9 @@ struct BitArray
   void updateLru(AddressPacket&);
   void updateLru(uint32_t targetWay);
   void updateLru(uint32_t idx,uint32_t targetWay);
+
+  void updateMod(AddressPacket&,uint32_t v);
+  void updateMod(uint32_t targetWay,uint32_t v);
 
   //FIXME some hard coded magic numbers in this set of methods
   uint32_t getLru()             { return getLru(q); }
