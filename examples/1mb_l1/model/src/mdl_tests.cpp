@@ -22,12 +22,12 @@ void CacheModel::basicRdAllocTest(uint32_t &errs,bool verbose)
     u.fileLoadError(fn,errs,die); 
   }
 
-  fn = "../rtl/data/alt_basicRdAlloc.bits.memb";
+  fn = "../rtl/data/basicRdAlloc.bits.memb";
   if(!u.loadRamFromVerilog(bits,fn,verbose)) { 
     u.fileLoadError(fn,errs,die); 
   }
 
-  string baseFn = "../rtl/data/basicRdAlloc.dsram";
+  string baseFn = "../rtl/data/basicRdAlloc.d";
   for(size_t i=0;i<4;++i) {
     fn = baseFn+::to_string(i)+".memh";
     if(!u.loadRamFromVerilog(dary[i],fn,verbose)) { 
@@ -75,7 +75,7 @@ void CacheModel::basicRdAllocTest(uint32_t &errs,bool verbose)
   }
 
   //BITS
-  fn = "../rtl/golden/alt_basicRdAlloc.bits.memb";
+  fn = "../rtl/golden/basicRdAlloc.bits.memb";
   if(!u.loadRamFromVerilog(expectBits,fn,verbose)) {
     u.fileLoadError(fn,errs,die); 
   }
@@ -128,7 +128,7 @@ void CacheModel::basicWrHitTest(uint32_t &errs,bool verbose)
   clearResizeArrays();
   bool die = true;
 
-  string fn = "../rtl/data/alt_basicWrHit.bits.memb";
+  string fn = "../rtl/data/basicWrHit.bits.memb";
   if(!u.loadRamFromVerilog(bits,fn,verbose)) { 
     u.fileLoadError(fn,errs,die); 
   }
@@ -138,7 +138,7 @@ void CacheModel::basicWrHitTest(uint32_t &errs,bool verbose)
     u.fileLoadError(fn,errs,die); 
   }
 
-  fn = "../rtl/data/basicWrHit.dsramN.memh";
+  fn = "../rtl/data/basicWrHit.dN.memh";
   for(size_t i=0;i<4;++i) {
     if(!u.loadRamFromVerilog(dary[i],fn,verbose)) { 
       u.fileLoadError(fn,errs,die); 
@@ -201,13 +201,13 @@ void CacheModel::basicWrHitTest(uint32_t &errs,bool verbose)
   //Load the expect data
   // -------------------------------------------------------------------
   //TAGS
-  fn = "../rtl/golden/basicWrHit.t.memh";
+  fn = "../rtl/golden/basicWrHit.tags.memh";
   if(!u.loadRamFromVerilog(expectTags,fn,verbose)) {
     u.fileLoadError(fn,errs,die); 
   }
 
   //BITS
-  fn = "../rtl/golden/alt_basicWrHit.b.memb";
+  fn = "../rtl/golden/basicWrHit.bits.memb";
   if(!u.loadRamFromVerilog(expectBits,fn,verbose)) {
     u.fileLoadError(fn,errs,die); 
   }
@@ -248,7 +248,7 @@ void CacheModel::basicRdHitTest(uint32_t &errs,bool verbose)
   clearResizeArrays();
 
   bool die = true;
-  string fn = "../rtl/data/alt_basicRdHit.bits.memb";
+  string fn = "../rtl/data/basicRdHit.bits.memb";
   if(!u.loadRamFromVerilog(bits,fn,verbose)) { 
     u.fileLoadError(fn,errs,die); 
   }
@@ -258,7 +258,7 @@ void CacheModel::basicRdHitTest(uint32_t &errs,bool verbose)
     u.fileLoadError(fn,errs,die); 
   }
 
-  string basefn = "../rtl/data/basicRdHit.dsram";
+  string basefn = "../rtl/data/basicRdHit.d";
   for(size_t i=0;i<4;++i) {
     fn =  basefn+::to_string(i)+".memh";
     if(!u.loadRamFromVerilog(dary[i],fn,verbose)) { 
@@ -287,19 +287,19 @@ void CacheModel::basicRdHitTest(uint32_t &errs,bool verbose)
   // Load the expect data
   // -------------------------------------------------------------------
   //CAPTURE DATA
-  fn = "../rtl/golden/basicRdHit.d.cfg0.memh";
+  fn = "../rtl/golden/basicRdHit.data.memh";
   if(!u.loadCaptureFromVerilog(expectCaptureData,fn,verbose)) {
     u.fileLoadError(fn,errs,die); 
   }
 
   //TAGS
-  fn = "../rtl/golden/basicRdHit.t.cfg0.memh";
+  fn = "../rtl/golden/basicRdHit.tags.memh";
   if(!u.loadRamFromVerilog(expectTags,fn,verbose)) {
     u.fileLoadError(fn,errs,die); 
   }
 
   //BITS
-  fn = "../rtl/golden/alt_basicRdHit.b.cfg0.memb";
+  fn = "../rtl/golden/basicRdHit.bits.memb";
   if(!u.loadRamFromVerilog(expectBits,fn,verbose)) {
     u.fileLoadError(fn,errs,die); 
   }
@@ -349,7 +349,7 @@ void CacheModel::basicLruTest(uint32_t &errs,bool verbose)
   }
 
   //dary[0]->info(cout,0,16);
-  string basefn = "../rtl/data/basicLru.dsram";
+  string basefn = "../rtl/data/basicLru.d";
   for(size_t i=0;i<4;++i) {
     fn =  basefn+::to_string(i)+".memh";
     if(!u.loadRamFromVerilog(dary[i],fn,verbose)) { 
