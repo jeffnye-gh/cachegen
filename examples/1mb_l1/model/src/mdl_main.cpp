@@ -11,11 +11,10 @@ int main(int ac,char **av)
   cm.opts.basicLruTest     = true;
   cm.opts.basicRdHitTest   = true;
   cm.opts.basicWrHitTest   = true;
-  cm.opts.basicRdAllocTest = false;
-  cm.opts.basicWrAllocTest = false;
-  cm.opts.basicRdEvictTest = false;
-  cm.opts.basicWrEvictTest = false;
+  cm.opts.basicRdAllocTest = true;
+  cm.opts.basicWrAllocTest = true;
+  cm.opts.basicRdEvictTest = true;
+  cm.opts.basicWrEvictTest = true;
   if(!cm.runTests(false)) return 1;
-//  if(!cm.simulate(true)) return 1;
   return 0;
 }

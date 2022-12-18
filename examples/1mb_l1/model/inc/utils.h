@@ -109,12 +109,22 @@ struct Utils
 
   bool compare(BitArray &exp,BitArray &act,
                uint32_t&,size_t start, size_t end,bool verbose=false);
+
+  bool compare(Ram *exp,Ram *act,uint32_t&,size_t start,size_t end,
+               bool verbose=false,int32_t way=-1);
+
   // ------------------------------------------------------------------
   uint32_t hexStrToUint(std::string s);
 
   void to_upper(std::string &in) {
     std::transform(in.begin(),in.end(),
                    in.begin(),[](char s){ return std::toupper(s); });
+  }
+  // ------------------------------------------------------------------
+  void fileLoadError(std::string fn,uint32_t &errs,bool die=false) {
+    msg.emsg("Could not load file: "+fn);
+    ++errs;
+    if(die) exit(1);
   }
   // ------------------------------------------------------------------
 

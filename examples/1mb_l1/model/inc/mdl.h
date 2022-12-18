@@ -89,18 +89,22 @@ struct CacheModel
   void basicWrAllocTest(uint32_t&, bool verbose=false);
   void basicRdEvictTest(uint32_t&, bool verbose=false);
   void basicWrEvictTest(uint32_t&, bool verbose=false);
+
+  void beginTest(std::string);
+  void endTest(uint32_t&,std::string);
   // ------------------------------------------------------------------
   BitArray *bits{nullptr};
   std::vector<Tag*> tags{};
   std::vector<Ram*> dary{};
   Ram *mm;
 
-  std::vector<uint32_t> captureData{};
-  std::vector<uint32_t> expectCaptureData{};
-
+  BitArray *expectBits{nullptr};
   std::vector<Tag*> expectTags{};
   std::vector<Ram*> expectDary{};
-  BitArray         *expectBits{nullptr};
+  Ram *expectMm{nullptr};
+
+  std::vector<uint32_t> captureData{};
+  std::vector<uint32_t> expectCaptureData{};
 
   //This assumes max one request at a time, all that is needed atm.
   AddressPacket pckt;

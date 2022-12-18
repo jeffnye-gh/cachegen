@@ -111,7 +111,7 @@ reg  [(4*14)-1:0] mm_expect_tags[0:EXP_DATA_ENTRIES];
 
 //bits = 4x valid bits, 4x mod bits, 3x lru bits = 11b
 //concatenate format { vvvv,mmmm,lru }, way3->way0
-reg  [10:0] mm_expect_bits[0:EXP_DATA_ENTRIES];
+reg  [11:0] mm_expect_bits[0:EXP_DATA_ENTRIES];
 // ------------------------------------------------------------------------
 wire [1:0] _byte = 2'b00;
 wire [2:0] word = 3'bxxx;
@@ -192,7 +192,7 @@ begin
       basicRdEvictTest(basic_rd_evict_errs,basic_rd_evict_flag,0);
 
     if(_bt_wr_evict_test)
-      basicWrEvictTest(basic_wr_evict_errs,basic_wr_evict_flag,1);
+      basicWrEvictTest(basic_wr_evict_errs,basic_wr_evict_flag,0);
   end
   nop(1);
   terminate();
@@ -208,6 +208,8 @@ always @(count) begin
 end
 // ----------------------------------------------------------------
 _probes _prb();
+// ----------------------------------------------------------------
+// FIXME: soon this will wrap cache + mm 
 // ----------------------------------------------------------------
 //dut #(
 //  .L1_READ_HIT_LAT(L1_READ_HIT_LAT),
@@ -226,7 +228,6 @@ _probes _prb();
 //  .tb_cc_write(tb_cc_write),
 //  .tb_cc_writedata(tb_cc_writedata)
 //);
-
 
 cache #(.READ_HIT_LAT(L1_READ_HIT_LAT),
         .WRITE_HIT_TPUT(L1_WRITE_HIT_TPUT)

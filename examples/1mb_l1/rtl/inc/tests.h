@@ -26,7 +26,6 @@ begin
   clear_tb_data(0,EXP_DATA_ENTRIES,v);
 
   @(posedge clk);
-//  if(verbose) $display("-I: setting initial configuration ");
   //load main memory
   $readmemh("data/basicWrEvict.mm.memh",top.mm0.ram);
   //load data arrays
@@ -39,18 +38,12 @@ begin
   //load control bits
   load_initial_bits("data/basicWrEvict.bits.memb",v);
 
-//  $display("HERE 0 %x",top.dut0.dsram0.ram[0]);
-//  top.dut0.dsram0.ram[0]
-//    <= 256'h1230700000006000000050000000400000003000000020000000100000000000;
-  @(posedge clk);
-//  $display("HERE 1 %x",top.dut0.dsram0.ram[0]);
-
+//  @(posedge clk);
 //  top.dut0.valid0.regs[0] <= 4'b1110;
 //  top.dut0.dirty0.regs[0] <= 4'b0111;
 //  top.dut0.valid0.regs[10] <= 4'b1101;
 
   @(posedge clk);
-  $display("HERE 2 %x",top.dut0.dsram0.ram[0]);
 
   nop(1);
   n = 0;
@@ -264,10 +257,10 @@ begin
   //load main memory
   $readmemh("data/basicRdEvict.mm.memh",top.mm0.ram);
   //load data arrays
-  $readmemh("data/basicRdEvict.dsram0.memh",top.dut0.dsram0.ram);
-  $readmemh("data/basicRdEvict.dsram1.memh",top.dut0.dsram1.ram);
-  $readmemh("data/basicRdEvict.dsram2.memh",top.dut0.dsram2.ram);
-  $readmemh("data/basicRdEvict.dsram3.memh",top.dut0.dsram3.ram);
+  $readmemh("data/basicRdEvict.d0.memh",top.dut0.dsram0.ram);
+  $readmemh("data/basicRdEvict.d1.memh",top.dut0.dsram1.ram);
+  $readmemh("data/basicRdEvict.d2.memh",top.dut0.dsram2.ram);
+  $readmemh("data/basicRdEvict.d3.memh",top.dut0.dsram3.ram);
   //load tags
   load_initial_tags("data/basicRdEvict.tags.memh",v,1);
   //load control bits
@@ -852,10 +845,10 @@ begin
   //load main memory
   $readmemh("data/basicWrAlloc.mm.memh",top.mm0.ram);
   //load data arrays
-  $readmemh("data/basicWrAlloc.dsram0.memh",top.dut0.dsram0.ram);
-  $readmemh("data/basicWrAlloc.dsram1.memh",top.dut0.dsram1.ram);
-  $readmemh("data/basicWrAlloc.dsram2.memh",top.dut0.dsram2.ram);
-  $readmemh("data/basicWrAlloc.dsram3.memh",top.dut0.dsram3.ram);
+  $readmemh("data/basicWrAlloc.d0.memh",top.dut0.dsram0.ram);
+  $readmemh("data/basicWrAlloc.d1.memh",top.dut0.dsram1.ram);
+  $readmemh("data/basicWrAlloc.d2.memh",top.dut0.dsram2.ram);
+  $readmemh("data/basicWrAlloc.d3.memh",top.dut0.dsram3.ram);
   //load tags
   load_initial_tags("data/basicWrAlloc.tags.memh",v);
   //load control bits
@@ -967,10 +960,10 @@ begin
   //load main memory
   $readmemh("data/basicRdAlloc.mm.memh",top.mm0.ram);
   //load data arrays
-  $readmemh("data/basicRdAlloc.dsram0.memh",top.dut0.dsram0.ram);
-  $readmemh("data/basicRdAlloc.dsram1.memh",top.dut0.dsram1.ram);
-  $readmemh("data/basicRdAlloc.dsram2.memh",top.dut0.dsram2.ram);
-  $readmemh("data/basicRdAlloc.dsram3.memh",top.dut0.dsram3.ram);
+  $readmemh("data/basicRdAlloc.d0.memh",top.dut0.dsram0.ram);
+  $readmemh("data/basicRdAlloc.d1.memh",top.dut0.dsram1.ram);
+  $readmemh("data/basicRdAlloc.d2.memh",top.dut0.dsram2.ram);
+  $readmemh("data/basicRdAlloc.d3.memh",top.dut0.dsram3.ram);
   //load tags
   load_initial_tags("data/basicRdAlloc.tags.memh",v);
   //load control bits
@@ -1093,14 +1086,11 @@ begin
   beginTestMsg("basicLruTest",errs,flag);
   clear_tb_data(0,EXP_DATA_ENTRIES,verbose);
 
-  $display("ADD SUPPORT FOR NEW DATA/BITS ARRAY INITIAL VALUE FILE FORMAT");
-  ++errs;
-
   if(verbose) $display("-I: setting initial configuration ");
-  $readmemh("data/basicLru.dsram0.memh",top.dut0.dsram0.ram);
-  $readmemh("data/basicLru.dsram1.memh",top.dut0.dsram1.ram);
-  $readmemh("data/basicLru.dsram2.memh",top.dut0.dsram2.ram);
-  $readmemh("data/basicLru.dsram3.memh",top.dut0.dsram3.ram);
+  $readmemh("data/basicLru.d0.memh",top.dut0.dsram0.ram);
+  $readmemh("data/basicLru.d1.memh",top.dut0.dsram1.ram);
+  $readmemh("data/basicLru.d2.memh",top.dut0.dsram2.ram);
+  $readmemh("data/basicLru.d3.memh",top.dut0.dsram3.ram);
 
   load_initial_tags("data/basicLru.tags.memh",verbose);
   load_initial_bits("data/basicLru.bits.memb",verbose);
@@ -1169,7 +1159,7 @@ endtask
 // data
 //
 // initial lru state is 000
-// See golden/basicRdHit.b.cfg0.memb for derivation of expect data
+// See golden/basicRdHit.bits.memb for derivation of expect data
 // and README.txt for the LRU update truth table
 //
 // --------------------------------------------------------------------------
@@ -1188,10 +1178,10 @@ begin
   nop(1);
 
   if(verbose) $display("-I: setting initial configuration ");
-  $readmemh("data/basicRdHit.dsram0.memh",top.dut0.dsram0.ram);
-  $readmemh("data/basicRdHit.dsram1.memh",top.dut0.dsram1.ram);
-  $readmemh("data/basicRdHit.dsram2.memh",top.dut0.dsram2.ram);
-  $readmemh("data/basicRdHit.dsram3.memh",top.dut0.dsram3.ram);
+  $readmemh("data/basicRdHit.d0.memh",top.dut0.dsram0.ram);
+  $readmemh("data/basicRdHit.d1.memh",top.dut0.dsram1.ram);
+  $readmemh("data/basicRdHit.d2.memh",top.dut0.dsram2.ram);
+  $readmemh("data/basicRdHit.d3.memh",top.dut0.dsram3.ram);
 
   load_initial_tags("data/basicRdHit.tags.memh",v);
   load_initial_bits("data/basicRdHit.bits.memb",v);
@@ -1235,10 +1225,10 @@ begin
 
   nop(4); //let state propagate
 
-  load_expect_capture_data("./golden/basicRdHit.a.cfg0.memh",
-                           "./golden/basicRdHit.d.cfg0.memh",v);
-  load_expect_tags("./golden/basicRdHit.t.cfg0.memh",v);
-  load_expect_bits("./golden/basicRdHit.b.cfg0.memb",v); //NOTE B file
+  load_expect_capture_data("./golden/basicRdHit.addr.memh",
+                           "./golden/basicRdHit.data.memh",v);
+  load_expect_tags("./golden/basicRdHit.tags.memh",v);
+  load_expect_bits("./golden/basicRdHit.bits.memb",v); //NOTE B file
 
   nop(4); //let state propagate
 
@@ -1297,10 +1287,10 @@ begin
 
   if(verbose) $display("-I: setting initial configuration ");
 
-  $readmemh("data/basicWrHit.dsramN.memh",top.dut0.dsram0.ram);
-  $readmemh("data/basicWrHit.dsramN.memh",top.dut0.dsram1.ram);
-  $readmemh("data/basicWrHit.dsramN.memh",top.dut0.dsram2.ram);
-  $readmemh("data/basicWrHit.dsramN.memh",top.dut0.dsram3.ram);
+  $readmemh("data/basicWrHit.dN.memh",top.dut0.dsram0.ram);
+  $readmemh("data/basicWrHit.dN.memh",top.dut0.dsram1.ram);
+  $readmemh("data/basicWrHit.dN.memh",top.dut0.dsram2.ram);
+  $readmemh("data/basicWrHit.dN.memh",top.dut0.dsram3.ram);
 
   load_initial_tags("data/basicWrHit.tags.memh",v);
   load_initial_bits("data/basicWrHit.bits.memb",v);
@@ -1420,8 +1410,8 @@ begin
                         "./golden/basicWrHit.d2.memh",
                         "./golden/basicWrHit.d3.memh",v);
 
-  load_expect_tags("./golden/basicWrHit.t.memh",v);
-  load_expect_bits("./golden/basicWrHit.b.memb",v); //NOTE B file
+  load_expect_tags("./golden/basicWrHit.tags.memh",v);
+  load_expect_bits("./golden/basicWrHit.bits.memb",v); //NOTE B file
 
   nop(1);
 

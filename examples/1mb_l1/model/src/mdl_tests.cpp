@@ -2,22 +2,147 @@
 using namespace std;
 // ----------------------------------------------------------------
 // ----------------------------------------------------------------
-void CacheModel::basicWrHitTest(uint32_t &errs,bool verbose)
+void CacheModel::basicRdAllocTest(uint32_t &errs,bool verbose)
 {
-  msg.imsg("Begin basicWrHitTest v="+::to_string(verbose));
+  beginTest("basicRdAllocTest");
   
   errs = 0;
   clearResizeArrays();
 
+  bool v = verbose;
+  bool die = true;
+
+  string fn = "../rtl/data/basicRdAlloc.mm.memh";
+  if(!u.loadRamFromVerilog(mm,fn,verbose)) { 
+    u.fileLoadError(fn,errs,die); 
+  }
+
+  fn = "../rtl/data/basicRdAlloc.tags.memh";
+  if(!u.loadRamFromVerilog(tags,fn,verbose)) { 
+    u.fileLoadError(fn,errs,die); 
+  }
+
+  fn = "../rtl/data/alt_basicRdAlloc.bits.memb";
+  if(!u.loadRamFromVerilog(bits,fn,verbose)) { 
+    u.fileLoadError(fn,errs,die); 
+  }
+
+  string baseFn = "../rtl/data/basicRdAlloc.dsram";
+  for(size_t i=0;i<4;++i) {
+    fn = baseFn+::to_string(i)+".memh";
+    if(!u.loadRamFromVerilog(dary[i],fn,verbose)) { 
+      u.fileLoadError(fn,errs,die); 
+    }
+  }
+
+          //tag/way index   word
+  //a:00000000
+  captureData.push_back(ld(ADDR(0x000,0x000,0x3,0x0),0xF,v));//miss
+  //a:00002001
+  captureData.push_back(ld(ADDR(0x001,0x001,0x7,0x0),0xF,v));
+  //a:00004002
+  captureData.push_back(ld(ADDR(0x002,0x002,0x6,0x0),0xF,v));
+  //a:00006003
+  captureData.push_back(ld(ADDR(0x003,0x003,0x6,0x0),0xF,v));
+  //a:00006004
+  captureData.push_back(ld(ADDR(0x003,0x004,0x5,0x0),0xF,v));
+  //a:00002005
+  captureData.push_back(ld(ADDR(0x001,0x005,0x1,0x0),0xF,v));
+  //a:00004006
+  captureData.push_back(ld(ADDR(0x002,0x006,0x5,0x0),0xF,v));
+  //a:00006007
+  captureData.push_back(ld(ADDR(0x003,0x007,0x3,0x0),0xF,v));
+  //a:00002008
+  captureData.push_back(ld(ADDR(0x001,0x008,0x2,0x0),0xF,v));
+  //a:00000009
+  captureData.push_back(ld(ADDR(0x000,0x009,0x1,0x0),0xF,v));
+  //a:0000200a
+  captureData.push_back(ld(ADDR(0x001,0x00a,0x1,0x0),0xF,v));
+
+  // -------------------------------------------------------------------
+  //Load the expect data
+  // -------------------------------------------------------------------
+  //CAPTURE DATA
+  fn = "../rtl/golden/basicRdAlloc.capd.memh";
+  if(!u.loadCaptureFromVerilog(expectCaptureData,fn,verbose)) {
+    u.fileLoadError(fn,errs,die); 
+  }
+
+  //TAGS
+  fn = "../rtl/golden/basicRdAlloc.tags.memh";
+  if(!u.loadRamFromVerilog(expectTags,fn,verbose)) {
+    u.fileLoadError(fn,errs,die); 
+  }
+
+  //BITS
+  fn = "../rtl/golden/alt_basicRdAlloc.bits.memb";
+  if(!u.loadRamFromVerilog(expectBits,fn,verbose)) {
+    u.fileLoadError(fn,errs,die); 
+  }
+
+  //Dary
+  baseFn = "../rtl/golden/basicRdAlloc.d";
+  for(size_t i=0;i<4;++i) {
+    fn = baseFn+::to_string(i)+".memh";
+    if(!u.loadRamFromVerilog(expectDary[i],fn,verbose)) {
+      u.fileLoadError(fn,errs,die); 
+    }
+  }
+
+  //Main memory
+  fn = "../rtl/golden/basicRdAlloc.mm.memh";
+  if(!u.loadRamFromVerilog(expectMm,fn,verbose)) {
+    u.fileLoadError(fn,errs,die); 
+  }
+
+  // -------------------------------------------------------------------
+  // Check
+  // -------------------------------------------------------------------
+  //Check TAGS 
+  if(verbose) msg.imsg("Compare tags");
+  u.compare(expectTags,tags,errs,0,16,verbose);
+
+  //Check BITS 
+  if(verbose) msg.imsg("Compare bits");
+  u.compare(*expectBits,*bits,errs,0,16,verbose);
+
+  //Check dary 
+  if(verbose) msg.imsg("Compare dary");
+  u.compare(expectDary,dary,errs,0,16,verbose);
+
+////HELP
+  //Check MM 
+  if(verbose) msg.imsg("Compare main memory");
+  u.compare(expectMm,mm,errs,0,16,verbose,-1);
+
+  ++errs;
+  endTest(errs,"basicRdAllocTest");
+}
+// ----------------------------------------------------------------
+// ----------------------------------------------------------------
+void CacheModel::basicWrHitTest(uint32_t &errs,bool verbose)
+{
+  beginTest("basicWrHitTest");
+  
+  errs = 0;
+  clearResizeArrays();
+  bool die = true;
+
   string fn = "../rtl/data/alt_basicWrHit.bits.memb";
-  if(!u.loadRamFromVerilog(bits,fn,verbose)) { ++errs; return; }
+  if(!u.loadRamFromVerilog(bits,fn,verbose)) { 
+    u.fileLoadError(fn,errs,die); 
+  }
     
   fn = "../rtl/data/basicWrHit.tags.memh";
-  if(!u.loadRamFromVerilog(tags,fn,verbose)) { ++errs; return; }
+  if(!u.loadRamFromVerilog(tags,fn,verbose)) { 
+    u.fileLoadError(fn,errs,die); 
+  }
 
   fn = "../rtl/data/basicWrHit.dsramN.memh";
   for(size_t i=0;i<4;++i) {
-    if(!u.loadRamFromVerilog(dary[i],fn,verbose)) { ++errs; return; }
+    if(!u.loadRamFromVerilog(dary[i],fn,verbose)) { 
+      u.fileLoadError(fn,errs,die); 
+    }
   }
 
   //    tag/way index wrd      be  wdata                              
@@ -78,26 +203,20 @@ void CacheModel::basicWrHitTest(uint32_t &errs,bool verbose)
   //TAGS
   fn = "../rtl/golden/basicWrHit.t.memh";
   if(!u.loadRamFromVerilog(expectTags,fn,verbose)) {
-    msg.emsg("Could not load file: "+fn);
-    ++errs;
-    exit(1); //return; //FIXME: add assert
+    u.fileLoadError(fn,errs,die); 
   }
 
   //BITS
   fn = "../rtl/golden/alt_basicWrHit.b.memb";
   if(!u.loadRamFromVerilog(expectBits,fn,verbose)) {
-    msg.emsg("Could not load file: "+fn);
-    ++errs;
-    exit(1); //return; //FIXME: add assert
+    u.fileLoadError(fn,errs,die); 
   }
 
   string baseFn = "../rtl/golden/basicWrHit.d";
   for(size_t i=0;i<4;++i) {
     fn = baseFn+::to_string(i)+".memh";
     if(!u.loadRamFromVerilog(expectDary[i],fn,verbose)) {
-      msg.emsg("Could not load file: "+fn);
-      ++errs;
-      exit(1); //return; //FIXME: add assert
+      u.fileLoadError(fn,errs,die); 
     }
   }
 
@@ -116,28 +235,35 @@ void CacheModel::basicWrHitTest(uint32_t &errs,bool verbose)
   if(verbose) msg.imsg("Compare dary");
   u.compare(expectDary,dary,errs,0,16,verbose);
 
-  msg.imsg("End   basicWrHitTest");
+  endTest(errs,"basicWrHitTest");
 }
 
 // ----------------------------------------------------------------
 // ----------------------------------------------------------------
 void CacheModel::basicRdHitTest(uint32_t &errs,bool verbose)
 {
-  msg.imsg("Begin basicRdHitTest v="+::to_string(verbose));
+  beginTest("basicRdHitTest");
 
   errs = 0;
   clearResizeArrays();
 
+  bool die = true;
   string fn = "../rtl/data/alt_basicRdHit.bits.memb";
-  if(!u.loadRamFromVerilog(bits,fn,verbose)) { ++errs; return; }
+  if(!u.loadRamFromVerilog(bits,fn,verbose)) { 
+    u.fileLoadError(fn,errs,die); 
+  }
 
   fn = "../rtl/data/basicRdHit.tags.memh";
-  if(!u.loadRamFromVerilog(tags,fn,verbose)) { ++errs; return; }
+  if(!u.loadRamFromVerilog(tags,fn,verbose)) { 
+    u.fileLoadError(fn,errs,die); 
+  }
 
   string basefn = "../rtl/data/basicRdHit.dsram";
   for(size_t i=0;i<4;++i) {
     fn =  basefn+::to_string(i)+".memh";
-    if(!u.loadRamFromVerilog(dary[i],fn,verbose)) { ++errs; return; }
+    if(!u.loadRamFromVerilog(dary[i],fn,verbose)) { 
+      u.fileLoadError(fn,errs,die); 
+    }
   }
 
   captureData.push_back(ld(ADDR(0x003,0x000,0x3,0x0),0xF,verbose));//00303000
@@ -162,54 +288,73 @@ void CacheModel::basicRdHitTest(uint32_t &errs,bool verbose)
   // -------------------------------------------------------------------
   //CAPTURE DATA
   fn = "../rtl/golden/basicRdHit.d.cfg0.memh";
-  if(!u.loadCaptureFromVerilog(expectCaptureData,fn,verbose)) ++errs;
+  if(!u.loadCaptureFromVerilog(expectCaptureData,fn,verbose)) {
+    u.fileLoadError(fn,errs,die); 
+  }
 
   //TAGS
   fn = "../rtl/golden/basicRdHit.t.cfg0.memh";
-  if(!u.loadRamFromVerilog(expectTags,fn,verbose)) ++errs;
+  if(!u.loadRamFromVerilog(expectTags,fn,verbose)) {
+    u.fileLoadError(fn,errs,die); 
+  }
 
   //BITS
   fn = "../rtl/golden/alt_basicRdHit.b.cfg0.memb";
-  if(!u.loadRamFromVerilog(expectBits,fn,verbose)) ++errs;
+  if(!u.loadRamFromVerilog(expectBits,fn,verbose)) {
+    u.fileLoadError(fn,errs,die); 
+  }
 
   // -------------------------------------------------------------------
   //CHECK
   // -------------------------------------------------------------------
   //Check CAPTURE DATA 
   if(verbose) msg.imsg("Compare capture data");
-  if(!u.compare(expectCaptureData,captureData,errs,0,16,verbose)) ++errs;
+  if(!u.compare(expectCaptureData,captureData,errs,0,16,verbose)) {
+    u.fileLoadError(fn,errs,die); 
+  }
 
   //Check TAGS 
   if(verbose) msg.imsg("Compare tags");
-  if(!u.compare(expectTags,tags,errs,0,16,verbose)) ++errs;
+  if(!u.compare(expectTags,tags,errs,0,16,verbose)) {
+    u.fileLoadError(fn,errs,die); 
+  }
 
   //Check BITS 
   if(verbose) msg.imsg("Compare bits");
-  if(!u.compare(*expectBits,*bits,errs,0,16,verbose)) ++errs;
+  if(!u.compare(*expectBits,*bits,errs,0,16,verbose)) {
+    u.fileLoadError(fn,errs,die); 
+  }
 
-  msg.imsg("End   basicRdHitTest");
+  endTest(errs,"basicRdHitTest");
 }
 // ----------------------------------------------------------------
 // ----------------------------------------------------------------
 void CacheModel::basicLruTest(uint32_t &errs,bool verbose)
 {
-  msg.imsg("Begin basicLruTest");
+  beginTest("basicLruTest");
 
   errs = 0;
   clearResizeArrays();
 
+  bool die = true;
   string fn = "../rtl/data/basicLru.bits.memb";
-  if(!u.loadRamFromVerilog(bits,fn,verbose)) { ++errs; return; }
+  if(!u.loadRamFromVerilog(bits,fn,verbose)) { 
+    u.fileLoadError(fn,errs,die); 
+  }
   //bits->info(cout);
 
   fn = "../rtl/data/basicLru.tags.memh";
-  if(!u.loadRamFromVerilog(tags,fn,verbose)) { ++errs; return; }
+  if(!u.loadRamFromVerilog(tags,fn,verbose)) { 
+    u.fileLoadError(fn,errs,die); 
+  }
 
   //dary[0]->info(cout,0,16);
   string basefn = "../rtl/data/basicLru.dsram";
   for(size_t i=0;i<4;++i) {
     fn =  basefn+::to_string(i)+".memh";
-    if(!u.loadRamFromVerilog(dary[i],fn,verbose)) { ++errs; return; }
+    if(!u.loadRamFromVerilog(dary[i],fn,verbose)) { 
+      u.fileLoadError(fn,errs,die); 
+    }
   }
 
   uint32_t _byte = 0;
@@ -244,31 +389,53 @@ void CacheModel::basicLruTest(uint32_t &errs,bool verbose)
     msg.imsg(ss.str());
   }
 
-  msg.imsg("End   basicLruTest");
-}
-// ----------------------------------------------------------------
-// ----------------------------------------------------------------
-void CacheModel::basicRdAllocTest(uint32_t &errs,bool verbose)
-{
-  ++errs;
+  endTest(errs,"basicLruTest");
 }
 // ----------------------------------------------------------------
 // ----------------------------------------------------------------
 void CacheModel::basicWrAllocTest(uint32_t &errs,bool verbose)
 {
+  beginTest("basicWrAllocTest");
   ++errs;
+  endTest(errs,"basicWrAllocTest");
 }
 // ----------------------------------------------------------------
 // ----------------------------------------------------------------
 void CacheModel::basicRdEvictTest(uint32_t &errs,bool verbose)
 {
+  beginTest("basicRdEvictTest");
   ++errs;
+  endTest(errs,"basicRdEvictTest");
 }
 // ----------------------------------------------------------------
 // ----------------------------------------------------------------
 void CacheModel::basicWrEvictTest(uint32_t &errs,bool verbose)
 {
+  beginTest("basicWrEvictTest");
   ++errs;
+  endTest(errs,"basicWrEvictTest");
+}
+// ----------------------------------------------------------------
+// ----------------------------------------------------------------
+void CacheModel::beginTest(std::string t) {
+  msg.imsg("BEGIN TEST  : "+t);
+}
+// ----------------------------------------------------------------
+void CacheModel::endTest(uint32_t &errs, std::string t)
+{
+  stringstream ss;
+  ss<<"END TEST    : ";
+  ss<<setw(16)<<setfill(' ')<<left<<t;
+  ss<<" : errors ";
+  ss<<setw(2)<<errs<<" : ";
+
+  if(errs) {
+    ss << " FAIL";
+    msg.emsg(ss.str());
+  } else {
+    ss << " PASS";
+    msg.imsg(ss.str());
+  }
 }
 // ----------------------------------------------------------------
 // ----------------------------------------------------------------

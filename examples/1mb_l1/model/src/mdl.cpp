@@ -188,6 +188,7 @@ exit(1);
 // tags        expectTags
 // dary        expectDary
 // captureData expectCaptureData
+// mm          expectMm
 // -----------------------------------------------------------------------
 void CacheModel::clearResizeArrays()
 {
@@ -208,6 +209,9 @@ void CacheModel::clearResizeMdlArrays()
   initSize(dary,"dary");
 
   captureData.clear();
+
+  if(mm) delete mm;
+  mm = new Ram("mm",opts.default_mm_entries,opts.mm_fetch_size*8);
 }
 // -----------------------------------------------------------------------
 void CacheModel::clearResizeExpArrays()
@@ -223,6 +227,9 @@ void CacheModel::clearResizeExpArrays()
   initSize(expectDary,"expDary");
 
   expectCaptureData.clear();
+
+  if(expectMm) delete expectMm;
+  expectMm = new Ram("expMm",opts.default_mm_entries,opts.mm_fetch_size*8);
 }
 // -----------------------------------------------------------------------
 // -----------------------------------------------------------------------

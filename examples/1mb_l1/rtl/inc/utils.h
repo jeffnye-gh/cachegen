@@ -174,18 +174,19 @@ begin
 end
 endtask
 // -----------------------------------------------------------------
+// format is val[3:0],mod[3:0], 1'b0,lru[2:0]
 // -----------------------------------------------------------------
 task load_initial_bits(input string fn,input int verbose=0);
 integer i;
-reg [10:0] local_bits[EXP_DATA_ENTRIES];
+reg [11:0] local_bits[EXP_DATA_ENTRIES];
 begin
   if(verbose) $display("-I: loading initial bit data from %0s",fn);
   //clear_tmp_data();
   $readmemb(fn,local_bits);
   for(i=0;i<EXP_DATA_ENTRIES;i=i+1) begin
     top.dut0.lrurf0.regs[i] = local_bits[i][2:0];
-    top.dut0.dirty0.regs[i] = local_bits[i][6:3];
-    top.dut0.valid0.regs[i] = local_bits[i][10:7];
+    top.dut0.dirty0.regs[i] = local_bits[i][7:4];
+    top.dut0.valid0.regs[i] = local_bits[i][11:8];
   end
 end
 endtask
@@ -290,7 +291,7 @@ begin
 
     top.mm_expect_tags[i]  =  56'bx;
 
-    top.mm_expect_bits[i]  =  11'bx;
+    top.mm_expect_bits[i]  =  12'bx;
 
     top.mm_expect_dary_0[i]  =  256'bx;
     top.mm_expect_dary_1[i]  =  256'bx;
@@ -468,7 +469,7 @@ task check_tb_tags_bits(inout int errs,input int start,stop,verbose=0);
 integer i;
 reg matcht,matchb,match;
 reg [55:0] local_tags[0:EXP_DATA_ENTRIES];
-reg [10:0] local_bits[0:EXP_DATA_ENTRIES];
+reg [11:0] local_bits[0:EXP_DATA_ENTRIES];
 reg [3:0] vbits;
 reg [3:0] mbits;
 reg [2:0] lbits;
@@ -488,12 +489,13 @@ begin
       vbits = top.dut0.valid0.regs[i];
       mbits = top.dut0.dirty0.regs[i];
       lbits = top.dut0.lrurf0.regs[i];
-      local_bits[i] = { vbits, mbits, lbits }; 
+      local_bits[i] = { vbits, mbits, 1'b0, lbits }; 
     end
     for(i=start;i<stop;i+=1) begin
       matcht = compare32(top.mm_expect_tags[i],local_tags[i]);
       matchb = compare32(top.mm_expect_bits[i],local_bits[i]);
       match  = matcht & matchb;
+
       prefix = "-I:";
       
       if(!match) begin
@@ -508,8 +510,8 @@ begin
           top.mm_expect_tags[i][41:28],
           top.mm_expect_tags[i][27:14],
           top.mm_expect_tags[i][13:0],
-          top.mm_expect_bits[i][10:7],
-          top.mm_expect_bits[i][6:3],
+          top.mm_expect_bits[i][11:8],
+          top.mm_expect_bits[i][7:4],
           top.mm_expect_bits[i][2:0],match);
 
         $display("%0s %02d act:%03x %03x %03x %03x : %04b %04b %03b : %1b\n",
@@ -518,8 +520,8 @@ begin
           local_tags[i][41:28],
           local_tags[i][27:14],
           local_tags[i][13:0],
-          local_bits[i][10:7],
-          local_bits[i][6:3],
+          local_bits[i][11:8],
+          local_bits[i][7:4],
           local_bits[i][2:0],match);
       end
     end

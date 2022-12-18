@@ -1,32 +1,6 @@
 // vi:syntax=verilog
 //
-// Initial conditions
-//
-// Configuration 0
-// Cotrol bit expected values {valid[3:0],mod[3:0],lru}
-// Entries 32
-// Width   11b  - 
-// {val3,val2,val1,val0,mod3,mod2,mod1,mod0,lru2,lru1,lru0}
-//
-// 
-// access sequence is 
-//
-// i:13'h000 t:14'h003  000 -> way3  b2 !b1 !b0  -> 0 1 1
-// i:13'h001 t:14'h001  000 -> way1 !b2  b1 !b0  -> 1 0 1
-// i:13'h002 t:14'h002  000
-// i:13'h003 t:14'h000  000
-// i:13'h004 t:14'h000  000
-// i:13'h001 t:14'h001  101 -> way1 !b2  b1 !b0  -> 0 0 0   *
-// i:13'h005 t:14'h002  000
-// i:13'h007 t:14'h003  000
-// i:13'h002 t:14'h000  xxx
-// i:13'h003 t:14'h001  xxx
-// i:13'h003 t:14'h000  xxx
-// i:13'h003 t:14'h001  xxx
-// i:13'h006 t:14'h003  000
-// i:13'h006 t:14'h000  xxx
-// i:13'h002 t:14'h000  xxx
-// i:13'h000 t:14'h001  011 -> way1 !b2  b1 !b0  -> 1 1 0  *
+// {val3,val2,val1,val0,mod3,mod2,mod1,mod0,1'b0,lru2,lru1,lru0}
 //
 // ---------------------------------------------------------------------------
 @0000 1111_0000_0000
@@ -62,4 +36,3 @@
       1111_0000_0000
       1111_0000_0000
       1111_0000_0000
-

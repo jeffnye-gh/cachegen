@@ -14,6 +14,7 @@ const string Utils::vlgSep =
 bool Utils::compare(BitArray &exp,BitArray &act,
                     uint32_t &errs,size_t start, size_t count,bool verbose)
 {
+  if(verbose) msg.imsg("bit array size check");
   if(!sizeChecks(errs,exp.mem.size(),act.mem.size())) return false;
 
   bool ok = true;
@@ -67,9 +68,69 @@ bool Utils::compare(BitArray &exp,BitArray &act,
   return ok;
 }
 // ----------------------------------------------------------------
+bool Utils::compare(Ram *exp,Ram *act, uint32_t &errs,
+                    size_t start, size_t count,bool verbose,int32_t way)
+{
+  if(way != -1) {
+    if(verbose) msg.imsg("ram array size check : w"+::to_string(way));
+    if(!sizeChecks(errs,exp->mem.size(),act->mem.size())) return false;
+  } else {
+    if(verbose) msg.imsg("skipping  main memory size check");
+  }
+
+  bool ok = true;
+  for(size_t idx=start;idx<start+count;++idx) {
+
+    exp->q = exp->mem.find(idx);
+    act->q = act->mem.find(idx);
+
+    bool expFound = exp->q != exp->mem.end();
+    bool actFound = act->q != act->mem.end();
+
+    if( !expFound || !actFound) {
+      if(way != -1) { //-1 = main memory, no way info
+        msg.emsg("Index not found, way:"+::to_string(way)
+                                +" idx:"+::to_string(idx));
+      } else {
+        msg.emsg("Index not found, idx:"+::to_string(idx));
+      }
+
+      msg.emsg("   exp found: "+::to_string(expFound));
+      msg.emsg("   act found: "+::to_string(actFound));
+      ++errs;
+      continue;
+    }
+
+    string expLine = tostr(exp->q->second);
+    string actLine = tostr(act->q->second);
+
+    string idxs;
+    if(way != -1) idxs = "w"+::to_string(way)+":"+::to_string(idx);
+    else          idxs = "mm:"+::to_string(idx);
+
+    if(expLine != actLine) {
+      ++errs;
+      ok = false;
+      //msg.emsg("compareR: ");
+      msg.msg(idxs+":exp:"+expLine+" F");
+      msg.msg(idxs+":act:"+actLine+" F");
+      msg.msg("");
+    } else if(verbose) {
+      //msg.imsg("compareR: ");
+      msg.msg(idxs+":exp:"+expLine+" P");
+      msg.msg(idxs+":act:"+actLine+" P");
+      msg.msg("");
+    }
+  }
+
+  return ok;
+}
+// ----------------------------------------------------------------
+// ----------------------------------------------------------------
 bool Utils::compare(vector<Ram*> &exp,vector<Ram*> &act,
                     uint32_t &errs,size_t start, size_t count,bool verbose)
 {
+  if(verbose) msg.imsg("ram vector size check ");
   if(!sizeChecks(errs,exp.size(),act.size())) return false;
   if(exp.size() != 4 || act.size() !=4) {
     msg.emsg("compare requires 4 ways per array");
@@ -79,41 +140,42 @@ bool Utils::compare(vector<Ram*> &exp,vector<Ram*> &act,
   bool ok = true;
 
   for(size_t way=0;way<4;++way) {
-    for(size_t idx=start;idx<start+count;++idx) {
-
-      exp[way]->q = exp[way]->mem.find(idx);
-      act[way]->q = act[way]->mem.find(idx);
-
-      bool expFound = exp[way]->q != exp[way]->mem.end();
-      bool actFound = act[way]->q != act[way]->mem.end();
-
-      if( !expFound || !actFound) {
-        msg.emsg("Index not found, way:"+::to_string(way)
-                                +" idx:"+::to_string(idx));
-        msg.emsg("   exp found: "+::to_string(expFound));
-        msg.emsg("   act found: "+::to_string(actFound));
-        ++errs;
-        continue;
-      }
-
-      string expLine = tostr(exp[way]->q->second);
-      string actLine = tostr(act[way]->q->second);
-
-      string idxs = "w"+::to_string(way)+":"+::to_string(idx);
-      if(expLine != actLine) {
-        ++errs;
-        ok = false;
-        //msg.emsg("compareR: ");
-        msg.msg(idxs+":exp:"+expLine+" F");
-        msg.msg(idxs+":act:"+actLine+" F");
-        msg.msg("");
-      } else if(verbose) {
-        //msg.imsg("compareR: ");
-        msg.msg(idxs+":exp:"+expLine+" P");
-        msg.msg(idxs+":act:"+actLine+" P");
-        msg.msg("");
-      }
-    }
+    if(!compare(exp[way],act[way],errs,start,count,verbose,way)) ok = false;
+//    for(size_t idx=start;idx<start+count;++idx) {
+//
+//      exp[way]->q = exp[way]->mem.find(idx);
+//      act[way]->q = act[way]->mem.find(idx);
+//
+//      bool expFound = exp[way]->q != exp[way]->mem.end();
+//      bool actFound = act[way]->q != act[way]->mem.end();
+//
+//      if( !expFound || !actFound) {
+//        msg.emsg("Index not found, way:"+::to_string(way)
+//                                +" idx:"+::to_string(idx));
+//        msg.emsg("   exp found: "+::to_string(expFound));
+//        msg.emsg("   act found: "+::to_string(actFound));
+//        ++errs;
+//        continue;
+//      }
+//
+//      string expLine = tostr(exp[way]->q->second);
+//      string actLine = tostr(act[way]->q->second);
+//
+//      string idxs = "w"+::to_string(way)+":"+::to_string(idx);
+//      if(expLine != actLine) {
+//        ++errs;
+//        ok = false;
+//        //msg.emsg("compareR: ");
+//        msg.msg(idxs+":exp:"+expLine+" F");
+//        msg.msg(idxs+":act:"+actLine+" F");
+//        msg.msg("");
+//      } else if(verbose) {
+//        //msg.imsg("compareR: ");
+//        msg.msg(idxs+":exp:"+expLine+" P");
+//        msg.msg(idxs+":act:"+actLine+" P");
+//        msg.msg("");
+//      }
+//    }
   }
   return ok;
 }
@@ -121,6 +183,7 @@ bool Utils::compare(vector<Ram*> &exp,vector<Ram*> &act,
 bool Utils::compare(vector<Tag*> &exp,vector<Tag*> &act,
                     uint32_t &errs,size_t start, size_t count,bool verbose)
 { 
+  if(verbose) msg.imsg("tag vector size check ");
   if(!sizeChecks(errs,exp.size(),act.size())) return false;
   if(exp.size() != 4 || act.size() !=4) {
     msg.emsg("compare requires 4 ways per array");
@@ -170,6 +233,7 @@ bool Utils::compare(vector<Tag*> &exp,vector<Tag*> &act,
 bool Utils::compare(vector<uint32_t> &exp,vector<uint32_t> &act,
                     uint32_t &errs,size_t start, size_t count,bool verbose)
 {
+  if(verbose) msg.imsg("vector size check ");
   if(!sizeChecks(errs,exp.size(),act.size())) return false;
 
   bool ok = true;
