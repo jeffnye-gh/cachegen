@@ -9,7 +9,6 @@ void CacheModel::basicRdAllocTest(uint32_t &errs,bool verbose)
   errs = 0;
   clearResizeArrays();
 
-  bool v = verbose;
   bool die = true;
 
   string fn = "../rtl/data/basicRdAlloc.mm.memh";
@@ -34,30 +33,29 @@ void CacheModel::basicRdAllocTest(uint32_t &errs,bool verbose)
       u.fileLoadError(fn,errs,die); 
     }
   }
-
-          //tag/way index   word
-  //a:00000000
-  captureData.push_back(ld(ADDR(0x000,0x000,0x3,0x0),0xF,v));//miss
-  //a:00002001
-  captureData.push_back(ld(ADDR(0x001,0x001,0x7,0x0),0xF,v));
-  //a:00004002
-  captureData.push_back(ld(ADDR(0x002,0x002,0x6,0x0),0xF,v));
-  //a:00006003
-  captureData.push_back(ld(ADDR(0x003,0x003,0x6,0x0),0xF,v));
-  //a:00006004
-  captureData.push_back(ld(ADDR(0x003,0x004,0x5,0x0),0xF,v));
-  //a:00002005
-  captureData.push_back(ld(ADDR(0x001,0x005,0x1,0x0),0xF,v));
-  //a:00004006
-  captureData.push_back(ld(ADDR(0x002,0x006,0x5,0x0),0xF,v));
-  //a:00006007
-  captureData.push_back(ld(ADDR(0x003,0x007,0x3,0x0),0xF,v));
-  //a:00002008
-  captureData.push_back(ld(ADDR(0x001,0x008,0x2,0x0),0xF,v));
-  //a:00000009
-  captureData.push_back(ld(ADDR(0x000,0x009,0x1,0x0),0xF,v));
-  //a:0000200a
-  captureData.push_back(ld(ADDR(0x001,0x00a,0x1,0x0),0xF,v));
+                             //tag/way index   word
+  //a:00000000                    0     0 inv             010 -> 0 b1 0    0 1 0
+  captureData.push_back(ld(ADDR(0x000,0x000,0x3,0x0),0xF,verbose));//miss
+  //a:00002001                    1     1 inv             100 -> 0 b1 1    0 0 1
+  captureData.push_back(ld(ADDR(0x001,0x001,0x7,0x0),0xF,verbose));
+  //a:00004002                    2     2 inv             000 -> 1 0  b0   1 0 0
+  captureData.push_back(ld(ADDR(0x002,0x002,0x6,0x0),0xF,verbose));
+  //a:00006003                    3     3 inv             011 -> 1 1  b0   1 1 1
+  captureData.push_back(ld(ADDR(0x003,0x003,0x6,0x0),0xF,verbose));
+  //a:00006004                    3     4 inv             000 -> 1 1  b0   1 1 0
+  captureData.push_back(ld(ADDR(0x003,0x004,0x5,0x0),0xF,verbose));
+  //a:00002005                    1     5 inv             000 -> 0 b1 1    0 0 1
+  captureData.push_back(ld(ADDR(0x001,0x005,0x1,0x0),0xF,verbose));
+  //a:00004006                    2     6 inv             010 -> 1 0  b0   1 0 0
+  captureData.push_back(ld(ADDR(0x002,0x006,0x5,0x0),0xF,verbose));
+  //a:00006007                    3     7 inv             001 -> 1 1  b0   1 1 1
+  captureData.push_back(ld(ADDR(0x003,0x007,0x3,0x0),0xF,verbose));
+  //a:00002008                    1     8 inv             111 -> 0 b1 1    0 1 1
+  captureData.push_back(ld(ADDR(0x001,0x008,0x2,0x0),0xF,verbose));
+  //a:00000009                    0     9 inv             101 ->0 b1 0     0 0 0
+  captureData.push_back(ld(ADDR(0x000,0x009,0x1,0x0),0xF,verbose));
+  //a:0000200a                    1     a inv             010 -> 0 b1 1    0 1 1
+  captureData.push_back(ld(ADDR(0x001,0x00a,0x1,0x0),0xF,verbose));
 
   // -------------------------------------------------------------------
   //Load the expect data
@@ -98,6 +96,12 @@ void CacheModel::basicRdAllocTest(uint32_t &errs,bool verbose)
   // -------------------------------------------------------------------
   // Check
   // -------------------------------------------------------------------
+  //Check CAPTURE DATA 
+  if(verbose) msg.imsg("Compare capture data");
+  if(!u.compare(expectCaptureData,captureData,errs,0,11,verbose)) {
+    u.fileLoadError(fn,errs,die);
+  }
+
   //Check TAGS 
   if(verbose) msg.imsg("Compare tags");
   u.compare(expectTags,tags,errs,0,16,verbose);
@@ -110,12 +114,12 @@ void CacheModel::basicRdAllocTest(uint32_t &errs,bool verbose)
   if(verbose) msg.imsg("Compare dary");
   u.compare(expectDary,dary,errs,0,16,verbose);
 
-////HELP
+//HELP
   //Check MM 
   if(verbose) msg.imsg("Compare main memory");
   u.compare(expectMm,mm,errs,0,16,verbose,-1);
 
-  ++errs;
+//  ++errs;
   endTest(errs,"basicRdAllocTest");
 }
 // ----------------------------------------------------------------

@@ -51,6 +51,7 @@ bool Utils::compare(BitArray &exp,BitArray &act,
     ss<<" act:"<<actV<<" "<<actM<<" "<<actL;
 
     if(expD != actD) {
+      ++errs;
       ss<<" FAIL";
       msg.emsg(ss.str());
       ok = false;
@@ -61,6 +62,7 @@ bool Utils::compare(BitArray &exp,BitArray &act,
     ++exp.q;
     act.q = act.mem.find(exp.q->first);
     if(act.q == act.mem.end()) {
+      ++errs;
       msg.emsg("Index error at "+::to_string(exp.q->first));
     }
   } 
@@ -542,7 +544,7 @@ bool Utils::loadRamFromVerilog(Ram *ram,ifstream &in,bool verbose)
 }
 // ----------------------------------------------------------------
 // ----------------------------------------------------------------
-uint32_t Utils::hexStrToUint(string s)
+uint32_t Utils::hexStrToUint(string s,bool reportX)
 {
   string ns = s;
   to_upper(ns);
@@ -552,6 +554,21 @@ uint32_t Utils::hexStrToUint(string s)
 
   pos = ns.find("@");
   if(pos != string::npos) ns.erase(pos,1);
+
+  pos = ns.find("X");
+  if(pos != string::npos) {
+    if(reportX) {
+      msg.wmsg("Verilog X value(s) found in hexStrToUint(), converted to 'f'");
+    }
+
+    while(pos != string::npos) {
+      ns.replace(pos,1,"F");
+      pos = ns.find("X");
+    }
+  }
+
+  pos = ns.find("X");
+  ASSERT(pos == string::npos,"failed to convert X values in verilog string");
 
   uint32_t i;
 

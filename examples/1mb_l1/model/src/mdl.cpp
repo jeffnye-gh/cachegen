@@ -85,7 +85,7 @@ uint32_t CacheModel::readHit(bool verbose)
 // -----------------------------------------------------------------------
 uint32_t CacheModel::readMiss(bool verbose)
 {
-  msg.imsg("+CacheModel::readMiss");
+  if(verbose) msg.imsg("+CacheModel::readMiss");
 
   //select either by Val or Lru
   int32_t valWaySel = waySelectByVal();
@@ -97,7 +97,7 @@ uint32_t CacheModel::readMiss(bool verbose)
   //if using LRU check for dirty and write back if needed
   if(lruSel && wayIsMod(waySel)) writeBack(waySel);
   
-  return rdAllocate(waySel);
+  return rdAllocate(waySel,verbose);
 }
 // -----------------------------------------------------------------------
 // Allocate from main memory to the index into the targetWay
@@ -106,9 +106,9 @@ uint32_t CacheModel::readMiss(bool verbose)
 // from the original request address
 // 
 // -----------------------------------------------------------------------
-uint32_t CacheModel::rdAllocate(uint32_t targetWay)
+uint32_t CacheModel::rdAllocate(uint32_t targetWay,bool verbose)
 {
-  msg.imsg("+CacheModel::rdAllocate");
+  if(verbose) msg.imsg("+CacheModel::rdAllocate");
   //read mm and load the dary @ targetWay
   mm->q = mm->mem.find(pckt.mmAddr);
 
@@ -128,7 +128,7 @@ uint32_t CacheModel::rdAllocate(uint32_t targetWay)
   ASSERT(pckt.idx < opts.l1_sets, "rdAllocate(): pckt.idx is corrupted");
 
   //update the dary at way = targetWay
-  dary[targetWay]->mem.emplace(pckt.idx,line);
+  dary[targetWay]->st_line(pckt,line);
 
   //update the tag  at way = targetWay
   tags[targetWay]->mem.emplace(pckt.idx,pckt.tag);
@@ -139,6 +139,8 @@ uint32_t CacheModel::rdAllocate(uint32_t targetWay)
     bits->mem.emplace(pckt.idx,0);
   }
 
+  bits->updateVal(targetWay,1);
+  bits->updateMod(targetWay,0);
   bits->updateLru(targetWay);
   //return the critical word
   return line[pckt.off];

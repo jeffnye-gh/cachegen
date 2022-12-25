@@ -11,7 +11,7 @@ int main(int ac,char **av)
   cm.opts.basicLruTest     = true;
   cm.opts.basicRdHitTest   = true;
   cm.opts.basicWrHitTest   = true;
-  cm.opts.basicRdAllocTest = false;
+  cm.opts.basicRdAllocTest = true;
   cm.opts.basicWrAllocTest = false;
   cm.opts.basicRdEvictTest = false;
   cm.opts.basicWrEvictTest = false;

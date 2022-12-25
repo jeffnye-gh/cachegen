@@ -7,7 +7,7 @@
 #include <cmath>
 using namespace std;
 
-#define BIT(A,B) (B >> A) & 0x1
+#define BIT(A,B) ((B >> A) & 0x1)
 // ------------------------------------------------------------------------
 // LRU truth table
 //
@@ -25,7 +25,10 @@ void BitArray::updateLru(uint32_t targetWay)
     case 1: newLru = (0 << 2) | (BIT(1,lru) << 1) | 1; break;
     case 2: newLru = (1 << 2) | (0          << 1) | (BIT(0,lru)); break;
     case 3: newLru = (1 << 2) | (1          << 1) | (BIT(0,lru)); break;
-    default: newLru = 0;
+    default: {
+      newLru = 0;
+      ASSERT(0,"updateLru() fallthrough");
+    } 
   } 
  
   q->second = (getVal() << 8) | (getMod() << 4) | newLru; 
@@ -38,19 +41,35 @@ void BitArray::updateLru(AddressPacket &pckt)
 }
 // ------------------------------------------------------------------------
 // ------------------------------------------------------------------------
-void BitArray::updateMod(uint32_t targetWay,uint32_t val)
+void BitArray::updateMod(uint32_t targetWay,uint32_t data)
 {
   bitset<4> mod(getMod(q));
-  bool v = val == 1 ? true : false;
+  bool v = data == 1 ? true : false;
   mod.set(targetWay,v); 
   uint32_t _mod =  (uint32_t) (mod.to_ulong() &0xF);
   q->second = (getVal() << 8) | (_mod << 4) | getLru(); 
 }
 // ------------------------------------------------------------------------
-void BitArray::updateMod(AddressPacket &pckt,uint32_t val)
+void BitArray::updateMod(AddressPacket &pckt,uint32_t data)
 {
   q = mem.find(pckt.idx);
-  updateMod(pckt.wayHit,val);
+  updateMod(pckt.wayHit,data);
+}
+// ------------------------------------------------------------------------
+// ------------------------------------------------------------------------
+void BitArray::updateVal(uint32_t targetWay,uint32_t data)
+{
+  bitset<4> val(getVal(q));
+  bool v = data == 1 ? true : false;
+  val.set(targetWay,v); 
+  uint32_t _val =  (uint32_t) (val.to_ulong() &0xF);
+  q->second = (_val << 8) | (getMod() << 4) | getLru(); 
+}
+// ------------------------------------------------------------------------
+void BitArray::updateVal(AddressPacket &pckt,uint32_t data)
+{
+  q = mem.find(pckt.idx);
+  updateMod(pckt.wayHit,data);
 }
 // ------------------------------------------------------------------------
 // ------------------------------------------------------------------------

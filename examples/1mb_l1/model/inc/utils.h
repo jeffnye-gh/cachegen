@@ -114,7 +114,7 @@ struct Utils
                bool verbose=false,int32_t way=-1);
 
   // ------------------------------------------------------------------
-  uint32_t hexStrToUint(std::string s);
+  uint32_t hexStrToUint(std::string s,bool reportX=false);
 
   void to_upper(std::string &in) {
     std::transform(in.begin(),in.end(),
