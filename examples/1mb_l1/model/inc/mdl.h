@@ -70,7 +70,7 @@ struct CacheModel
   int32_t waySelectByVal();
   int32_t waySelectByLru();
 
-  uint32_t rdAllocate(uint32_t way,bool verbose=false);
+  void allocate(uint32_t way,line_t &,bool verbose=false);
   void writeBack(uint32_t way);
 
   void bitsLookup(AddressPacket&,bool verbose=false);

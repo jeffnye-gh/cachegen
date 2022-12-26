@@ -12,7 +12,7 @@ int main(int ac,char **av)
   cm.opts.basicRdHitTest   = true;
   cm.opts.basicWrHitTest   = true;
   cm.opts.basicRdAllocTest = true;
-  cm.opts.basicWrAllocTest = false;
+  cm.opts.basicWrAllocTest = true;
   cm.opts.basicRdEvictTest = false;
   cm.opts.basicWrEvictTest = false;
   if(!cm.runTests(false)) return 1;

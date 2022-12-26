@@ -113,6 +113,7 @@ struct Utils
   bool compare(Ram *exp,Ram *act,uint32_t&,size_t start,size_t end,
                bool verbose=false,int32_t way=-1);
 
+  uint32_t stBytes(uint32_t rd,uint32_t wd,uint32_t be);
   // ------------------------------------------------------------------
   uint32_t hexStrToUint(std::string s,bool reportX=false);
 

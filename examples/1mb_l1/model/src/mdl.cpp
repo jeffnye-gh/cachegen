@@ -92,12 +92,19 @@ uint32_t CacheModel::readMiss(bool verbose)
   int32_t lruWaySel = waySelectByLru();
 
   bool lruSel = valWaySel < 0;
-  uint32_t waySel = lruSel ? lruWaySel : (uint32_t) valWaySel;
+  pckt.wayHit = lruSel ? lruWaySel : (uint32_t) valWaySel;
 
   //if using LRU check for dirty and write back if needed
-  if(lruSel && wayIsMod(waySel)) writeBack(waySel);
-  
-  return rdAllocate(waySel,verbose);
+  if(lruSel && wayIsMod(pckt.wayHit)) writeBack(pckt.wayHit);
+ 
+  line_t line; 
+  allocate(pckt.wayHit,line,verbose);
+  //update the bits  - set the way valid, clear the mod, update lru
+
+  bits->updateVal(pckt.wayHit,1);
+  bits->updateMod(pckt.wayHit,0);
+  bits->updateLru(pckt.wayHit);
+  return line[pckt.off]; 
 }
 // -----------------------------------------------------------------------
 // Allocate from main memory to the index into the targetWay
@@ -106,26 +113,26 @@ uint32_t CacheModel::readMiss(bool verbose)
 // from the original request address
 // 
 // -----------------------------------------------------------------------
-uint32_t CacheModel::rdAllocate(uint32_t targetWay,bool verbose)
+void CacheModel::allocate(uint32_t targetWay,line_t &line,bool verbose)
 {
-  if(verbose) msg.imsg("+CacheModel::rdAllocate");
+  if(verbose) msg.imsg("+CacheModel::allocate");
   //read mm and load the dary @ targetWay
   mm->q = mm->mem.find(pckt.mmAddr);
 
   //this should not have happened, must abort
   stringstream ss;ss<<HEX<<pckt.mmAddr;
   ASSERT(mm->q != mm->mem.end(),
-         "missing main memory entry in rdAllocate() 0x"+ss.str());
+         "missing main memory entry in allocate() 0x"+ss.str());
   //Check the ranges, none of this should happen, must abort
   //this assumes all arrays have the same number of indexs as tags
   ASSERT(targetWay < opts.l1_associativity,
-         "rdAllocate(): targetWay is corrupted");
+         "allocate(): targetWay is corrupted");
 
   //Main memory data, this will be stored in dary pckt.idx, targetWay
-  line_t line =  mm->q->second;
+  line =  mm->q->second;
 
-  ASSERT(pckt.off < line.size(),  "rdAllocate(): pckt.off is corrupted");
-  ASSERT(pckt.idx < opts.l1_sets, "rdAllocate(): pckt.idx is corrupted");
+  ASSERT(pckt.off < line.size(),  "allocate(): pckt.off is corrupted");
+  ASSERT(pckt.idx < opts.l1_sets, "allocate(): pckt.idx is corrupted");
 
   //update the dary at way = targetWay
   dary[targetWay]->st_line(pckt,line);
@@ -133,17 +140,10 @@ uint32_t CacheModel::rdAllocate(uint32_t targetWay,bool verbose)
   //update the tag  at way = targetWay
   tags[targetWay]->mem.emplace(pckt.idx,pckt.tag);
 
-  //update the bits  - set the way valid, clear the mod, update lru
   bits->q = bits->mem.find(pckt.idx);
   if(bits->q == bits->mem.end()) {
     bits->mem.emplace(pckt.idx,0);
   }
-
-  bits->updateVal(targetWay,1);
-  bits->updateMod(targetWay,0);
-  bits->updateLru(targetWay);
-  //return the critical word
-  return line[pckt.off];
 }
 // -----------------------------------------------------------------------
 // STORE
@@ -155,13 +155,11 @@ void CacheModel::st(uint32_t a,uint32_t be,uint32_t data, bool verbose)
   pckt = AddressPacket(a,be,getTagField(a),getIndexField(a),
                             getOffsetField(a),getMMAddr(a));
 
-
   bitsLookup(pckt,verbose);
   tagLookup(pckt,verbose);
 
   if(pckt.hit) writeHit(data);
   else         writeMiss(data);
-  //if(verbose) pckt.info(cout);
 }
 // -----------------------------------------------------------------------
 // -----------------------------------------------------------------------
@@ -176,10 +174,32 @@ void CacheModel::writeHit(uint32_t d,bool verbose)
 // -----------------------------------------------------------------------
 void CacheModel::writeMiss(uint32_t d,bool verbose)
 {
-  cout<<"HERE writeMiss"<<endl;
-  //FIXME: incomplete 
-  bits->updateLru(pckt);
-exit(1);
+  if(verbose) msg.imsg("+CacheModel::writeMiss");
+
+  //select either by Val or Lru
+  int32_t valWaySel = waySelectByVal();
+  int32_t lruWaySel = waySelectByLru();
+
+  bool lruSel = valWaySel < 0;
+  pckt.wayHit = lruSel ? lruWaySel : (uint32_t) valWaySel;
+
+  //if using LRU check for dirty and write back if needed
+  if(lruSel && wayIsMod(pckt.wayHit)) writeBack(pckt.wayHit);
+
+  line_t line;
+  allocate(pckt.wayHit,line,verbose);
+
+  //merge in write data - FIXME find a way to share this, see Ram::st(be)
+  uint32_t rd = line[pckt.off];
+  uint32_t newData = u.stBytes(rd,d,pckt.be);
+
+  line[pckt.off] = newData;
+  dary[pckt.wayHit]->st_line(pckt,line);
+
+  //update the bits  - set the way valid, set the mod, update lru
+  bits->updateVal(pckt.wayHit,1);
+  bits->updateMod(pckt.wayHit,1);
+  bits->updateLru(pckt.wayHit);
 }
 // -----------------------------------------------------------------------
 // INIT FUNCTIONS

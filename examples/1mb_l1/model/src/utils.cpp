@@ -644,3 +644,29 @@ std::string Utils::tostr(vector<uint32_t> &v)
 
   return ret;
 }
+// ----------------------------------------------------------------
+// ----------------------------------------------------------------
+uint32_t Utils::stBytes(uint32_t rd,uint32_t wd,uint32_t be)
+{
+  uint32_t rb0 = (rd >>  0) & 0xFF;
+  uint32_t rb1 = (rd >>  8) & 0xFF;
+  uint32_t rb2 = (rd >> 16) & 0xFF;
+  uint32_t rb3 = (rd >> 24) & 0xFF;
+
+  uint32_t wb0 = (wd >>  0) & 0xFF;
+  uint32_t wb1 = (wd >>  8) & 0xFF;
+  uint32_t wb2 = (wd >> 16) & 0xFF;
+  uint32_t wb3 = (wd >> 24) & 0xFF;
+
+  bitset<4> _be(be);
+  uint32_t b0 = _be[0] ? wb0 : rb0;
+  uint32_t b1 = _be[1] ? wb1 : rb1;
+  uint32_t b2 = _be[2] ? wb2 : rb2;
+  uint32_t b3 = _be[3] ? wb3 : rb3;
+
+  uint32_t newData = (b3&0xFF) << 24
+                   | (b2&0xFF) << 16
+                   | (b1&0xFF) <<  8
+                   | (b0&0xFF) <<  0;
+  return newData;
+}

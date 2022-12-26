@@ -2,6 +2,115 @@
 using namespace std;
 // ----------------------------------------------------------------
 // ----------------------------------------------------------------
+void CacheModel::basicWrAllocTest(uint32_t &errs,bool verbose)
+{
+  beginTest("basicWrAllocTest");
+
+  errs = 0;
+  clearResizeArrays();
+
+  bool die = true;
+
+  string fn = "../rtl/data/basicWrAlloc.mm.memh";
+  if(!u.loadRamFromVerilog(mm,fn,verbose)) {
+    u.fileLoadError(fn,errs,die);
+  }
+
+  fn = "../rtl/data/basicWrAlloc.tags.memh";
+  if(!u.loadRamFromVerilog(tags,fn,verbose)) {
+    u.fileLoadError(fn,errs,die);
+  }
+
+  fn = "../rtl/data/basicWrAlloc.bits.memb";
+  if(!u.loadRamFromVerilog(bits,fn,verbose)) {
+    u.fileLoadError(fn,errs,die);
+  }
+
+  string baseFn = "../rtl/data/basicWrAlloc.d";
+  for(size_t i=0;i<4;++i) {
+    fn = baseFn+::to_string(i)+".memh";
+    if(!u.loadRamFromVerilog(dary[i],fn,verbose)) {
+      u.fileLoadError(fn,errs,die);
+    }
+  }
+          //tag/way index   word
+  //a:00000000
+  st(ADDR(0x000,0x000,0x3,0x0),0xF,0x11111111,verbose);
+  //        way   index    tag      val     mod    lru
+  //a:00002001
+  st(ADDR(0x001,0x001,0x7,0x0),0xF,0x22222222,verbose);
+  //a:00004002
+  st(ADDR(0x002,0x002,0x6,0x0),0xF,0x23232323,verbose);
+  //a:00006003
+  st(ADDR(0x003,0x003,0x6,0x0),0xF,0x34353637,verbose);
+  //a:00006004
+  st(ADDR(0x003,0x004,0x5,0x0),0xF,0x45464748,verbose);
+  //a:00002005  way 1 index 5 be 1010
+  st(ADDR(0x001,0x005,0x1,0x0),0xA,0xFFFFFFFF,verbose);
+  //a:00004006  way 2 index 6 be 0101
+  st(ADDR(0x002,0x006,0x5,0x0),0x5,0x77777777,verbose);
+  //a:00006007
+  st(ADDR(0x003,0x007,0x3,0x0),0xF,0x98979695,verbose);
+  //a:00002008
+  st(ADDR(0x001,0x008,0x2,0x0),0xF,0xabacadae,verbose);
+  //a:00000009
+  st(ADDR(0x000,0x009,0x1,0x0),0xF,0xbeefb0da,verbose);
+  //a:0000200a
+  st(ADDR(0x001,0x00a,0x1,0x0),0xF,0xab109876,verbose);
+
+  // -------------------------------------------------------------------
+  //Load the expect data
+  // -------------------------------------------------------------------
+  //TAGS
+  fn = "../rtl/golden/basicWrAlloc.tags.memh";
+  if(!u.loadRamFromVerilog(expectTags,fn,verbose)) {
+    u.fileLoadError(fn,errs,die);
+  }
+
+  //BITS
+  fn = "../rtl/golden/basicWrAlloc.bits.memb";
+  if(!u.loadRamFromVerilog(expectBits,fn,verbose)) {
+    u.fileLoadError(fn,errs,die);
+  }
+
+  //Dary
+  baseFn = "../rtl/golden/basicWrAlloc.d";
+  for(size_t i=0;i<4;++i) {
+    fn = baseFn+::to_string(i)+".memh";
+    if(!u.loadRamFromVerilog(expectDary[i],fn,verbose)) {
+      u.fileLoadError(fn,errs,die);
+    }
+  }
+
+  //Main memory
+  fn = "../rtl/golden/basicWrAlloc.mm.memh";
+  if(!u.loadRamFromVerilog(expectMm,fn,verbose)) {
+    u.fileLoadError(fn,errs,die);
+  }
+
+  // -------------------------------------------------------------------
+  // Check
+  // -------------------------------------------------------------------
+  //Check TAGS 
+  if(verbose) msg.imsg("Compare tags");
+  u.compare(expectTags,tags,errs,0,16,verbose);
+
+  //Check BITS 
+  if(verbose) msg.imsg("Compare bits");
+  u.compare(*expectBits,*bits,errs,0,16,verbose);
+
+  //Check dary 
+  if(verbose) msg.imsg("Compare dary");
+  u.compare(expectDary,dary,errs,0,16,verbose);
+
+  //Check MM 
+  if(verbose) msg.imsg("Compare main memory");
+  u.compare(expectMm,mm,errs,0,16,verbose,-1);
+ 
+  endTest(errs,"basicWrAllocTest");
+}
+// ----------------------------------------------------------------
+// ----------------------------------------------------------------
 void CacheModel::basicRdAllocTest(uint32_t &errs,bool verbose)
 {
   beginTest("basicRdAllocTest");
@@ -394,14 +503,6 @@ void CacheModel::basicLruTest(uint32_t &errs,bool verbose)
   }
 
   endTest(errs,"basicLruTest");
-}
-// ----------------------------------------------------------------
-// ----------------------------------------------------------------
-void CacheModel::basicWrAllocTest(uint32_t &errs,bool verbose)
-{
-  beginTest("basicWrAllocTest");
-  ++errs;
-  endTest(errs,"basicWrAllocTest");
 }
 // ----------------------------------------------------------------
 // ----------------------------------------------------------------

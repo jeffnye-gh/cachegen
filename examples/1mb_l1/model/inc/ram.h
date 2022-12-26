@@ -47,7 +47,7 @@ struct Ram
   line_t ld_line(uint32_t a,uint32_t be);
 
   void st(AddressPacket &,uint32_t d);
-  void st(uint32_t a,uint32_t be,uint32_t d);
+//  void st(uint32_t a,uint32_t be,uint32_t d);
 
   void st_line(AddressPacket&,line_t &d);
   void st_line(uint32_t a,uint32_t be,line_t &d);

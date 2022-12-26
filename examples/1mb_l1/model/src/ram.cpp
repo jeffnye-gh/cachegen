@@ -190,6 +190,9 @@ void Ram::st(AddressPacket &pckt,uint32_t wd)
   //get the target word using the offset
   uint32_t rd = line[pckt.off];
 
+//  uint32_t newData = u.stBytes(rd,wd,pckt.be);
+
+  //FIXME: create utils as a global singleton and move this there.
   uint32_t rb0 = (rd >>  0) & 0xFF;
   uint32_t rb1 = (rd >>  8) & 0xFF;
   uint32_t rb2 = (rd >> 16) & 0xFF;
