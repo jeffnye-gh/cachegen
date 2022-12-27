@@ -79,6 +79,7 @@ obj/%.o: src/%.cpp
 lib: $(LIB_TARGET)
 
 $(LIB_TARGET): $(LIB_OBJ)
+	-mkdir -p lib
 	ar $(ARFLAGS) $(LIB_TARGET) $(LIB_OBJ)
 
 $(GEN_TARGET): $(LIB_TARGET) $(GEN_OBJ)

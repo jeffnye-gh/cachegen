@@ -60,7 +60,7 @@ uint32_t CacheModel::ld(uint32_t a,uint32_t be,bool verbose)
 // -----------------------------------------------------------------------
 uint32_t CacheModel::readHit(bool verbose)
 {
-  uint32_t data = dary[pckt.wayHit]->ld(pckt);
+  uint32_t data = dary[pckt.wayActive]->ld(pckt);
   bits->updateLru(pckt);
   return data;
 }
@@ -92,18 +92,18 @@ uint32_t CacheModel::readMiss(bool verbose)
   int32_t lruWaySel = waySelectByLru();
 
   bool lruSel = valWaySel < 0;
-  pckt.wayHit = lruSel ? lruWaySel : (uint32_t) valWaySel;
+  pckt.wayActive = lruSel ? lruWaySel : (uint32_t) valWaySel;
 
   //if using LRU check for dirty and write back if needed
-  if(lruSel && wayIsMod(pckt.wayHit)) writeBack(pckt.wayHit);
+  if(lruSel && wayIsMod(pckt.wayActive)) writeBack(pckt.wayActive);
  
   line_t line; 
-  allocate(pckt.wayHit,line,verbose);
+  allocate(pckt.wayActive,line,verbose);
   //update the bits  - set the way valid, clear the mod, update lru
 
-  bits->updateVal(pckt.wayHit,1);
-  bits->updateMod(pckt.wayHit,0);
-  bits->updateLru(pckt.wayHit);
+  bits->updateVal(pckt.wayActive,1);
+  bits->updateMod(pckt.wayActive,0);
+  bits->updateLru(pckt.wayActive);
   return line[pckt.off]; 
 }
 // -----------------------------------------------------------------------
@@ -166,7 +166,7 @@ void CacheModel::st(uint32_t a,uint32_t be,uint32_t data, bool verbose)
 void CacheModel::writeHit(uint32_t d,bool verbose)
 {
   //cout<<"HERE writeHit"<<endl;
-  dary[pckt.wayHit]->st(pckt,d);
+  dary[pckt.wayActive]->st(pckt,d);
   bits->updateMod(pckt,1);
   bits->updateLru(pckt);
 }
@@ -181,25 +181,25 @@ void CacheModel::writeMiss(uint32_t d,bool verbose)
   int32_t lruWaySel = waySelectByLru();
 
   bool lruSel = valWaySel < 0;
-  pckt.wayHit = lruSel ? lruWaySel : (uint32_t) valWaySel;
+  pckt.wayActive = lruSel ? lruWaySel : (uint32_t) valWaySel;
 
   //if using LRU check for dirty and write back if needed
-  if(lruSel && wayIsMod(pckt.wayHit)) writeBack(pckt.wayHit);
+  if(lruSel && wayIsMod(pckt.wayActive)) writeBack(pckt.wayActive);
 
   line_t line;
-  allocate(pckt.wayHit,line,verbose);
+  allocate(pckt.wayActive,line,verbose);
 
   //merge in write data - FIXME find a way to share this, see Ram::st(be)
   uint32_t rd = line[pckt.off];
   uint32_t newData = u.stBytes(rd,d,pckt.be);
 
   line[pckt.off] = newData;
-  dary[pckt.wayHit]->st_line(pckt,line);
+  dary[pckt.wayActive]->st_line(pckt,line);
 
   //update the bits  - set the way valid, set the mod, update lru
-  bits->updateVal(pckt.wayHit,1);
-  bits->updateMod(pckt.wayHit,1);
-  bits->updateLru(pckt.wayHit);
+  bits->updateVal(pckt.wayActive,1);
+  bits->updateMod(pckt.wayActive,1);
+  bits->updateLru(pckt.wayActive);
 }
 // -----------------------------------------------------------------------
 // INIT FUNCTIONS
@@ -328,7 +328,7 @@ void CacheModel::tagLookup(AddressPacket &pckt,bool verbose)
       if(contents == pckt.tag && pckt.val[i] == 1) {
         if(verbose) u.tag_msg(cout,"HIT   :",pckt.a,pckt.tag);
         pckt.hit    = true;
-        pckt.wayHit = i;
+        pckt.wayActive = i;
         return;
       }
     }
@@ -344,6 +344,19 @@ void CacheModel::writeBack(uint32_t way)
 {
 //  uint32_t idx = pckt.idx;
 //  uint32_t tag = getTag(idx,way);
+//  uint32_t evictWay = pckt.wayActive;
+//  uint32_t evictIdx = pckt.idx;
+//  uint32_t evictTag = tags[evictWay]->mem[evictIdx];
+cout<<"HERE write back"<<endl;
+//  //get the line from the dary
+//  line_t evictLine = dary[evictWay]->ld_line(evictIdx);
+//cout<<"HERE "<<evictLine<<endl;
+//  //clear the valid bit for that way
+//  bits->updateVal(pckt.idx,pckt.wayActive,0);
+//  //do not update LRU, let any allocation do it
+//  //n/a
+//  //write line to main memory
+//  mm->st_line(pckt,line);
 }
 // -----------------------------------------------------------------------
 // -----------------------------------------------------------------------

@@ -332,7 +332,8 @@ bool Utils::loadCaptureFromVerilog(vector<uint32_t> &vec,string fn,bool verbose)
         lvec[0].erase(0,1);
         address = hexStrToUint(lvec[0]);
       } else {
-        msg.emsg("Address syntax error, line "+::to_string(lineNum)+", "+tq(fn));
+        msg.emsg("Address syntax error, line "
+                 +::to_string(lineNum)+", "+tq(fn));
         return false;
       }
     } else {
@@ -340,7 +341,11 @@ bool Utils::loadCaptureFromVerilog(vector<uint32_t> &vec,string fn,bool verbose)
       data = lvec[0];
     }
 
-    uint32_t d = (uint32_t) ::stoi(data,nullptr,16);
+    //stoi throws out of range for 0x8000307F
+    //  uint32_t d = (uint32_t) ::stoi(data,nullptr,16);
+    //using stol and down casting
+    uint32_t d = (uint32_t) ::stol(data,nullptr,16);
+
     vec.push_back(d);
     runningAddr = address + 1;
   }

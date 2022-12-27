@@ -22,7 +22,7 @@ struct AddressPacket
       val(0),
       mod(0),
       lru(0),
-      wayHit(0)
+      wayActive(0)
   { }
 
   void info(std::ostream &out) {
@@ -37,7 +37,7 @@ struct AddressPacket
     out<<"   val:    0b"<<val.to_string()<<'\n';
     out<<"   mod:    0b"<<mod.to_string()<<'\n';
     out<<"   lru:    0b"<<lru.to_string()<<'\n';
-    out<<"   wayHit  "<<wayHit<<'\n';
+    out<<"   wayAct:   "<<wayActive<<'\n';
   }
 
   uint32_t a;       // the original request
@@ -54,6 +54,6 @@ struct AddressPacket
   std::bitset<4> mod; // dirty bits updated later
   std::bitset<4> lru; // dirty bits updated later
 
-  uint32_t wayHit;    // populated in taglookup()
+  uint32_t wayActive;    // populated in taglookup()
 };
 

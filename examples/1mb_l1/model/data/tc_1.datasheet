@@ -1,0 +1,95 @@
+
+L1 cache properties
+  Capacity      1 MB
+  Line size     32 bytes
+  Associativity 4 ways
+
+  Read miss          : ALLOCATE
+  Write miss         : ALLOCATE
+  Write hit          : NO-WRITE-THRU
+  Replacement        : PLRU
+  Coherency protocol : NONE
+  Victim buffer size : 0
+  Store buffer size  : 0
+  Tag type           : PHYSICAL
+  Critical word first: 1
+  MMU                : 0
+  MPU                : 0
+
+  Capacity      20 bits
+  Word offset   3 bits
+  Associativity 2 bits
+
+  #Blocks = Capacity / Block size = 2^20 / 2^5 = 2^15
+  #Sets   = #Blocks  / #Ways      = 2^15 / 2^2 = 2^13
+
+  With 32 main memory address bits
+    tag width    = 32 - 13 - 3 = 14 -> [31:18]
+    (capacity bits - index bits - offset bits)
+    set index    = 13 bits          -> [17:5]
+    offset width = 3 bits           -> [4:2]
+
+    3322222222221111111111          
+    10987654321098765432109876543210
+    ttttttttttttttiiiiiiiiiiiiio-- bbbb
+
+  Tags      :  8K x 4 x 13b
+  Valid bits:  8K x 4 x 1b
+  Dirty bits:  8K x 4 x 1b
+  LRU bits  :  8K x 3b
+
+  l1_tagBits        14
+  l1_setBits(index) 13
+  l1_offBits        3
+  l1_lru_bits       3
+  l1_line_size      32
+
+  l1_address_bits   20
+  l1_assocBits      2
+
+  l1_tagMsb         31
+  l1_tagLsb         18
+  l1_tagMask        00000000000000000011111111111111
+  l1_tagShift       18
+
+  l1_setMsb         17
+  l1_setLsb         5
+  l1_setMask        00000000000000000001111111111111
+  l1_setShift       5
+
+  l1_offMsb         4
+  l1_offLsb         2
+  l1_offMask        00000000000000000000000000000111
+  l1_offShift       2
+
+  l1_wrdMask        7
+  l1_wrdShift       2
+
+  l1_sets           8192
+
+  L1 numWays        4
+  L1 indexBits      13
+  L1 bytes per line 13
+
+  mm_lineMask       00000111111111111111111111111111
+  mm_lineShift      5
+
+Main memory properties
+  MM Capacity          4 GB
+  MM Populated entries 262144
+  MM Fetch size        32
+
+Files
+  preload_mm   1
+  preload_tags 0
+  preload_bits 0
+  preload_dary 0
+
+  bits_file  data/tc_1.bits.memb
+  tags_file  data/tc_1.tags.memh
+  mm_file    data/tc_1.mm.memh
+  dary_file  data/tc_1.d0.memh
+  dary_file  data/tc_1.d1.memh
+  dary_file  data/tc_1.d2.memh
+  dary_file  data/tc_1.d3.memh
+

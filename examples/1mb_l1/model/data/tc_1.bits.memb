@@ -1,0 +1,10 @@
+// ---------------------------------------------------------------
+// Control bit input data file
+//   index bits  : 383050112
+//   entries     : 0
+//   width       : 12
+//
+//   LRU sub-field is padded to 4 bit, 0+LRU
+//   V=valid, D=dirty, L=LRU
+//   VVVV DDDD 0LLL
+// ---------------------------------------------------------------

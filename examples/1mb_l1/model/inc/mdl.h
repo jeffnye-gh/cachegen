@@ -6,6 +6,9 @@
 #include <fstream>
 struct Ram;
 // ====================================================================
+// FIXME: some methods are not passed pckt, other's are, standardize
+// for all functions which use the pckt member consider making them
+// private and do not pass the pckt member as an arg
 // ====================================================================
 struct CacheModel
 {
@@ -25,7 +28,6 @@ struct CacheModel
   bool runTests(bool verbose=false);
   bool simulate(bool verbose=false);
   // ------------------------------------------------------------------
-  // ------------------------------------------------------------------
   uint32_t ld(uint32_t a,uint32_t be,bool verbose=false);
   void     st(uint32_t a,uint32_t be,uint32_t data,bool verbose=false);
 
@@ -42,16 +44,6 @@ struct CacheModel
            { return (a >> opts.l1_offShift) & opts.l1_offMask; }
   uint32_t getMMAddr(uint32_t a)
            { return (a >> opts.mm_lineShift) & opts.mm_lineMask; }
-
-//  void updateVal(uint32_t way,uint32_t b,uint32_t &in) {
-//  }
-//
-//  void updateMod(uint32_t way,uint32_t b,uint32_t &in) {
-//  }
-//
-//  void updateLru(uint32_t way,uint32_t b,uint32_t &in) {
-//  }
-
 
   void report(uint32_t&,uint32_t,uint32_t,bool verbose);
   // ------------------------------------------------------------------

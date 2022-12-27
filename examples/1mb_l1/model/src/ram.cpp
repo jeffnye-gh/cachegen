@@ -37,7 +37,7 @@ void BitArray::updateLru(uint32_t targetWay)
 void BitArray::updateLru(AddressPacket &pckt)
 {
   q = mem.find(pckt.idx);
-  updateLru(pckt.wayHit);
+  updateLru(pckt.wayActive);
 }
 // ------------------------------------------------------------------------
 // ------------------------------------------------------------------------
@@ -53,7 +53,7 @@ void BitArray::updateMod(uint32_t targetWay,uint32_t data)
 void BitArray::updateMod(AddressPacket &pckt,uint32_t data)
 {
   q = mem.find(pckt.idx);
-  updateMod(pckt.wayHit,data);
+  updateMod(pckt.wayActive,data);
 }
 // ------------------------------------------------------------------------
 // ------------------------------------------------------------------------
@@ -69,7 +69,7 @@ void BitArray::updateVal(uint32_t targetWay,uint32_t data)
 void BitArray::updateVal(AddressPacket &pckt,uint32_t data)
 {
   q = mem.find(pckt.idx);
-  updateMod(pckt.wayHit,data);
+  updateMod(pckt.wayActive,data);
 }
 // ------------------------------------------------------------------------
 // ------------------------------------------------------------------------
