@@ -40,17 +40,10 @@ struct Ram
   void info(std::ostream&,uint32_t begin=0,uint32_t end=16);
 
   uint32_t ld(AddressPacket &);
-  uint32_t ld(AddressPacket&,line_t&); //could be private
-  uint32_t ld(uint32_t a,uint32_t be);
-
   line_t ld_line(AddressPacket&);
-  line_t ld_line(uint32_t a,uint32_t be);
 
   void st(AddressPacket &,uint32_t d);
-//  void st(uint32_t a,uint32_t be,uint32_t d);
-
   void st_line(AddressPacket&,line_t &d);
-  void st_line(uint32_t a,uint32_t be,line_t &d);
 
   std::map<uint32_t,line_t>::iterator q;
   std::map<uint32_t,line_t> mem;

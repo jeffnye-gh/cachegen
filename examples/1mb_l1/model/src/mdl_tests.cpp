@@ -349,7 +349,6 @@ void CacheModel::basicRdAllocTest(uint32_t &errs,bool verbose)
   if(verbose) msg.imsg("Compare main memory");
   u.compare(expectMm,mm,errs,0,16,verbose,-1);
 
-  ++errs;
   endTest(errs,"basicRdAllocTest");
 }
 // ----------------------------------------------------------------
