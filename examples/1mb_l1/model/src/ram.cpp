@@ -47,20 +47,16 @@ void BitArray::updateMod(uint32_t idx,uint32_t targetWay,uint32_t data)
 }
 // ------------------------------------------------------------------------
 // ------------------------------------------------------------------------
-void BitArray::updateVal(uint32_t targetWay,uint32_t data)
+void BitArray::updateVal(uint32_t idx,uint32_t targetWay,uint32_t data)
 {
+  q = mem.find(idx);
   bitset<4> val(getVal(q));
   bool v = data == 1 ? true : false;
   val.set(targetWay,v); 
   uint32_t _val =  (uint32_t) (val.to_ulong() &0xF);
   q->second = (_val << 8) | (getMod() << 4) | getLru(); 
 }
-// ------------------------------------------------------------------------
-void BitArray::updateVal(AddressPacket &pckt,uint32_t data)
-{
-  q = mem.find(pckt.idx);
-  updateVal(pckt.wayActive,data);
-}
+
 // ------------------------------------------------------------------------
 // ------------------------------------------------------------------------
 uint32_t BitArray::getVal(uint32_t idx,uint32_t way)

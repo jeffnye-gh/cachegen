@@ -101,7 +101,7 @@ uint32_t CacheModel::readMiss(bool verbose)
   allocate(pckt.wayActive,line,verbose);
   //update the bits  - set the way valid, clear the mod, update lru
 
-  bits->updateVal(pckt.wayActive,1);
+  bits->updateVal(pckt.idx,pckt.wayActive,1);
   bits->updateMod(pckt.idx,pckt.wayActive,0);
   bits->updateLru(pckt.idx,pckt.wayActive);
   return line[pckt.off]; 
@@ -197,7 +197,7 @@ void CacheModel::writeMiss(uint32_t d,bool verbose)
   dary[pckt.wayActive]->st_line(pckt.idx,line);
 
   //update the bits  - set the way valid, set the mod, update lru
-  bits->updateVal(pckt.wayActive,1);
+  bits->updateVal(pckt.idx,pckt.wayActive,1);
   bits->updateMod(pckt.idx,pckt.wayActive,1);
   bits->updateLru(pckt.idx,pckt.wayActive);
 }

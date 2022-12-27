@@ -91,9 +91,7 @@ struct BitArray
 
   void updateLru(uint32_t idx,uint32_t targetWay);
   void updateMod(uint32_t idx,uint32_t targetWay,uint32_t v);
-
-  void updateVal(AddressPacket&,uint32_t v);
-  void updateVal(uint32_t targetWay,uint32_t v);
+  void updateVal(uint32_t idx,uint32_t targetWay,uint32_t v);
 
   //FIXME some hard coded magic numbers in this set of methods
   uint32_t getLru()             { return getLru(q); }
