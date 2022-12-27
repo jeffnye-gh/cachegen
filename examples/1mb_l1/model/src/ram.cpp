@@ -36,19 +36,14 @@ void BitArray::updateLru(uint32_t idx,uint32_t targetWay)
 }
 // ------------------------------------------------------------------------
 // ------------------------------------------------------------------------
-void BitArray::updateMod(uint32_t targetWay,uint32_t data)
+void BitArray::updateMod(uint32_t idx,uint32_t targetWay,uint32_t data)
 {
+  q = mem.find(idx);
   bitset<4> mod(getMod(q));
   bool v = data == 1 ? true : false;
   mod.set(targetWay,v); 
   uint32_t _mod =  (uint32_t) (mod.to_ulong() &0xF);
   q->second = (getVal() << 8) | (_mod << 4) | getLru(); 
-}
-// ------------------------------------------------------------------------
-void BitArray::updateMod(AddressPacket &pckt,uint32_t data)
-{
-  q = mem.find(pckt.idx);
-  updateMod(pckt.wayActive,data);
 }
 // ------------------------------------------------------------------------
 // ------------------------------------------------------------------------
@@ -64,7 +59,7 @@ void BitArray::updateVal(uint32_t targetWay,uint32_t data)
 void BitArray::updateVal(AddressPacket &pckt,uint32_t data)
 {
   q = mem.find(pckt.idx);
-  updateMod(pckt.wayActive,data);
+  updateVal(pckt.wayActive,data);
 }
 // ------------------------------------------------------------------------
 // ------------------------------------------------------------------------
