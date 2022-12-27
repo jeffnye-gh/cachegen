@@ -16,8 +16,9 @@ using namespace std;
 // access to way2    b2=1  b1=0   b0=b0    
 // access to way3    b2=1  b1=1   b0=b0
 // ------------------------------------------------------------------------
-void BitArray::updateLru(uint32_t targetWay)
+void BitArray::updateLru(uint32_t idx,uint32_t targetWay)
 {
+  q = mem.find(idx);
   uint32_t lru = getLru(q);
   uint32_t newLru=0;
   switch(targetWay) {
@@ -32,12 +33,6 @@ void BitArray::updateLru(uint32_t targetWay)
   } 
  
   q->second = (getVal() << 8) | (getMod() << 4) | newLru; 
-}
-// ------------------------------------------------------------------------
-void BitArray::updateLru(AddressPacket &pckt)
-{
-  q = mem.find(pckt.idx);
-  updateLru(pckt.wayActive);
 }
 // ------------------------------------------------------------------------
 // ------------------------------------------------------------------------

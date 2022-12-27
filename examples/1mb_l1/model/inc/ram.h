@@ -89,8 +89,6 @@ struct BitArray
 
   void info(std::ostream&,std::string msg="",uint32_t begin=0,uint32_t end=16);
 
-  void updateLru(AddressPacket&);
-  void updateLru(uint32_t targetWay);
   void updateLru(uint32_t idx,uint32_t targetWay);
 
   void updateMod(AddressPacket&,uint32_t v);

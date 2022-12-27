@@ -61,7 +61,7 @@ uint32_t CacheModel::ld(uint32_t a,uint32_t be,bool verbose)
 uint32_t CacheModel::readHit(bool verbose)
 {
   uint32_t data = dary[pckt.wayActive]->ld(pckt.idx,pckt.off);
-  bits->updateLru(pckt);
+  bits->updateLru(pckt.idx,pckt.wayActive);
   return data;
 }
 // -----------------------------------------------------------------------
@@ -103,7 +103,7 @@ uint32_t CacheModel::readMiss(bool verbose)
 
   bits->updateVal(pckt.wayActive,1);
   bits->updateMod(pckt.wayActive,0);
-  bits->updateLru(pckt.wayActive);
+  bits->updateLru(pckt.idx,pckt.wayActive);
   return line[pckt.off]; 
 }
 // -----------------------------------------------------------------------
@@ -168,7 +168,7 @@ void CacheModel::writeHit(uint32_t d,bool verbose)
   //cout<<"HERE writeHit"<<endl;
   dary[pckt.wayActive]->st(pckt.idx,pckt.off,pckt.be,d);
   bits->updateMod(pckt,1);
-  bits->updateLru(pckt);
+  bits->updateLru(pckt.idx,pckt.wayActive);
 }
 // -----------------------------------------------------------------------
 // -----------------------------------------------------------------------
@@ -199,7 +199,7 @@ void CacheModel::writeMiss(uint32_t d,bool verbose)
   //update the bits  - set the way valid, set the mod, update lru
   bits->updateVal(pckt.wayActive,1);
   bits->updateMod(pckt.wayActive,1);
-  bits->updateLru(pckt.wayActive);
+  bits->updateLru(pckt.idx,pckt.wayActive);
 }
 // -----------------------------------------------------------------------
 // INIT FUNCTIONS
