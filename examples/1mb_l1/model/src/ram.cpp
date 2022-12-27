@@ -122,62 +122,32 @@ void Tag::info(ostream &out,uint32_t first,uint32_t last)
   out << "//   width   : " <<dec<< width   <<endl;
   out << "// ----------------------------------------"<<endl;
   
-//  q = mem.find(first);
-//  
-//  bool scanEntries = false;
-//  if(q == mem.end()) {
-//    out<<"// -W: Could not find first address"<<endl;
-//    scanEntries = true;
-//  } 
-//  
-//  if(scanEntries) {
-    uint32_t cnt = 0;
-    uint32_t max = (uint32_t) std::abs((double)(last - first));
-    for(const auto &[key,val] : mem) {
-      stringstream ss;
-      ss<<"@"<<hex<<setw(8)<<setfill('0')<<key;
-      ss<<" "<<hex<<setw(8)<<setfill('0')<<val;
-      out<<ss.str()<<endl;
-      ++cnt;
-      if(cnt > max) break;
-    } 
-    
-//  } else {
-//  
-//    for(q == mem.find(first);q != mem.end();++q) {
-//    
-//      if(q->first > last) break;
-//      stringstream ss;
-//      ss<<"@"<<hex<<setw(8)<<setfill('0')<<q->first;
-//      
-//      line_t v = q->second;
-//      reverse(v.begin(),v.end());
-//      
-//      stringstream ss2;
-//      for(size_t i=0;i<v.size();++i) {
-//        string sep = i == 0 ? "" : "_";
-//        ss2<<sep<<hex<<setw(8)<<setfill('0')<<v[i];
-//      } 
-//      out<<ss.str()<<" "<<ss2.str()<<endl;
-//      
-//    }
-//  } 
+  uint32_t cnt = 0;
+  uint32_t max = (uint32_t) std::abs((double)(last - first));
+  for(const auto &[key,val] : mem) {
+    stringstream ss;
+    ss<<"@"<<hex<<setw(8)<<setfill('0')<<key;
+    ss<<" "<<hex<<setw(8)<<setfill('0')<<val;
+    out<<ss.str()<<endl;
+    ++cnt;
+    if(cnt > max) break;
+  } 
 } 
 // ========================================================================
 // FIXME: add be, byte alignment (right justification)
 // ========================================================================
-uint32_t Ram::ld(AddressPacket &pckt)
+uint32_t Ram::ld(uint32_t idx, uint32_t off)
 {
-  line_t line = ld_line(pckt);
-  uint32_t w = line[pckt.off];
+  line_t line = ld_line(idx);
+  uint32_t w = line[off];
   return w;
 }
 // ------------------------------------------------------------------------
 // FIXME: add error checking ?
 // ------------------------------------------------------------------------
-line_t Ram::ld_line(AddressPacket &pckt)
+line_t Ram::ld_line(uint32_t idx)
 {
-  q = mem.find(pckt.idx);
+  q = mem.find(idx);
   return q->second;
 }
 // ------------------------------------------------------------------------
@@ -186,7 +156,7 @@ line_t Ram::ld_line(AddressPacket &pckt)
 void Ram::st(AddressPacket &pckt,uint32_t wd)
 {
   //read the line
-  line_t line = ld_line(pckt);
+  line_t line = ld_line(pckt.idx);
   //get the target word using the offset
   uint32_t rd = line[pckt.off];
 

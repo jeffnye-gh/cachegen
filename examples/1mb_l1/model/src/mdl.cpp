@@ -60,7 +60,7 @@ uint32_t CacheModel::ld(uint32_t a,uint32_t be,bool verbose)
 // -----------------------------------------------------------------------
 uint32_t CacheModel::readHit(bool verbose)
 {
-  uint32_t data = dary[pckt.wayActive]->ld(pckt);
+  uint32_t data = dary[pckt.wayActive]->ld(pckt.idx,pckt.off);
   bits->updateLru(pckt);
   return data;
 }

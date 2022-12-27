@@ -39,8 +39,9 @@ struct Ram
 
   void info(std::ostream&,uint32_t begin=0,uint32_t end=16);
 
-  uint32_t ld(AddressPacket &);
-  line_t ld_line(AddressPacket&);
+//  uint32_t ld(AddressPacket &);
+  uint32_t ld(uint32_t idx,uint32_t off);
+  line_t ld_line(uint32_t);
 
   void st(AddressPacket &,uint32_t d);
   void st_line(AddressPacket&,line_t &d);
