@@ -153,14 +153,12 @@ line_t Ram::ld_line(uint32_t idx)
 // ------------------------------------------------------------------------
 // FIXME: add error checking ?
 // ------------------------------------------------------------------------
-void Ram::st(AddressPacket &pckt,uint32_t wd)
+void Ram::st(uint32_t idx,uint32_t off,uint32_t be,uint32_t wd)
 {
   //read the line
-  line_t line = ld_line(pckt.idx);
+  line_t line = ld_line(idx);
   //get the target word using the offset
-  uint32_t rd = line[pckt.off];
-
-//  uint32_t newData = u.stBytes(rd,wd,pckt.be);
+  uint32_t rd = line[off];
 
   //FIXME: create utils as a global singleton and move this there.
   uint32_t rb0 = (rd >>  0) & 0xFF;
@@ -173,27 +171,27 @@ void Ram::st(AddressPacket &pckt,uint32_t wd)
   uint32_t wb2 = (wd >> 16) & 0xFF;
   uint32_t wb3 = (wd >> 24) & 0xFF;
 
-  bitset<4> be(pckt.be);
-  uint32_t b0 = be[0] ? wb0 : rb0;
-  uint32_t b1 = be[1] ? wb1 : rb1;
-  uint32_t b2 = be[2] ? wb2 : rb2;
-  uint32_t b3 = be[3] ? wb3 : rb3;
+  bitset<4> _be(be);
+  uint32_t b0 = _be[0] ? wb0 : rb0;
+  uint32_t b1 = _be[1] ? wb1 : rb1;
+  uint32_t b2 = _be[2] ? wb2 : rb2;
+  uint32_t b3 = _be[3] ? wb3 : rb3;
 
   uint32_t newData = (b3&0xFF) << 24
                    | (b2&0xFF) << 16
                    | (b1&0xFF) <<  8
                    | (b0&0xFF) <<  0;
 
-  line[pckt.off] = newData;
+  line[off] = newData;
   //store to array
-  st_line(pckt,line);
+  st_line(idx,line);
 }
 // ------------------------------------------------------------------------
 // FIXME: add error checking ?
 // ------------------------------------------------------------------------
-void Ram::st_line(AddressPacket &pckt,line_t &line)
+void Ram::st_line(uint32_t idx,line_t &line)
 {
-  q = mem.find(pckt.idx);
+  q = mem.find(idx);
   q->second = line;
 }
 // ------------------------------------------------------------------------

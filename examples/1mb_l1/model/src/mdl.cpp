@@ -135,7 +135,7 @@ void CacheModel::allocate(uint32_t targetWay,line_t &line,bool verbose)
   ASSERT(pckt.idx < opts.l1_sets, "allocate(): pckt.idx is corrupted");
 
   //update the dary at way = targetWay
-  dary[targetWay]->st_line(pckt,line);
+  dary[targetWay]->st_line(pckt.idx,line);
 
   //update the tag  at way = targetWay
   tags[targetWay]->mem.emplace(pckt.idx,pckt.tag);
@@ -166,7 +166,7 @@ void CacheModel::st(uint32_t a,uint32_t be,uint32_t data, bool verbose)
 void CacheModel::writeHit(uint32_t d,bool verbose)
 {
   //cout<<"HERE writeHit"<<endl;
-  dary[pckt.wayActive]->st(pckt,d);
+  dary[pckt.wayActive]->st(pckt.idx,pckt.off,pckt.be,d);
   bits->updateMod(pckt,1);
   bits->updateLru(pckt);
 }
@@ -194,7 +194,7 @@ void CacheModel::writeMiss(uint32_t d,bool verbose)
   uint32_t newData = u.stBytes(rd,d,pckt.be);
 
   line[pckt.off] = newData;
-  dary[pckt.wayActive]->st_line(pckt,line);
+  dary[pckt.wayActive]->st_line(pckt.idx,line);
 
   //update the bits  - set the way valid, set the mod, update lru
   bits->updateVal(pckt.wayActive,1);
@@ -356,7 +356,7 @@ cout<<"HERE write back"<<endl;
 //  //do not update LRU, let any allocation do it
 //  //n/a
 //  //write line to main memory
-//  mm->st_line(pckt,line);
+//  mm->st_line(pckt.idx,line);
 }
 // -----------------------------------------------------------------------
 // -----------------------------------------------------------------------
