@@ -65,8 +65,8 @@ struct Tag
 
   void info(std::ostream&,uint32_t begin=0,uint32_t end=16);
 
-  uint32_t ld(uint32_t a,uint32_t be);
-  void     st(uint32_t a,uint32_t be,uint32_t d);
+//  uint32_t ld(uint32_t a,uint32_t be=0xF);
+//  void     st(uint32_t a,uint32_t be,uint32_t d);
 
   std::map<uint32_t,word_t>::iterator q;
   std::map<uint32_t,word_t> mem;
@@ -94,17 +94,17 @@ struct BitArray
   void updateVal(uint32_t idx,uint32_t targetWay,uint32_t v);
 
   //FIXME some hard coded magic numbers in this set of methods
-  uint32_t getLru()             { return getLru(q); }
-  uint32_t getLru(mem_itr_t &p) { return p->second & 0x7; }
   uint32_t getLru(uint32_t idx) { return mem[idx] & 0x7; } //no checks
+  uint32_t getVal(uint32_t idx,uint32_t way);
 
+// private:
   uint32_t getMod()             { return getMod(q); }
   uint32_t getMod(mem_itr_t &p) { return (p->second >> 4) & 0xF; }
 
   uint32_t getVal()             { return getVal(q); }
   uint32_t getVal(mem_itr_t &p) { return (p->second >> 8) & 0xF; }
 
-  uint32_t getVal(uint32_t idx,uint32_t way);
+// public:
 
   uint32_t ld(uint32_t a);
   void     st(uint32_t a,uint32_t d);

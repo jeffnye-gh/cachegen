@@ -18,9 +18,9 @@ using namespace std;
 // ------------------------------------------------------------------------
 void BitArray::updateLru(uint32_t idx,uint32_t targetWay)
 {
-  q = mem.find(idx);
-  uint32_t lru = getLru(q);
-  uint32_t newLru=0;
+  uint32_t lru = getLru(idx);
+  uint32_t newLru = 0;
+
   switch(targetWay) {
     case 0: newLru = (0 << 2) | (BIT(1,lru) << 1) | 0; break;
     case 1: newLru = (0 << 2) | (BIT(1,lru) << 1) | 1; break;
@@ -43,7 +43,7 @@ void BitArray::updateMod(uint32_t idx,uint32_t targetWay,uint32_t data)
   bool v = data == 1 ? true : false;
   mod.set(targetWay,v); 
   uint32_t _mod =  (uint32_t) (mod.to_ulong() &0xF);
-  q->second = (getVal() << 8) | (_mod << 4) | getLru(); 
+  q->second = (getVal() << 8) | (_mod << 4) | getLru(idx); 
 }
 // ------------------------------------------------------------------------
 // ------------------------------------------------------------------------
@@ -54,7 +54,7 @@ void BitArray::updateVal(uint32_t idx,uint32_t targetWay,uint32_t data)
   bool v = data == 1 ? true : false;
   val.set(targetWay,v); 
   uint32_t _val =  (uint32_t) (val.to_ulong() &0xF);
-  q->second = (_val << 8) | (getMod() << 4) | getLru(); 
+  q->second = (_val << 8) | (getMod() << 4) | getLru(idx); 
 }
 
 // ------------------------------------------------------------------------

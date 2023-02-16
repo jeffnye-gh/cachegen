@@ -315,7 +315,7 @@ begin
   //     address 32'h0010000C
   //     data    32'h8000307F (word 3 of the return data)
   //
-  //a:00008000 #0
+  //a:00008000 #0 FIXME: shouldnt this be 0x4000 ?
   // ======================================================================
   rd_req({14'h004,13'h000,3'h3,2'h0},4'b1111,v);//miss, victim is dirty
   nop(n);
@@ -329,7 +329,7 @@ begin
   // Word  addr                111                        ->        7 hex
   // LRU bits are 100 -> lru way is 1
   //
-  // Tag at index 1/way 1 is: 14'h0001 (14'b00 0000 0000 0011)
+  // Tag at index 1/way 1 is: 14'h0011 (14'b00 0000 0000 0011)
   // The data at index 1/way 1  is:
   // 00107001_00106001_00105001_00104001_00103001_00102001_00101001_00100001
   //
@@ -374,7 +374,7 @@ begin
   // Word  addr                110                        ->        6 hex
   // LRU bits are 000 -> lru way is 3
   //
-  // Tag at index 2/way 3 is: 14'h0103 (14'b00 0000 0000 0011)
+  // Tag at index 2/way 3 is: 14'h0003 (14'b00 0000 0000 0011)
   // The data at index 2/way 3  is:
   // 00307002_00306002_00305002_00304002_00303002_00302002_00301002_00300002 
   //

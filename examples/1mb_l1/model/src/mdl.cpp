@@ -44,6 +44,9 @@ uint32_t CacheModel::ld(uint32_t a,uint32_t be,bool verbose)
   pckt = AddressPacket(a,be,getTagField(a),getIndexField(a),
                             getOffsetField(a),getMMAddr(a));
 
+//  //HERE
+//  pckt.info(cout);
+
   bitsLookup(pckt,verbose);
   tagLookup(pckt,verbose);
 
@@ -89,11 +92,16 @@ uint32_t CacheModel::readMiss(bool verbose)
 
   //select either by Val or Lru
   int32_t valWaySel = waySelectByVal();
-  int32_t lruWaySel = waySelectByLru();
+  int32_t lruWaySel = getLruWay();
 
+  //pckt.info(cout,"HERE readMiss info");
   bool lruSel = valWaySel < 0;
   pckt.wayActive = lruSel ? lruWaySel : (uint32_t) valWaySel;
 
+  cout<<endl;
+  cout<<"HERE access addr    "<<HEX<<pckt.a<<endl;
+  cout<<"HERE access idx     "<<HEX<<pckt.idx<<endl;
+  cout<<"HERE lru way        "<<lruWaySel<<endl;
   //if using LRU check for dirty and write back if needed
   if(lruSel && wayIsMod(pckt.wayActive)) writeBack(pckt.wayActive);
  
@@ -101,6 +109,8 @@ uint32_t CacheModel::readMiss(bool verbose)
   allocate(pckt.wayActive,line,verbose);
   //update the bits  - set the way valid, clear the mod, update lru
 
+  cout<<"HERE new tag        "<<pckt.tag<<endl;
+  cout<<"HERE new dary       "<<dary[pckt.wayActive]->mem[pckt.idx];
   bits->updateVal(pckt.idx,pckt.wayActive,1);
   bits->updateMod(pckt.idx,pckt.wayActive,0);
   bits->updateLru(pckt.idx,pckt.wayActive);
@@ -126,7 +136,7 @@ void CacheModel::allocate(uint32_t targetWay,line_t &line,bool verbose)
   //Check the ranges, none of this should happen, must abort
   //this assumes all arrays have the same number of indexs as tags
   ASSERT(targetWay < opts.l1_associativity,
-         "allocate(): targetWay is corrupted");
+         "allocate(): targetWay is corrupted, way:"+::to_string(targetWay));
 
   //Main memory data, this will be stored in dary pckt.idx, targetWay
   line =  mm->q->second;
@@ -165,7 +175,6 @@ void CacheModel::st(uint32_t a,uint32_t be,uint32_t data, bool verbose)
 // -----------------------------------------------------------------------
 void CacheModel::writeHit(uint32_t d,bool verbose)
 {
-  //cout<<"HERE writeHit"<<endl;
   dary[pckt.wayActive]->st(pckt.idx,pckt.off,pckt.be,d);
   bits->updateMod(pckt.idx,pckt.wayActive,1);
   bits->updateLru(pckt.idx,pckt.wayActive);
@@ -178,7 +187,7 @@ void CacheModel::writeMiss(uint32_t d,bool verbose)
 
   //select either by Val or Lru
   int32_t valWaySel = waySelectByVal();
-  int32_t lruWaySel = waySelectByLru();
+  int32_t lruWaySel = getLruWay();
 
   bool lruSel = valWaySel < 0;
   pckt.wayActive = lruSel ? lruWaySel : (uint32_t) valWaySel;
@@ -308,7 +317,7 @@ void CacheModel::bitsLookup(AddressPacket &pckt,bool verbose)
   if(bits->q != bits->mem.end()) {
     pckt.val = bits->getVal();
     pckt.mod = bits->getMod();
-    pckt.lru = bits->getLru();
+    pckt.lru = bits->getLru(pckt.idx);
   }
 }
 // -----------------------------------------------------------------------
@@ -339,24 +348,33 @@ void CacheModel::tagLookup(AddressPacket &pckt,bool verbose)
   //pckt.hit = false; >????
 }
 // -----------------------------------------------------------------------
+// The LRU is not updated, this function does not know what 
+// triggered the writeback, e.g. could be cache maintenance. The LRU is
+// updated by the caller
 // -----------------------------------------------------------------------
-void CacheModel::writeBack(uint32_t way)
+void CacheModel::writeBack(uint32_t victimWay)
 {
-//  uint32_t idx = pckt.idx;
-//  uint32_t tag = getTag(idx,way);
-//  uint32_t evictWay = pckt.wayActive;
-//  uint32_t evictIdx = pckt.idx;
-//  uint32_t evictTag = tags[evictWay]->mem[evictIdx];
-cout<<"HERE write back"<<endl;
-//  //get the line from the dary
-//  line_t evictLine = dary[evictWay]->ld_line(evictIdx);
-//cout<<"HERE "<<evictLine<<endl;
-//  //clear the valid bit for that way
-//  bits->updateVal(pckt.idx,pckt.wayActive,0);
-//  //do not update LRU, let any allocation do it
-//  //n/a
-//  //write line to main memory
-//  mm->st_line(pckt.idx,line);
+  //Read the tag address for the victim
+  uint32_t victimIdx = pckt.idx;
+  uint32_t victimTag = tags[victimWay]->mem[victimIdx];
+
+  cout<<"HERE lru Tag        "<<HEX<<victimTag<<endl;
+
+  //Form the writeBack main memory address
+  uint32_t fullAddress = victimTag << opts.l1_tagShift
+                       | victimIdx << opts.l1_setShift;
+  uint32_t lineAddress = getMMAddr(fullAddress);
+  cout<<"HERE victim mm addr "<<HEX<<lineAddress<<endl;
+
+  //Read the victim data
+  line_t line = dary[victimWay]->mem[victimIdx];
+
+  //Write the victim data to mm
+  mm->st_line(lineAddress,line);
+  //cout<<"HERE new mm line    "<<mm->mem[lineAddress];
+
+  //Mark the MOD bit as clean
+  bits->updateMod(victimIdx,victimWay,0);
 }
 // -----------------------------------------------------------------------
 // -----------------------------------------------------------------------
@@ -367,20 +385,4 @@ int32_t CacheModel::waySelectByVal()
   else if(pckt.val[1] == 0) return 1;
   else if(pckt.val[0] == 0) return 0;
   else return -1;
-}
-// -----------------------------------------------------------------------
-// -----------------------------------------------------------------------
-int32_t CacheModel::waySelectByLru()
-{
-  uint32_t sum = pckt.lru[2] + pckt.lru[1] + pckt.lru[0];
-  switch(sum) {
-    case 0:
-    case 1:  return 3;
-    case 2:
-    case 3:  return 2;
-    case 4:
-    case 6:  return 1;
-    default: return 0;
-  }
-  return 0;
 }

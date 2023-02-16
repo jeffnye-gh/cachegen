@@ -45,11 +45,19 @@ struct CacheModel
   uint32_t getMMAddr(uint32_t a)
            { return (a >> opts.mm_lineShift) & opts.mm_lineMask; }
 
+  uint32_t formMMAddress(uint32_t tag,uint32_t idx) {
+    uint32_t mmA = ((tag & opts.l1_tagMask) << opts.l1_tagShift)
+         | ((idx & opts.l1_setMask) << opts.l1_setShift);
+    return mmA;
+  }
+
   void report(uint32_t&,uint32_t,uint32_t,bool verbose);
   // ------------------------------------------------------------------
   // Get attributes from specified way
   // ------------------------------------------------------------------
-  uint32_t getTag(uint32_t idx,uint32_t way);
+//  uint32_t getTag(uint32_t idx,uint32_t way) {
+//    return tags[way]->mem[idx]; //FIXME: no error checking
+//  }
   // ------------------------------------------------------------------
   std::bitset<4> getValidBits(uint32_t idx);
   std::bitset<4> getModBits(uint32_t idx);
@@ -60,7 +68,20 @@ struct CacheModel
 
   // ------------------------------------------------------------------
   int32_t waySelectByVal();
-  int32_t waySelectByLru();
+  int32_t getLruWay() { 
+    uint32_t value = (uint32_t) pckt.lru.to_ulong();
+    switch(value) {
+      case 0:
+      case 1: return (int32_t) 3;
+      case 2:
+      case 3: return (int32_t) 2;
+      case 4:
+      case 6: return (int32_t) 1;
+      case 5:
+      case 7: return (int32_t) 0;
+      default: return -1; 
+    }
+  }
 
   void allocate(uint32_t way,line_t &,bool verbose=false);
   void writeBack(uint32_t way);

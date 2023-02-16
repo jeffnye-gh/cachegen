@@ -10,7 +10,7 @@ void CacheModel::basicRdEvictTest(uint32_t &errs,bool verbose)
   clearResizeArrays();
 
   bool die = true;
-  bool v = false;
+  bool v = true;
 
   string fn = "../rtl/data/basicRdEvict.mm.memh";
   if(!u.loadRamFromVerilog(mm,fn,v)) {
@@ -37,78 +37,125 @@ void CacheModel::basicRdEvictTest(uint32_t &errs,bool verbose)
 //  mm->info(cout,0,8);
 
   // -------------------------------------------------------------------
+  // access addr   0010000c
+  // access idx    00000000
+  // lru way       0002
+  // lru tag       0002
+  // victim mm add 0004000
+  // new tag       0004
+  // new dary      8000707f_8000607f_8000507f_8000407f_
+  //               8000307f_8000407f_8000107f_8000007f
+  captureData.push_back(ld(ADDR(0x004,0x000,0x3,0x0),0xF,verbose));
   // -------------------------------------------------------------------
-  //a:00008000 #0
-  captureData.push_back(ld(ADDR(0x004,0x000,0x3,0x0),0xF,v));
-  //a:00002001 #1
-  captureData.push_back(ld(ADDR(0x001,0x001,0x7,0x0),0xF,v));
-  //a:00004002
-  captureData.push_back(ld(ADDR(0x002,0x002,0x6,0x0),0xF,v));
+  // access addr   0004003c
+  // access idx    00000001
+  // lru way       0001
+  // lru tag       0003
+  // victim mm add 0006001
+  // new tag       0001
+  // new dary      2000707f_2000607f_2000507f_2000407f_
+  //               2000307f_2000207f_2000107f_2000007f
+  // new mm        00107001_00106001_00105001_00104001_
+  //               00103001_00102001_00101001_00100001
+  captureData.push_back(ld(ADDR(0x001,0x001,0x7,0x0),0xF,verbose));
+  // -------------------------------------------------------------------
+  // access addr   
+  // access idx    
+  // lru way       
+  // lru tag       
+  // victim mm add 
+  // new tag       
+  // new dary      
+  //               
+  // new mm        
+  //               
+  // -------------------------------------------------------------------
+  // access addr   00080058
+  // access idx    00000002
+  // lru way       0003
+  // lru tag       0003
+  // victim mm add 0006002
+  // new tag       0002
+  // new dary      4000707f_4000607f_4000507f_4000407f_
+  //               4000307f_4000407f_4000107f_4000007f
+  // new mm        00307002_00306002_00305002_00304002_
+  //               00303002_00302002_00301002_00300002
+  captureData.push_back(ld(ADDR(0x002,0x002,0x6,0x0),0xF,verbose));
+  // -------------------------------------------------------------------
+  // access addr   000C0078
+  // access idx    0003
+  // lru way       2
+  // lru tag       4
+  // victim mm add 1003
+  // new tag       
+  // new dary      
+  //               
+  // new mm        
+  //               
   //a:00006003 #3
-  captureData.push_back(ld(ADDR(0x003,0x003,0x6,0x0),0xF,v));
-  //a:00006004
-  captureData.push_back(ld(ADDR(0x003,0x004,0x5,0x0),0xF,v));
-  //a:00002005 #5
-  captureData.push_back(ld(ADDR(0x001,0x005,0x1,0x0),0xF,v));
-  //a:00004006 #6
-  captureData.push_back(ld(ADDR(0x002,0x006,0x5,0x0),0xF,v));
-  //a:00006007 #7
-  captureData.push_back(ld(ADDR(0x003,0x007,0x3,0x0),0xF,v));
-  //a:00002008 #8
-  captureData.push_back(ld(ADDR(0x001,0x008,0x2,0x0),0xF,v));
-  //a:00000009 #9
-  captureData.push_back(ld(ADDR(0x000,0x009,0x1,0x0),0xF,v));
-  //a:0000200a #10
-  captureData.push_back(ld(ADDR(0x001,0x00a,0x1,0x0),0xF,v));
+  captureData.push_back(ld(ADDR(0x003,0x003,0x6,0x0),0xF,verbose));
+//  //a:00006004
+//  captureData.push_back(ld(ADDR(0x003,0x004,0x5,0x0),0xF,verbose));
+//  //a:00002005 #5
+//  captureData.push_back(ld(ADDR(0x001,0x005,0x1,0x0),0xF,verbose));
+//  //a:00004006 #6
+//  captureData.push_back(ld(ADDR(0x002,0x006,0x5,0x0),0xF,verbose));
+//  //a:00006007 #7
+//  captureData.push_back(ld(ADDR(0x003,0x007,0x3,0x0),0xF,verbose));
+//  //a:00002008 #8
+//  captureData.push_back(ld(ADDR(0x001,0x008,0x2,0x0),0xF,verbose));
+//  //a:00000009 #9
+//  captureData.push_back(ld(ADDR(0x000,0x009,0x1,0x0),0xF,verbose));
+//  //a:0000200a #10
+//  captureData.push_back(ld(ADDR(0x001,0x00a,0x1,0x0),0xF,verbose));
 
-//  // -------------------------------------------------------------------
-//  // Load the expect data
-//  // -------------------------------------------------------------------
-//  //CAPTURE DATA
-//  fn = "../rtl/golden/basicRdEvict.capd.memh";
-//  if(!u.loadCaptureFromVerilog(expectCaptureData,fn,v)) {
-//    u.fileLoadError(fn,errs,die);
-//  }
-//
-//  //TAGS
-//  fn = "../rtl/golden/basicRdEvict.tags.memh";
-//  if(!u.loadRamFromVerilog(expectTags,fn,v)) {
-//    u.fileLoadError(fn,errs,die);
-//  }
-//
-//  //BITS
-//  fn = "../rtl/golden/basicRdEvict.bits.memb";
-//  if(!u.loadRamFromVerilog(expectBits,fn,v)) {
-//    u.fileLoadError(fn,errs,die);
-//  }
-//
-//  //DARY
-//  baseFn = "../rtl/golden/basicRdEvict.d";
-//  for(size_t i=0;i<4;++i) {
-//    fn = baseFn+::to_string(i)+".memh";
-//    if(!u.loadRamFromVerilog(expectDary[i],fn,v)) {
-//      u.fileLoadError(fn,errs,die);
-//    }
-//  }
-//
+  // -------------------------------------------------------------------
+  // Load the expect data
+  // -------------------------------------------------------------------
+  //CAPTURE DATA
+  fn = "../rtl/golden/basicRdEvict.capd.memh";
+  if(!u.loadCaptureFromVerilog(expectCaptureData,fn,v)) {
+    u.fileLoadError(fn,errs,die);
+  }
+
+  //TAGS
+  fn = "../rtl/golden/basicRdEvict.tags.memh";
+  if(!u.loadRamFromVerilog(expectTags,fn,v)) {
+    u.fileLoadError(fn,errs,die);
+  }
+
+  //BITS
+  fn = "../rtl/golden/basicRdEvict.bits.memb";
+  if(!u.loadRamFromVerilog(expectBits,fn,v)) {
+    u.fileLoadError(fn,errs,die);
+  }
+
+  //DARY
+  baseFn = "../rtl/golden/basicRdEvict.d";
+  for(size_t i=0;i<4;++i) {
+    fn = baseFn+::to_string(i)+".memh";
+    if(!u.loadRamFromVerilog(expectDary[i],fn,v)) {
+      u.fileLoadError(fn,errs,die);
+    }
+  }
+
   //Main memory
   fn = "../rtl/golden/basicRdEvict.mm.memh";
   if(!u.loadRamFromVerilog(expectMm,fn,v)) {
     u.fileLoadError(fn,errs,die);
   }
-//  mm->info(cout,0,8);
-//
-//  // -------------------------------------------------------------------
-//  //CHECK
-//  // -------------------------------------------------------------------
-//  //Check CAPTURE DATA 
+
+  // -------------------------------------------------------------------
+  //CHECK
+  // -------------------------------------------------------------------
+  //Check CAPTURE DATA 
 //  if(v) msg.imsg("Compare capture data");
 //  u.compare(expectCaptureData,captureData,errs,0,11,v);
-//
-//  //Check TAGS 
-//  if(v) msg.imsg("Compare tags");
-//  u.compare(expectTags,tags,errs,0,16,v);
-//
+
+  //Check TAGS 
+  if(v) msg.imsg("Compare tags");
+  u.compare(expectTags,tags,errs,0,1,v); //16
+
 //  //Check BITS 
 //  if(v) msg.imsg("Compare bits");
 //  u.compare(*expectBits,*bits,errs,0,16,v);
@@ -117,9 +164,9 @@ void CacheModel::basicRdEvictTest(uint32_t &errs,bool verbose)
 //  if(v) msg.imsg("Compare dary");
 //  u.compare(expectDary,dary,errs,0,16,v);
 //
-  //Check MM 
-  if(true) msg.imsg("Compare main memory");
-  u.compare(expectMm,mm,errs,0,16,v,-1);
+//  //Check MM 
+//  if(true) msg.imsg("Compare main memory");
+//  u.compare(expectMm,mm,errs,0,16,v,-1);
 
   ++errs;
   endTest(errs,"basicRdEvictTest");

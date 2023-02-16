@@ -2,6 +2,7 @@
 #include <fstream>
 #include <bitset>
 #include <iomanip>
+#include <string>
 
 #ifndef HEX
 #define HEX std::hex<<std::setw(8)<<std::setfill('0')
@@ -25,8 +26,9 @@ struct AddressPacket
       wayActive(0)
   { }
 
-  void info(std::ostream &out) {
+  void info(std::ostream &out,std::string m="") {
     out<<" AddressPacket info"<<'\n';
+    if(m.length() > 0) out<<"   msg:    "<<m<<'\n';
     out<<"   a:      0x"<<HEX<<(a)<<'\n';
     out<<"   be:     0x"<<HEX<<(be)<<'\n';
     out<<"   tag:    0x"<<HEX<<(tag)<<'\n';

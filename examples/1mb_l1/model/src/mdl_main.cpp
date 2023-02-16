@@ -8,12 +8,12 @@ int main(int ac,char **av)
 
   //FIXME should these also be cmdline options
   cm.opts.basicTests       = true;
-  cm.opts.basicLruTest     = true;
-  cm.opts.basicRdHitTest   = true;
-  cm.opts.basicWrHitTest   = true;
-  cm.opts.basicRdAllocTest = true;
-  cm.opts.basicWrAllocTest = true;
-  cm.opts.basicRdEvictTest = false;
+  cm.opts.basicLruTest     = false;
+  cm.opts.basicRdHitTest   = false;
+  cm.opts.basicWrHitTest   = false;
+  cm.opts.basicRdAllocTest = false;
+  cm.opts.basicWrAllocTest = false;
+  cm.opts.basicRdEvictTest = true;
   cm.opts.basicWrEvictTest = false;
   if(!cm.runTests(false)) return 1;
   return 0;
