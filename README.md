@@ -11,7 +11,7 @@ verify capacity of the FPGA devices I have handy.
 
 The RTL has basic directed tests for all the major operations. The RTL is
 ready for randomized testing and physical implementation. I have some files
-for Quartus targetting Cyclone 5. I will be adding Xlinix and the open
+for Quartus targetting Cyclone 5. I will be adding Xilinx and the open
 source tools as examples.
 
 The RTL tests are directed and cover basic LD/ST hit, LD/ST allocation
