@@ -1,0 +1,205 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://uarchlabs.com/schemas/cachegen/elaborated-1.0.0.json",
+  "title": "cachegen elaborated configuration",
+  "description": "The complete solve, written next to the emitted RTL. Machine-produced; never hand-edited. Contains the input verbatim, every derived field, the provenance record, and the manifest of what was emitted. This is the file a task's Results Capture cites.",
+  "type": "object",
+  "required": ["provenance", "input", "derived", "manifest", "checks"],
+  "additionalProperties": false,
+
+  "properties": {
+
+    "provenance": {
+      "description": "Everything needed to reproduce this run and to prove a later run used the same inputs.",
+      "type": "object",
+      "required": ["tool_version", "input_sha256", "generated_utc", "elaborated_schema_version"],
+      "additionalProperties": false,
+      "properties": {
+        "tool_version": { "type": "string" },
+        "tool_git_sha": { "type": "string", "pattern": "^[0-9a-f]{7,40}$" },
+        "input_schema_version": { "type": "string" },
+        "elaborated_schema_version": { "type": "string" },
+        "input_path": { "type": "string" },
+        "input_sha256": {
+          "description": "Digest of the input JSON as read, after extraction from its containing document if it was fenced.",
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "source_document": {
+          "description": "Path and fence label when the input was extracted from a planning document rather than read as a standalone file.",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "path": { "type": "string" },
+            "fence_label": { "type": "string" },
+            "document_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+          }
+        },
+        "generated_utc": { "type": "string", "format": "date-time" },
+        "host": { "type": "string" }
+      }
+    },
+
+    "input": {
+      "description": "The input configuration verbatim, after defaults are applied. Present so the elaborated file stands alone.",
+      "type": "object"
+    },
+
+    "derived": {
+      "description": "Everything computed from the input. No value here is a decision.",
+      "type": "object",
+      "required": ["sets", "offset", "index", "tag"],
+      "additionalProperties": false,
+      "properties": {
+
+        "sets": { "type": "integer" },
+        "lines_total": { "type": "integer" },
+        "bytes_per_way": {
+          "description": "capacity_bytes / associativity. The quantity the VIPT constraint bounds.",
+          "type": "integer"
+        },
+        "data_array_bits": { "type": "integer" },
+        "tag_array_bits": { "type": "integer" },
+        "overhead_bits": {
+          "description": "Tag, valid, dirty and replacement state, summed. The cost not counted in capacity_bytes.",
+          "type": "integer"
+        },
+        "overhead_percent": { "type": "number" },
+
+        "offset": { "$ref": "#/$defs/field" },
+        "index":  { "$ref": "#/$defs/field" },
+        "tag":    { "$ref": "#/$defs/field" },
+
+        "replacement_state": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "bits_per_set": { "type": "integer" },
+            "tree_depth": {
+              "description": "log2(associativity) for tree_plru. Absent for other policies.",
+              "type": "integer"
+            },
+            "update_table": {
+              "description": "Per-way update rule, generated from the tree construction rather than transcribed. Index is the way. Each entry gives, per state bit, the value written: 0, 1, or hold.",
+              "type": "array",
+              "items": {
+                "type": "array",
+                "items": { "enum": ["0", "1", "hold"] }
+              }
+            },
+            "victim_table": {
+              "description": "State value to victim way. Index is the state value. Generated, not transcribed. This table and update_table are the two things most often wrong when written by hand.",
+              "type": "array",
+              "items": { "type": "integer" }
+            }
+          }
+        },
+
+        "refill_beats": {
+          "description": "line_bytes * 8 / refill_width_bits.",
+          "type": "integer"
+        },
+        "beat_index_bits": { "type": "integer" },
+
+        "mshr": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "index_bits": { "type": "integer" },
+            "target_index_bits": { "type": "integer" },
+            "blocking": {
+              "description": "True when mshrs is 0. Selects the blocking FSM emitter instead of the non-blocking one.",
+              "type": "boolean"
+            }
+          }
+        },
+
+        "vipt": {
+          "description": "Present only when indexing is VIPT.",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "page_offset_bits": { "type": "integer" },
+            "index_offset_budget_used": {
+              "description": "index_bits + offset_bits. Must not exceed page_offset_bits.",
+              "type": "integer"
+            },
+            "budget_headroom_bits": {
+              "description": "page_offset_bits minus the budget used. Zero means the geometry sits exactly at the limit and any increase in capacity per way introduces synonyms.",
+              "type": "integer"
+            },
+            "translated_index_bits": {
+              "description": "Index bits taken from above the page offset. Nonzero means synonyms are possible; the tool rejects this under alias_policy forbid.",
+              "type": "integer"
+            }
+          }
+        },
+
+        "address_map": {
+          "description": "Rendered address field diagram, for the datasheet and the emitted header comment.",
+          "type": "string"
+        }
+      }
+    },
+
+    "manifest": {
+      "description": "Every file written, with a digest. Regeneration compares against this to produce a diff review rather than a blind overwrite.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path", "kind", "sha256"],
+        "additionalProperties": false,
+        "properties": {
+          "path": { "type": "string" },
+          "kind": {
+            "enum": ["pkg", "rtl", "tb", "makefile", "model", "vectors", "datasheet", "docs"]
+          },
+          "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+          "bytes": { "type": "integer" },
+          "module": {
+            "description": "SystemVerilog module or package name, when the file declares one.",
+            "type": "string"
+          }
+        }
+      }
+    },
+
+    "checks": {
+      "description": "Every constraint the tool evaluated that the input schema cannot express. Recorded pass or fail so the record shows what was checked, not only that generation succeeded.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "result"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string" },
+          "description": { "type": "string" },
+          "result": { "enum": ["pass", "fail", "not_applicable"] },
+          "detail": { "type": "string" }
+        }
+      }
+    },
+
+    "make_targets": {
+      "description": "Targets present in the emitted Makefile. The task that runs this generation runs every one of them; this list is what it enumerates against.",
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  },
+
+  "$defs": {
+    "field": {
+      "description": "One address field. All four values are redundant with each other by construction; they are emitted together because the RTL, the model and the datasheet each want a different one, and deriving them separately is how they drift.",
+      "type": "object",
+      "required": ["bits", "lsb", "msb", "mask", "shift"],
+      "additionalProperties": false,
+      "properties": {
+        "bits":  { "type": "integer" },
+        "lsb":   { "type": "integer" },
+        "msb":   { "type": "integer" },
+        "mask":  { "type": "string", "pattern": "^0x[0-9a-f]+$" },
+        "shift": { "type": "integer" }
+      }
+    }
+  }
+}

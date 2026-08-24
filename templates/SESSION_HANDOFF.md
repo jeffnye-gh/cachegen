@@ -1,0 +1,67 @@
+<!-- SPDX-License-Identifier: Apache-2.0                       -->
+<!-- Copyright (c) 2026 Jeff Nye, uarchlabs.com                -->
+<!-- SPDX-FileCopyrightText: 2026 Jeff Nye <jeff@uarchlabs.com -->
+# Overview
+
+This is a template for session handoff. This is an example
+populate as needed.
+
+
+# Session Handoff MMM
+Written by Claude.code at end of session-NNN.
+Date: 2026-xx-xx
+
+This session's \<summary\>
+
+Read PROJECT_STATUS.md, then this file, then CLAUDE.md to
+restore full context.
+
+---
+
+## What This Session Covered
+
+Session context restored from session_handoff-NNN.
+
+---
+
+## Decisions Made This Session
+
+### Debt #XX resolution approach
+
+description
+
+### Other
+
+description
+
+---
+
+## Technical Debt Status After This Session
+
+Closed this session:
+  #XX -- sdescriptionummary
+
+New minor deferred items (not assigned debt numbers):
+  - minor1
+
+Still open:
+  #YY  -- description
+
+---
+
+## Files Modified This Session
+
+  file/path/abc
+    -- EXP-NNN: summary
+
+---
+
+## Next Session (MMM)
+
+plans for next session
+
+---
+
+## Prompt Files Created This Session
+
+  prompts/EXP-NNN.md  -- status, description

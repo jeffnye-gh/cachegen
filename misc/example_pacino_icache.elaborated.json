@@ -1,0 +1,382 @@
+{
+  "provenance": {
+    "tool_version": "0.1.0-draft",
+    "input_schema_version": "1.0.0",
+    "elaborated_schema_version": "1.0.0",
+    "input_path": "example_pacino_icache.json",
+    "input_sha256": "b2677410f3b55d96529faa98f348e8c7d9d2e2d2d9fe7aa99b5dbbe725597a2f",
+    "generated_utc": "2026-08-23T19:01:01Z"
+  },
+  "input": {
+    "schema_version": "1.0.0",
+    "name": "icache",
+    "description": "Pacino L1 instruction cache. Eight ways follows from VIPT with 4KB pages and 64B lines.",
+    "cache_type": "icache",
+    "level": 1,
+    "geometry": {
+      "capacity_bytes": 32768,
+      "line_bytes": 64,
+      "associativity": 8,
+      "banks": 2
+    },
+    "addressing": {
+      "indexing": "VIPT",
+      "va_bits": 39,
+      "pa_bits": 56,
+      "page_bytes": 4096,
+      "alias_policy": "forbid"
+    },
+    "policies": {
+      "read_miss": "allocate",
+      "replacement": "tree_plru",
+      "critical_word_first": true
+    },
+    "miss_handling": {
+      "mshrs": 4,
+      "mshr_targets": 2,
+      "victim_buffer_entries": 0,
+      "fill_buffer_entries": 2
+    },
+    "interfaces": {
+      "core_read_width_bits": 512,
+      "refill_width_bits": 256,
+      "next_level_name": "l2"
+    },
+    "maintenance": {
+      "invalidate_all": true,
+      "invalidate_line": false,
+      "flush_all": false
+    },
+    "emission": {
+      "profile": "pacino",
+      "emit": [
+        "pkg",
+        "rtl",
+        "tb",
+        "makefile",
+        "model",
+        "vectors",
+        "datasheet",
+        "docs"
+      ],
+      "output_dir": "rtl/core/frontend/icache",
+      "sram_model": "bw_ram",
+      "verification_params": true
+    },
+    "verification": {
+      "golden_vectors": true,
+      "assertions": true,
+      "directed_tests": [
+        "read_hit",
+        "read_miss_clean",
+        "read_miss_evict",
+        "replacement_order",
+        "invalidate_all",
+        "mshr_merge",
+        "mshr_full",
+        "refill_beat_order"
+      ]
+    }
+  },
+  "derived": {
+    "sets": 64,
+    "lines_total": 512,
+    "bytes_per_way": 4096,
+    "data_array_bits": 262144,
+    "tag_array_bits": 22528,
+    "overhead_bits": 23488,
+    "overhead_percent": 8.96,
+    "offset": {
+      "bits": 6,
+      "lsb": 0,
+      "msb": 5,
+      "mask": "0x3f",
+      "shift": 0
+    },
+    "index": {
+      "bits": 6,
+      "lsb": 6,
+      "msb": 11,
+      "mask": "0x3f",
+      "shift": 6
+    },
+    "tag": {
+      "bits": 44,
+      "lsb": 12,
+      "msb": 55,
+      "mask": "0xfffffffffff",
+      "shift": 12
+    },
+    "replacement_state": {
+      "bits_per_set": 7,
+      "tree_depth": 3,
+      "update_table": [
+        [
+          "1",
+          "1",
+          "hold",
+          "1",
+          "hold",
+          "hold",
+          "hold"
+        ],
+        [
+          "1",
+          "1",
+          "hold",
+          "0",
+          "hold",
+          "hold",
+          "hold"
+        ],
+        [
+          "1",
+          "0",
+          "hold",
+          "hold",
+          "1",
+          "hold",
+          "hold"
+        ],
+        [
+          "1",
+          "0",
+          "hold",
+          "hold",
+          "0",
+          "hold",
+          "hold"
+        ],
+        [
+          "0",
+          "hold",
+          "1",
+          "hold",
+          "hold",
+          "1",
+          "hold"
+        ],
+        [
+          "0",
+          "hold",
+          "1",
+          "hold",
+          "hold",
+          "0",
+          "hold"
+        ],
+        [
+          "0",
+          "hold",
+          "0",
+          "hold",
+          "hold",
+          "hold",
+          "1"
+        ],
+        [
+          "0",
+          "hold",
+          "0",
+          "hold",
+          "hold",
+          "hold",
+          "0"
+        ]
+      ],
+      "victim_table": [
+        0,
+        4,
+        2,
+        4,
+        0,
+        6,
+        2,
+        6,
+        1,
+        4,
+        2,
+        4,
+        1,
+        6,
+        2,
+        6,
+        0,
+        4,
+        3,
+        4,
+        0,
+        6,
+        3,
+        6,
+        1,
+        4,
+        3,
+        4,
+        1,
+        6,
+        3,
+        6,
+        0,
+        5,
+        2,
+        5,
+        0,
+        6,
+        2,
+        6,
+        1,
+        5,
+        2,
+        5,
+        1,
+        6,
+        2,
+        6,
+        0,
+        5,
+        3,
+        5,
+        0,
+        6,
+        3,
+        6,
+        1,
+        5,
+        3,
+        5,
+        1,
+        6,
+        3,
+        6,
+        0,
+        4,
+        2,
+        4,
+        0,
+        7,
+        2,
+        7,
+        1,
+        4,
+        2,
+        4,
+        1,
+        7,
+        2,
+        7,
+        0,
+        4,
+        3,
+        4,
+        0,
+        7,
+        3,
+        7,
+        1,
+        4,
+        3,
+        4,
+        1,
+        7,
+        3,
+        7,
+        0,
+        5,
+        2,
+        5,
+        0,
+        7,
+        2,
+        7,
+        1,
+        5,
+        2,
+        5,
+        1,
+        7,
+        2,
+        7,
+        0,
+        5,
+        3,
+        5,
+        0,
+        7,
+        3,
+        7,
+        1,
+        5,
+        3,
+        5,
+        1,
+        7,
+        3,
+        7
+      ]
+    },
+    "refill_beats": 2,
+    "beat_index_bits": 1,
+    "mshr": {
+      "index_bits": 2,
+      "target_index_bits": 1,
+      "blocking": false
+    },
+    "vipt": {
+      "page_offset_bits": 12,
+      "index_offset_budget_used": 12,
+      "budget_headroom_bits": 0,
+      "translated_index_bits": 0
+    },
+    "address_map": "  ttttttttttttttttttttttttttttttttttttttttttttiiiiiioooooo\n  tag   [55:12]  44 bits\n  index [11:6]  6 bits\n  off   [5:0]   6 bits"
+  },
+  "checks": [
+    {
+      "id": "GEO-1",
+      "result": "pass",
+      "description": "capacity_bytes is a power of two"
+    },
+    {
+      "id": "GEO-3",
+      "result": "pass",
+      "description": "sets is a power of two"
+    },
+    {
+      "id": "GEO-4",
+      "result": "pass",
+      "description": "banks divides sets"
+    },
+    {
+      "id": "ADDR-1",
+      "result": "pass",
+      "description": "offset + index + tag == pa_bits"
+    },
+    {
+      "id": "VIPT-1",
+      "result": "pass",
+      "description": "bytes_per_way <= page_bytes",
+      "detail": "bytes_per_way 4096, page 4096, headroom 0 bits"
+    },
+    {
+      "id": "IF-1",
+      "result": "pass",
+      "description": "core_read_width_bits <= line_bytes * 8"
+    },
+    {
+      "id": "IF-2",
+      "result": "pass",
+      "description": "line bits is a multiple of refill_width_bits"
+    },
+    {
+      "id": "IF-3",
+      "result": "pass",
+      "description": "critical_word_first meaningful only when refill_beats > 1",
+      "detail": "refill_beats 2"
+    },
+    {
+      "id": "RPL-1",
+      "result": "pass",
+      "description": "tree_plru requires associativity a power of two >= 2"
+    }
+  ]
+}

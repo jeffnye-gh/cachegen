@@ -1,0 +1,387 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://uarchlabs.com/schemas/cachegen/config-1.0.0.json",
+  "title": "cachegen input configuration",
+  "description": "Sparse statement of intent for one cache instance. Every field here is a decision a person makes. Derived geometry does not appear in this file; it appears in the elaborated output. See VOCABULARY.md for the checks this schema cannot express.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "name",
+    "cache_type",
+    "level",
+    "geometry",
+    "addressing",
+    "policies",
+    "emission"
+  ],
+  "additionalProperties": false,
+
+  "properties": {
+
+    "schema_version": {
+      "description": "Version of this schema the file targets. Major bump means breaking.",
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+
+    "name": {
+      "description": "Instance name. Drives module and file names: <name>.sv, <name>_pkg.sv, tb_<name>.sv. Must be a legal SystemVerilog identifier.",
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*$",
+      "maxLength": 32
+    },
+
+    "description": {
+      "description": "Free text. Carried into the emitted file headers and datasheet. Not interpreted.",
+      "type": "string",
+      "maxLength": 200
+    },
+
+    "cache_type": {
+      "description": "Determines which policy fields apply and which datapath is emitted. icache is read-only: no dirty bits, no merge, no writeback.",
+      "enum": ["icache", "dcache", "unified"]
+    },
+
+    "level": {
+      "description": "Cache level. Informational for emission; affects default naming only.",
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 3
+    },
+
+    "geometry": {
+      "type": "object",
+      "required": ["capacity_bytes", "line_bytes", "associativity"],
+      "additionalProperties": false,
+      "properties": {
+        "capacity_bytes": {
+          "description": "Total data capacity. Must be a power of two (checked by the tool, not by this schema).",
+          "type": "integer",
+          "minimum": 256,
+          "maximum": 8388608
+        },
+        "line_bytes": {
+          "description": "Cache line size. Sets the offset field width.",
+          "enum": [16, 32, 64, 128]
+        },
+        "associativity": {
+          "description": "Ways per set. 1 is direct-mapped.",
+          "enum": [1, 2, 4, 8, 16]
+        },
+        "banks": {
+          "description": "Independent data array banks. 1 means a single array. Banking permits concurrent fill and access.",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 8,
+          "default": 1
+        }
+      }
+    },
+
+    "addressing": {
+      "type": "object",
+      "required": ["indexing", "pa_bits"],
+      "additionalProperties": false,
+      "properties": {
+        "indexing": {
+          "description": "PIPT indexes with the physical address and serializes translation ahead of the array read. VIPT indexes with the virtual address so the array read and the TLB lookup proceed together.",
+          "enum": ["PIPT", "VIPT"]
+        },
+        "va_bits": {
+          "description": "Virtual address width. Sv39 -> 39, Sv48 -> 48, Sv57 -> 57. Required when indexing is VIPT.",
+          "enum": [32, 39, 48, 57]
+        },
+        "pa_bits": {
+          "description": "Implemented physical address width. Sets the tag width together with index and offset.",
+          "type": "integer",
+          "minimum": 32,
+          "maximum": 56
+        },
+        "page_bytes": {
+          "description": "Base page size. Bounds the VIPT index+offset budget. Superpages only relax the constraint, so size against the base page. Required when indexing is VIPT.",
+          "enum": [4096],
+          "default": 4096
+        },
+        "alias_policy": {
+          "description": "Behaviour when the VIPT index reaches above the page offset. forbid is the only value implemented: the tool rejects such a configuration. Other strategies are out of scope; see VOCABULARY.md exclusions.",
+          "enum": ["forbid"],
+          "default": "forbid"
+        }
+      }
+    },
+
+    "policies": {
+      "type": "object",
+      "required": ["read_miss", "replacement"],
+      "additionalProperties": false,
+      "properties": {
+        "read_miss": {
+          "description": "allocate installs the line on a read miss. no_allocate forwards without installing.",
+          "enum": ["allocate", "no_allocate"]
+        },
+        "write_miss": {
+          "description": "Write miss handling. Must be absent when cache_type is icache.",
+          "enum": ["allocate", "no_allocate"]
+        },
+        "write_hit": {
+          "description": "write_back marks the line dirty and defers the store to eviction. write_through issues it immediately. Must be absent when cache_type is icache.",
+          "enum": ["write_back", "write_through"]
+        },
+        "replacement": {
+          "description": "Victim selection among valid ways. An invalid way is always preferred over the replacement pick, in all policies.",
+          "enum": ["tree_plru", "lru", "random", "fifo"]
+        },
+        "critical_word_first": {
+          "description": "Forward the requested beat to the core as it arrives rather than waiting for the full line. Meaningless when the line arrives in one beat.",
+          "type": "boolean",
+          "default": true
+        }
+      }
+    },
+
+    "miss_handling": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "mshrs": {
+          "description": "Miss status holding registers. 0 emits a blocking FSM: one miss outstanding, the pipeline stalls. Any positive value emits non-blocking control with that many concurrent misses.",
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 16,
+          "default": 0
+        },
+        "mshr_targets": {
+          "description": "Secondary misses merged onto one MSHR entry. 1 means no merging. Required when mshrs is greater than 0.",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 8
+        },
+        "victim_buffer_entries": {
+          "description": "Fully associative buffer holding recently evicted lines. 0 omits it.",
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 16,
+          "default": 0
+        },
+        "fill_buffer_entries": {
+          "description": "Staging entries for in-flight refill data ahead of the array write. 0 writes the array directly from the refill bus.",
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 8,
+          "default": 0
+        }
+      }
+    },
+
+    "interfaces": {
+      "type": "object",
+      "required": ["core_read_width_bits", "refill_width_bits"],
+      "additionalProperties": false,
+      "properties": {
+        "core_read_width_bits": {
+          "description": "Width returned to the core per access. For an icache this is the fetch bundle, not a word.",
+          "enum": [32, 64, 128, 256, 512, 1024]
+        },
+        "core_write_width_bits": {
+          "description": "Width accepted from the core per store. Must be absent when cache_type is icache.",
+          "enum": [32, 64, 128, 256]
+        },
+        "refill_width_bits": {
+          "description": "Width of the fill bus from the next level. Line size divided by this gives the beat count.",
+          "enum": [64, 128, 256, 512, 1024]
+        },
+        "next_level_name": {
+          "description": "Name of the level this cache misses to. Informational; appears in port comments and the datasheet.",
+          "type": "string",
+          "maxLength": 32
+        }
+      }
+    },
+
+    "maintenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "invalidate_all": {
+          "description": "Emit a single-cycle mass invalidate. Required for fence.i on an icache. Cheap only because valid bits are flops rather than SRAM.",
+          "type": "boolean",
+          "default": true
+        },
+        "invalidate_line": {
+          "description": "Emit a single-line invalidate by address.",
+          "type": "boolean",
+          "default": false
+        },
+        "flush_all": {
+          "description": "Emit a walk that writes back every dirty line. Meaningless on a read-only or write-through cache.",
+          "type": "boolean",
+          "default": false
+        }
+      }
+    },
+
+    "emission": {
+      "type": "object",
+      "required": ["profile", "emit"],
+      "additionalProperties": false,
+      "properties": {
+        "profile": {
+          "description": "House style backend. pacino applies the project rules: 80 columns, 2-space indent, clk/rstn, one module per file, file-scope package imports with defines before structs, always_comb over chained assign, ASCII comments. generic applies none of these.",
+          "enum": ["pacino", "generic"]
+        },
+        "emit": {
+          "description": "Artifacts to produce. Emitting rtl without pkg is rejected. Emitting tb without vectors produces a testbench with no golden data.",
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": ["pkg", "rtl", "tb", "makefile", "model", "vectors", "datasheet", "docs"]
+          }
+        },
+        "output_dir": {
+          "description": "Root for emitted files. Subdirectories rtl/, tb/, tests/ follow the project layout.",
+          "type": "string",
+          "default": "."
+        },
+        "sram_model": {
+          "description": "How array storage is emitted. bw_ram instantiates the project library module and its substitution boundary. inferred emits a behavioral array directly. macro emits a wrapper with a named vendor cell left unbound.",
+          "enum": ["bw_ram", "inferred", "macro"],
+          "default": "inferred"
+        },
+        "macro_name": {
+          "description": "Vendor cell to instantiate. Required when sram_model is macro.",
+          "type": "string"
+        },
+        "verification_params": {
+          "description": "Leave a small number of parameters live in the emitted RTL so a reduced-geometry instance can be built for simulation. Fully baked output cannot be shrunk, which makes exhaustive array tests intractable.",
+          "type": "boolean",
+          "default": false
+        }
+      }
+    },
+
+    "verification": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "golden_vectors": {
+          "description": "Produce reference array images and an expected capture stream from the C++ model, for the testbench to compare against at test end.",
+          "type": "boolean",
+          "default": true
+        },
+        "directed_tests": {
+          "description": "Directed tests to emit. Tests inapplicable to the cache_type are rejected rather than silently dropped.",
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "read_hit",
+              "read_miss_clean",
+              "read_miss_evict",
+              "write_hit",
+              "write_miss_clean",
+              "write_miss_evict",
+              "replacement_order",
+              "invalidate_all",
+              "invalidate_line",
+              "mshr_merge",
+              "mshr_full",
+              "victim_hit",
+              "refill_beat_order"
+            ]
+          }
+        },
+        "assertions": {
+          "description": "Emit SVA for the mechanical invariants: one-hot way hit, no fill into a valid way without eviction, MSHR index in range, no tag write without a valid write.",
+          "type": "boolean",
+          "default": true
+        }
+      }
+    }
+  },
+
+  "allOf": [
+    {
+      "if": {
+        "properties": { "cache_type": { "const": "icache" } },
+        "required": ["cache_type"]
+      },
+      "then": {
+        "properties": {
+          "policies": {
+            "not": { "anyOf": [
+              { "required": ["write_miss"] },
+              { "required": ["write_hit"] }
+            ]}
+          },
+          "interfaces": {
+            "not": { "required": ["core_write_width_bits"] }
+          },
+          "maintenance": {
+            "properties": { "flush_all": { "const": false } }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "cache_type": { "enum": ["dcache", "unified"] } },
+        "required": ["cache_type"]
+      },
+      "then": {
+        "properties": {
+          "policies": { "required": ["write_miss", "write_hit"] },
+          "interfaces": { "required": ["core_write_width_bits"] }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "addressing": {
+            "properties": { "indexing": { "const": "VIPT" } },
+            "required": ["indexing"]
+          }
+        },
+        "required": ["addressing"]
+      },
+      "then": {
+        "properties": {
+          "addressing": { "required": ["va_bits", "page_bytes"] }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "miss_handling": {
+            "properties": { "mshrs": { "minimum": 1 } },
+            "required": ["mshrs"]
+          }
+        },
+        "required": ["miss_handling"]
+      },
+      "then": {
+        "properties": {
+          "miss_handling": { "required": ["mshr_targets"] }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "emission": {
+            "properties": { "sram_model": { "const": "macro" } },
+            "required": ["sram_model"]
+          }
+        },
+        "required": ["emission"]
+      },
+      "then": {
+        "properties": {
+          "emission": { "required": ["macro_name"] }
+        }
+      }
+    }
+  ]
+}

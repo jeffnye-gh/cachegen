@@ -1,0 +1,70 @@
+{
+  "schema_version": "1.0.0",
+  "name": "icache",
+  "description": "Pacino L1 instruction cache. Eight ways follows from VIPT with 4KB pages and 64B lines.",
+  "cache_type": "icache",
+  "level": 1,
+
+  "geometry": {
+    "capacity_bytes": 32768,
+    "line_bytes": 64,
+    "associativity": 8,
+    "banks": 2
+  },
+
+  "addressing": {
+    "indexing": "VIPT",
+    "va_bits": 39,
+    "pa_bits": 56,
+    "page_bytes": 4096,
+    "alias_policy": "forbid"
+  },
+
+  "policies": {
+    "read_miss": "allocate",
+    "replacement": "tree_plru",
+    "critical_word_first": true
+  },
+
+  "miss_handling": {
+    "mshrs": 4,
+    "mshr_targets": 2,
+    "victim_buffer_entries": 0,
+    "fill_buffer_entries": 2
+  },
+
+  "interfaces": {
+    "core_read_width_bits": 512,
+    "refill_width_bits": 256,
+    "next_level_name": "l2"
+  },
+
+  "maintenance": {
+    "invalidate_all": true,
+    "invalidate_line": false,
+    "flush_all": false
+  },
+
+  "emission": {
+    "profile": "pacino",
+    "emit": ["pkg", "rtl", "tb", "makefile", "model", "vectors", "datasheet", "docs"],
+    "output_dir": "rtl/core/frontend/icache",
+    "sram_model": "bw_ram",
+    "verification_params": true
+  },
+
+  "verification": {
+    "golden_vectors": true,
+    "assertions": true,
+    "directed_tests": [
+      "read_hit",
+      "read_miss_clean",
+      "read_miss_evict",
+      "replacement_order",
+      "invalidate_all",
+      "mshr_merge",
+      "mshr_full",
+      "refill_beat_order"
+    ]
+  }
+}

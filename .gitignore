@@ -10,3 +10,7 @@ examples/1mb_l1/fpga/incremental_db/*
 examples/1mb_l1/fpga/output_files/*
 examples/1mb_l1/fpga/simulation/*
 examples/1mb_l1/fpga/timing/*
+
+versions/*
+context-report.md
+.claude/tmp/current-prompt.md
