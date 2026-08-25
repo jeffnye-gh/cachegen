@@ -1,0 +1,122 @@
+{
+  "schema_version": "0.11.0",
+  "file_type": "topology",
+  "include": [],
+  "nodes": {
+    "a_l1i": {
+      "cache": "l1i"
+    },
+    "a_l1d": {
+      "cache": "l1d"
+    },
+    "a_l2i": {
+      "cache": "l2i"
+    },
+    "a_l2d": {
+      "cache": "l2d"
+    },
+    "b_l1": {
+      "cache": "l1u"
+    },
+    "b_l2": {
+      "cache": "l2u"
+    },
+    "l3": {
+      "cache": "l3u"
+    },
+    "dram": {
+      "cache": "dram"
+    },
+    "ifu": {
+      "cache": "ifu"
+    },
+    "lsu": {
+      "cache": "lsu"
+    },
+    "b_core": {
+      "cache": "b_core"
+    }
+  },
+  "edges": [
+    {
+      "name": "ifu_l1i",
+      "from": "ifu",
+      "to": "a_l1i",
+      "link": "pe_port",
+      "from_port": "mem",
+      "to_port": "core"
+    },
+    {
+      "name": "lsu_l1d",
+      "from": "lsu",
+      "to": "a_l1d",
+      "link": "pe_port",
+      "from_port": "mem",
+      "to_port": "core"
+    },
+    {
+      "name": "bcore_l1",
+      "from": "b_core",
+      "to": "b_l1",
+      "link": "pe_port",
+      "from_port": "mem",
+      "to_port": "core"
+    },
+    {
+      "name": "a_l1i_l2i",
+      "from": "a_l1i",
+      "to": "a_l2i",
+      "link": "tl_uh_32b",
+      "to_port": "up",
+      "from_port": "mem"
+    },
+    {
+      "name": "a_l1d_l2d",
+      "from": "a_l1d",
+      "to": "a_l2d",
+      "link": "tl_c_64b",
+      "to_port": "up",
+      "from_port": "mem"
+    },
+    {
+      "name": "a_l2i_l3",
+      "from": "a_l2i",
+      "to": "l3",
+      "link": "tl_c_64b",
+      "to_port": "up_a",
+      "from_port": "down"
+    },
+    {
+      "name": "a_l2d_l3",
+      "from": "a_l2d",
+      "to": "l3",
+      "link": "tl_c_64b",
+      "to_port": "up_b",
+      "from_port": "down"
+    },
+    {
+      "name": "b_l1_l2",
+      "from": "b_l1",
+      "to": "b_l2",
+      "link": "tl_c_64b",
+      "to_port": "up",
+      "from_port": "mem"
+    },
+    {
+      "name": "b_l2_l3",
+      "from": "b_l2",
+      "to": "l3",
+      "link": "tl_c_64b",
+      "to_port": "up_c",
+      "from_port": "down"
+    },
+    {
+      "name": "l3_dram",
+      "from": "l3",
+      "to": "dram",
+      "link": "mm_port",
+      "to_port": "up",
+      "from_port": "down"
+    }
+  ]
+}

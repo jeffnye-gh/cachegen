@@ -1,0 +1,146 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://uarchlabs.com/schemas/cachegen/topology-0.12.0.json",
+  "title": "cachegen topology",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "file_type",
+    "addressing",
+    "nodes",
+    "edges"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "0.12.0"
+    },
+    "file_type": {
+      "const": "topology"
+    },
+    "include": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/include_entry"
+      }
+    },
+    "nodes": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": {
+        "$ref": "#/$defs/ident"
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/node"
+      }
+    },
+    "edges": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/edge"
+      }
+    },
+    "addressing": {
+      "type": "object",
+      "required": [
+        "pa_bits"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "pa_bits": {
+          "type": "integer",
+          "minimum": 8,
+          "maximum": 64
+        },
+        "va_bits": {
+          "enum": [
+            32,
+            39,
+            48,
+            57
+          ]
+        },
+        "page_bytes": {
+          "enum": [
+            4096,
+            8192,
+            16384,
+            65536
+          ]
+        }
+      }
+    }
+  },
+  "$defs": {
+    "ident": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*$",
+      "maxLength": 32
+    },
+    "include_entry": {
+      "type": "object",
+      "required": [
+        "file",
+        "type"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "file": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "type": {
+          "enum": [
+            "caches",
+            "links",
+            "topology",
+            "ports"
+          ]
+        }
+      }
+    },
+    "node": {
+      "type": "object",
+      "required": [
+        "cache"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "cache": {
+          "$ref": "#/$defs/ident"
+        }
+      }
+    },
+    "edge": {
+      "type": "object",
+      "required": [
+        "from",
+        "to",
+        "link"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "$ref": "#/$defs/ident"
+        },
+        "from": {
+          "$ref": "#/$defs/ident"
+        },
+        "to": {
+          "$ref": "#/$defs/ident"
+        },
+        "link": {
+          "$ref": "#/$defs/ident"
+        },
+        "from_port": {
+          "$ref": "#/$defs/ident"
+        },
+        "to_port": {
+          "$ref": "#/$defs/ident"
+        }
+      }
+    }
+  }
+}

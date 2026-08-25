@@ -1,0 +1,19 @@
+{
+  "schema_version": "0.10.0",
+  "file_type": "ports",
+  "include": [],
+  "port_types": {
+    "pe_init": {
+      "role": "initiator"
+    },
+    "pe_targ": {
+      "role": "target"
+    },
+    "tl_init": {
+      "role": "initiator"
+    },
+    "tl_targ": {
+      "role": "target"
+    }
+  }
+}

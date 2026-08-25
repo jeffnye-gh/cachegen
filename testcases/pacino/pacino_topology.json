@@ -1,0 +1,72 @@
+{
+  "schema_version": "0.12.0",
+  "file_type": "topology",
+  "include": [],
+  "addressing": {
+    "pa_bits": 32,
+    "va_bits": 39,
+    "page_bytes": 4096
+  },
+  "nodes": {
+    "ifu": {
+      "cache": "ifu"
+    },
+    "lsu": {
+      "cache": "lsu"
+    },
+    "l1i": {
+      "cache": "l1i"
+    },
+    "l1d": {
+      "cache": "l1d"
+    },
+    "l2": {
+      "cache": "l2"
+    },
+    "mem": {
+      "cache": "mem"
+    }
+  },
+  "edges": [
+    {
+      "name": "ifu_l1i",
+      "from": "ifu",
+      "to": "l1i",
+      "link": "pe_port",
+      "from_port": "mem",
+      "to_port": "core"
+    },
+    {
+      "name": "lsu_l1d",
+      "from": "lsu",
+      "to": "l1d",
+      "link": "pe_port",
+      "from_port": "mem",
+      "to_port": "core"
+    },
+    {
+      "name": "l1i_l2",
+      "from": "l1i",
+      "to": "l2",
+      "link": "tl_l1i_l2",
+      "from_port": "mem",
+      "to_port": "up_i"
+    },
+    {
+      "name": "l1d_l2",
+      "from": "l1d",
+      "to": "l2",
+      "link": "tl_l1d_l2",
+      "from_port": "mem",
+      "to_port": "up_d"
+    },
+    {
+      "name": "l2_mem",
+      "from": "l2",
+      "to": "mem",
+      "link": "tl_l2_mem",
+      "from_port": "down",
+      "to_port": "up"
+    }
+  ]
+}

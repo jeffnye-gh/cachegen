@@ -1,0 +1,99 @@
+{
+  "schema_version": "0.10.0",
+  "file_type": "links",
+  "include": [],
+  "links": {
+    "tl_c_64b": {
+      "protocol": "tilelink",
+      "arbitration": "none",
+      "tilelink": {
+        "conformance": "TL-C",
+        "data_bus_bytes": 64,
+        "address_bits": 32,
+        "size_bits": 3,
+        "source_bits": 4,
+        "sink_bits": 3
+      },
+      "from_port_type": "tl_c_init",
+      "to_port_type": "tl_c_targ"
+    },
+    "tl_uh_32b": {
+      "protocol": "tilelink",
+      "arbitration": "round_robin",
+      "tilelink": {
+        "conformance": "TL-UH",
+        "data_bus_bytes": 32,
+        "address_bits": 32,
+        "size_bits": 3,
+        "source_bits": 4,
+        "sink_bits": 0
+      },
+      "from_port_type": "tl_uh_init",
+      "to_port_type": "tl_uh_targ"
+    },
+    "tl_ul_4b": {
+      "protocol": "tilelink",
+      "tilelink": {
+        "conformance": "TL-UL",
+        "data_bus_bytes": 4,
+        "address_bits": 32,
+        "size_bits": 2,
+        "source_bits": 2,
+        "sink_bits": 1,
+        "user_bits": 0
+      },
+      "from_port_type": "tl_uh_init",
+      "to_port_type": "tl_uh_targ"
+    },
+    "pe_port": {
+      "protocol": "custom",
+      "custom": {
+        "handshake": {
+          "request_strobes": "separate_read_write",
+          "accept": "ready",
+          "read_data_return": "valid_flag"
+        },
+        "channels": {
+          "address": "shared",
+          "data": "split_read_write"
+        },
+        "address_granularity": "byte",
+        "address_width_bits": 32,
+        "address_alignment_bytes": 4,
+        "read_width_bits": 32,
+        "write_width_bits": 32,
+        "write_granularity_bytes": 1,
+        "read_byte_enables": false,
+        "write_response": false,
+        "outstanding_requests": 1
+      },
+      "from_port_type": "pe_init",
+      "to_port_type": "pe_targ"
+    },
+    "mm_port": {
+      "protocol": "custom",
+      "custom": {
+        "handshake": {
+          "request_strobes": "separate_read_write",
+          "accept": "always",
+          "read_data_return": "valid_flag"
+        },
+        "channels": {
+          "address": "shared",
+          "data": "split_read_write"
+        },
+        "address_granularity": "line",
+        "address_width_bits": 27,
+        "address_alignment_bytes": 32,
+        "read_width_bits": 256,
+        "write_width_bits": 256,
+        "write_granularity_bytes": 32,
+        "read_byte_enables": false,
+        "write_response": true,
+        "outstanding_requests": 1
+      },
+      "from_port_type": "mm_init",
+      "to_port_type": "mm_targ"
+    }
+  }
+}

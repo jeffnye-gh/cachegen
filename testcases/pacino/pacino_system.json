@@ -1,0 +1,23 @@
+{
+  "schema_version": "0.10.0",
+  "file_type": "system",
+  "name": "pacino",
+  "include": [
+    {
+      "file": "pacino_ports.json",
+      "type": "ports"
+    },
+    {
+      "file": "pacino_caches.json",
+      "type": "caches"
+    },
+    {
+      "file": "pacino_links.json",
+      "type": "links"
+    },
+    {
+      "file": "pacino_topology.json",
+      "type": "topology"
+    }
+  ]
+}

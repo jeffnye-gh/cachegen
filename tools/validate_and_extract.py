@@ -63,7 +63,6 @@ RESULTS_SECTIONS_ORDERED = [
     "## Test Case Results",
     "## Assumptions made not explicit in the prompt",
     "## Decisions made not explicit in the prompt",
-    "## RVA23 compliance risks and gaps noticed",
     "## Deferred Work",
     "## Other Notes",
 ]

@@ -1,0 +1,333 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://uarchlabs.com/schemas/cachegen/links-0.10.0.json",
+  "title": "cachegen link definitions",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "file_type",
+    "links"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "0.10.0"
+    },
+    "file_type": {
+      "const": "links"
+    },
+    "include": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/include_entry"
+      }
+    },
+    "links": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": {
+        "pattern": "^[a-z][a-z0-9_]*$",
+        "maxLength": 32
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/link_node"
+      }
+    }
+  },
+  "$defs": {
+    "include_entry": {
+      "type": "object",
+      "required": [
+        "file",
+        "type"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "file": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "type": {
+          "enum": [
+            "caches",
+            "links",
+            "topology",
+            "ports"
+          ]
+        }
+      }
+    },
+    "link_node": {
+      "type": "object",
+      "required": [
+        "protocol",
+        "from_port_type",
+        "to_port_type"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "protocol": {
+          "enum": [
+            "tilelink",
+            "custom"
+          ]
+        },
+        "arbitration": {
+          "enum": [
+            "none",
+            "fixed_priority",
+            "round_robin",
+            "weighted"
+          ]
+        },
+        "tilelink": {
+          "type": "object",
+          "required": [
+            "conformance",
+            "data_bus_bytes",
+            "address_bits",
+            "size_bits",
+            "source_bits",
+            "sink_bits"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "conformance": {
+              "enum": [
+                "TL-UL",
+                "TL-UH",
+                "TL-C"
+              ]
+            },
+            "data_bus_bytes": {
+              "enum": [
+                1,
+                2,
+                4,
+                8,
+                16,
+                32,
+                64,
+                128,
+                256,
+                512,
+                1024,
+                2048,
+                4096
+              ]
+            },
+            "address_bits": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 128
+            },
+            "size_bits": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 4
+            },
+            "source_bits": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 64
+            },
+            "sink_bits": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 64
+            },
+            "user_bits": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 64
+            }
+          }
+        },
+        "custom": {
+          "type": "object",
+          "required": [
+            "handshake",
+            "channels",
+            "address_granularity",
+            "address_width_bits",
+            "read_width_bits",
+            "write_width_bits"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "handshake": {
+              "type": "object",
+              "required": [
+                "request_strobes",
+                "accept",
+                "read_data_return"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "request_strobes": {
+                  "enum": [
+                    "single_valid_with_rw",
+                    "separate_read_write"
+                  ]
+                },
+                "accept": {
+                  "enum": [
+                    "ready",
+                    "stall",
+                    "always"
+                  ]
+                },
+                "read_data_return": {
+                  "enum": [
+                    "same_cycle",
+                    "valid_flag",
+                    "valid_with_id"
+                  ]
+                }
+              }
+            },
+            "channels": {
+              "type": "object",
+              "required": [
+                "address",
+                "data"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "address": {
+                  "enum": [
+                    "shared",
+                    "split_read_write"
+                  ]
+                },
+                "data": {
+                  "enum": [
+                    "shared_bidir",
+                    "split_read_write"
+                  ]
+                }
+              }
+            },
+            "address_granularity": {
+              "enum": [
+                "byte",
+                "line"
+              ]
+            },
+            "address_width_bits": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 128
+            },
+            "address_alignment_bytes": {
+              "enum": [
+                1,
+                2,
+                4,
+                8,
+                16,
+                32,
+                64,
+                128
+              ]
+            },
+            "read_width_bits": {
+              "type": "integer",
+              "minimum": 8,
+              "maximum": 4096
+            },
+            "write_width_bits": {
+              "type": "integer",
+              "minimum": 8,
+              "maximum": 4096
+            },
+            "write_granularity_bytes": {
+              "enum": [
+                1,
+                2,
+                4,
+                8,
+                16,
+                32,
+                64
+              ]
+            },
+            "read_byte_enables": {
+              "type": "boolean"
+            },
+            "write_response": {
+              "type": "boolean"
+            },
+            "outstanding_requests": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1024
+            },
+            "id_width_bits": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 64
+            }
+          }
+        },
+        "from_port_type": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "maxLength": 32
+        },
+        "to_port_type": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "maxLength": 32
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "required": [
+              "protocol"
+            ],
+            "properties": {
+              "protocol": {
+                "const": "tilelink"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "tilelink"
+            ],
+            "not": {
+              "required": [
+                "custom"
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "protocol"
+            ],
+            "properties": {
+              "protocol": {
+                "const": "custom"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "custom"
+            ],
+            "not": {
+              "required": [
+                "tilelink"
+              ]
+            }
+          }
+        }
+      ]
+    }
+  }
+}

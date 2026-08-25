@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://uarchlabs.com/schemas/cachegen/ports-0.10.0.json",
+  "title": "cachegen port types",
+  "type": "object",
+  "required": ["schema_version", "file_type", "port_types"],
+  "additionalProperties": false,
+
+  "properties": {
+    "schema_version": { "const": "0.10.0" },
+    "file_type": { "const": "ports" },
+
+    "include": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["file", "type"],
+        "additionalProperties": false,
+        "properties": {
+          "file": { "type": "string", "minLength": 1, "maxLength": 256 },
+          "type": { "enum": ["caches", "links", "topology", "ports"] }
+        }
+      }
+    },
+
+    "port_types": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9_]*$",
+        "maxLength": 32
+      },
+      "additionalProperties": {
+        "type": "object",
+        "required": ["role"],
+        "additionalProperties": false,
+        "properties": {
+          "role": { "enum": ["initiator", "target"] }
+        }
+      }
+    }
+  }
+}

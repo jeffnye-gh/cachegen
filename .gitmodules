@@ -1,0 +1,6 @@
+[submodule "tools/jnutils"]
+	path = tools/jnutils
+	url = https://github.com/jeffnye-gh/jnutils
+[submodule "tools/verilator"]
+	path = tools/verilator
+	url = https://github.com/verilator/verilator

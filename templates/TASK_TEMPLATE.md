@@ -71,34 +71,26 @@ As needed.
 
 ## Binding Previous Decisions
 
-1. BIND BY MODULE NAME. TD#109. The binds are already correct and
-   this task does not touch them. It also must not silently break
-   them; see Problem 3.
+D-1 Decision 1
+    Explanation 1
 
-2. THE ftq UNIT IS 22 TARGETS AND 670 CHECKS. 11 lint, 11 sim.
-   That is the number to reproduce, and BP-107's Results Capture
-   has the per-target breakdown if you need it. Do not take the
-   figure from this prompt as the baseline -- measure it.
+D-2 Decisions 2
+    Explanation 2
 
-3. planning/ IS READ-ONLY, as always.
+D-3 planning/ IS READ-ONLY, as always.
 
 ## Specific Requirements
 
 List of requirements etc.
 
-REQUIREMENT 0 -- BASELINE FIRST, BEFORE ANY CHANGE.
-Enumerate the Makefile's targets from the Makefile, not from `all`.
+R-1 Requirement 1
+    Explanation 1
 
-PROBLEM 1 -- THE MOVE.
-Move the ten assertion files to rtl/core/frontend/ftq/tb/. 
+R-2 Requirement 2
+    Explanation 2
 
-PROBLEM 2 -- THE MAKEFILE.
-Fix every target that referenced the old paths.
-
-PROBLEM 3 -- RE-RUN AND COMPARE.
-Run every target individually from a clean tree again. Present the
-before and after tables together. Every cell must match. Call out
-any difference rather than explaining it away.
+R-2 Requirement 3
+    Explanation 3
 
 ## Constraints
 
@@ -107,7 +99,6 @@ Per task limits and constraints
 ## Deliverables
 
 Task's expected deliverables 
-
 
 - Results Capture filled in below, in this file:
   prompts/CB-000.md

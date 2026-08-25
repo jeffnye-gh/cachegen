@@ -1,0 +1,707 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://uarchlabs.com/schemas/cachegen/caches-0.11.0.json",
+  "title": "cachegen cache definitions",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "file_type",
+    "caches"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "0.11.0"
+    },
+    "file_type": {
+      "const": "caches"
+    },
+    "include": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/include_entry"
+      }
+    },
+    "caches": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": {
+        "pattern": "^[a-z][a-z0-9_]*$",
+        "maxLength": 32
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/cache_node"
+      }
+    }
+  },
+  "$defs": {
+    "include_entry": {
+      "type": "object",
+      "required": [
+        "file",
+        "type"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "file": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "type": {
+          "enum": [
+            "caches",
+            "links",
+            "topology",
+            "ports"
+          ]
+        }
+      }
+    },
+    "cache_node": {
+      "type": "object",
+      "required": [
+        "cache_type"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "cache_type": {
+          "enum": [
+            "icache",
+            "dcache",
+            "unified",
+            "memory",
+            "agent"
+          ]
+        },
+        "geometry": {
+          "type": "object",
+          "required": [
+            "capacity_bytes",
+            "line_bytes",
+            "associativity",
+            "banks"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "capacity_bytes": {
+              "type": "integer",
+              "minimum": 256
+            },
+            "line_bytes": {
+              "enum": [
+                16,
+                32,
+                64,
+                128,
+                256
+              ]
+            },
+            "associativity": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 64
+            },
+            "banks": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 64
+            },
+            "bank_interleave_granularity": {
+              "enum": [
+                "word",
+                "line"
+              ]
+            },
+            "bank_select_position": {
+              "enum": [
+                "below_index",
+                "above_index"
+              ]
+            }
+          },
+          "allOf": [
+            {
+              "if": {
+                "required": [
+                  "banks"
+                ],
+                "properties": {
+                  "banks": {
+                    "minimum": 2
+                  }
+                }
+              },
+              "then": {
+                "required": [
+                  "bank_interleave_granularity",
+                  "bank_select_position"
+                ]
+              }
+            }
+          ]
+        },
+        "indexing": {
+          "enum": [
+            "PIPT",
+            "VIPT"
+          ]
+        },
+        "policies": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "read_miss": {
+              "enum": [
+                "allocate",
+                "no_allocate"
+              ]
+            },
+            "write_miss": {
+              "enum": [
+                "allocate",
+                "no_allocate"
+              ]
+            },
+            "write_hit": {
+              "enum": [
+                "write_back",
+                "write_through"
+              ]
+            },
+            "replacement": {
+              "enum": [
+                "tree_plru",
+                "lru",
+                "random",
+                "fifo"
+              ]
+            }
+          }
+        },
+        "inclusion": {
+          "enum": [
+            "inclusive",
+            "exclusive",
+            "nine"
+          ]
+        },
+        "miss_handling": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "mshrs": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1024
+            },
+            "mshr_targets": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 64
+            },
+            "victim_buffer_entries": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 64
+            },
+            "fill_buffer_entries": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 64
+            }
+          },
+          "allOf": [
+            {
+              "if": {
+                "required": [
+                  "mshrs"
+                ],
+                "properties": {
+                  "mshrs": {
+                    "minimum": 1
+                  }
+                }
+              },
+              "then": {
+                "required": [
+                  "mshr_targets"
+                ]
+              },
+              "else": {
+                "not": {
+                  "required": [
+                    "mshr_targets"
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        "fill": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "beat_order": {
+              "enum": [
+                "linear",
+                "critical_first"
+              ]
+            },
+            "bypass_to_upstream": {
+              "type": "boolean"
+            }
+          }
+        },
+        "timing": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "read_latency_cycles": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1024
+            },
+            "write_throughput_cycles": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1024
+            },
+            "tag_compare_stage": {
+              "enum": [
+                "same_cycle",
+                "next_cycle"
+              ]
+            },
+            "emit_parameters": {
+              "type": "boolean"
+            }
+          }
+        },
+        "storage": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "data_array_organization": {
+              "enum": [
+                "array_per_way",
+                "way_in_address",
+                "banked_by_word"
+              ]
+            },
+            "way_access": {
+              "enum": [
+                "parallel",
+                "serial_tag_then_data",
+                "way_predicted"
+              ]
+            },
+            "tag_array": {
+              "$ref": "#/$defs/array_storage"
+            },
+            "data_array": {
+              "$ref": "#/$defs/array_storage"
+            },
+            "valid_bits": {
+              "$ref": "#/$defs/array_storage"
+            },
+            "dirty_bits": {
+              "$ref": "#/$defs/array_storage"
+            },
+            "replacement_bits": {
+              "$ref": "#/$defs/array_storage"
+            }
+          }
+        },
+        "maintenance": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "invalidate_line": {
+              "type": "boolean"
+            },
+            "invalidate_all": {
+              "type": "boolean"
+            },
+            "flush_line": {
+              "type": "boolean"
+            },
+            "flush_all": {
+              "type": "boolean"
+            }
+          }
+        },
+        "init": {
+          "$ref": "#/$defs/memory_init"
+        },
+        "range_check": {
+          "type": "boolean"
+        },
+        "ports": {
+          "type": "object",
+          "minProperties": 1,
+          "propertyNames": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*$",
+            "maxLength": 32
+          },
+          "additionalProperties": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*$",
+            "maxLength": 32
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "required": [
+              "cache_type"
+            ],
+            "properties": {
+              "cache_type": {
+                "const": "icache"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "policies": {
+                "not": {
+                  "anyOf": [
+                    {
+                      "required": [
+                        "write_miss"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "write_hit"
+                      ]
+                    }
+                  ]
+                }
+              },
+              "storage": {
+                "not": {
+                  "required": [
+                    "dirty_bits"
+                  ]
+                }
+              },
+              "maintenance": {
+                "properties": {
+                  "flush_line": {
+                    "const": false
+                  },
+                  "flush_all": {
+                    "const": false
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "cache_type"
+            ],
+            "properties": {
+              "cache_type": {
+                "const": "memory"
+              }
+            }
+          },
+          "then": {
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "indexing"
+                  ]
+                },
+                {
+                  "required": [
+                    "policies"
+                  ]
+                },
+                {
+                  "required": [
+                    "inclusion"
+                  ]
+                },
+                {
+                  "required": [
+                    "miss_handling"
+                  ]
+                },
+                {
+                  "required": [
+                    "fill"
+                  ]
+                },
+                {
+                  "required": [
+                    "maintenance"
+                  ]
+                }
+              ]
+            },
+            "properties": {
+              "geometry": {
+                "properties": {
+                  "associativity": {
+                    "const": 1
+                  }
+                }
+              },
+              "timing": {
+                "not": {
+                  "required": [
+                    "tag_compare_stage"
+                  ]
+                }
+              },
+              "storage": {
+                "not": {
+                  "anyOf": [
+                    {
+                      "required": [
+                        "tag_array"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "valid_bits"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "dirty_bits"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "replacement_bits"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "way_access"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "data_array_organization"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "cache_type"
+            ],
+            "properties": {
+              "cache_type": {
+                "enum": [
+                  "icache",
+                  "dcache",
+                  "unified"
+                ]
+              }
+            }
+          },
+          "then": {
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "init"
+                  ]
+                },
+                {
+                  "required": [
+                    "range_check"
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "cache_type"
+            ],
+            "properties": {
+              "cache_type": {
+                "const": "agent"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "ports"
+            ],
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "geometry"
+                  ]
+                },
+                {
+                  "required": [
+                    "indexing"
+                  ]
+                },
+                {
+                  "required": [
+                    "policies"
+                  ]
+                },
+                {
+                  "required": [
+                    "inclusion"
+                  ]
+                },
+                {
+                  "required": [
+                    "miss_handling"
+                  ]
+                },
+                {
+                  "required": [
+                    "fill"
+                  ]
+                },
+                {
+                  "required": [
+                    "timing"
+                  ]
+                },
+                {
+                  "required": [
+                    "storage"
+                  ]
+                },
+                {
+                  "required": [
+                    "maintenance"
+                  ]
+                },
+                {
+                  "required": [
+                    "init"
+                  ]
+                },
+                {
+                  "required": [
+                    "range_check"
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "cache_type"
+            ],
+            "properties": {
+              "cache_type": {
+                "enum": [
+                  "icache",
+                  "dcache",
+                  "unified",
+                  "memory"
+                ]
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "geometry"
+            ]
+          }
+        }
+      ]
+    },
+    "memory_init": {
+      "type": "object",
+      "oneOf": [
+        {
+          "required": [
+            "format"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "format": {
+              "const": "none"
+            }
+          }
+        },
+        {
+          "required": [
+            "format",
+            "file"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "format": {
+              "enum": [
+                "memh",
+                "memb"
+              ]
+            },
+            "file": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            }
+          }
+        }
+      ]
+    },
+    "array_storage": {
+      "type": "object",
+      "required": [
+        "kind",
+        "read_port",
+        "byte_enables",
+        "cleared_on_reset"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "enum": [
+            "inferred_sram",
+            "flop_file",
+            "bw_ram",
+            "macro",
+            "behavioral"
+          ]
+        },
+        "read_port": {
+          "enum": [
+            "combinational",
+            "registered"
+          ]
+        },
+        "byte_enables": {
+          "type": "boolean"
+        },
+        "cleared_on_reset": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}
