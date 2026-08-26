@@ -4,3 +4,9 @@
 [submodule "tools/verilator"]
 	path = tools/verilator
 	url = https://github.com/verilator/verilator
+[submodule "tools/json-schema-validator"]
+	path = tools/json-schema-validator
+	url = https://github.com/pboettch/json-schema-validator
+[submodule "tools/googletest"]
+	path = tools/googletest
+	url = https://github.com/google/googletest

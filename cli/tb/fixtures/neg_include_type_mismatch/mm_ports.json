@@ -1,0 +1,9 @@
+{
+  "schema_version": "0.10.0",
+  "file_type": "ports",
+  "port_types": {
+    "p_spare": {
+      "role": "target"
+    }
+  }
+}

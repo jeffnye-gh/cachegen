@@ -1,0 +1,305 @@
+{
+  "schema_version": "0.6.1",
+  "name": "zen5_dside",
+
+  "addressing": { "pa_bits": 52, "va_bits": 48, "page_bytes": 4096 },
+
+  "clock": { "name": "clk", "edge": "rising" },
+  "reset": {
+    "name": "rstn",
+    "polarity": "active_low",
+    "style": "synchronous"
+  },
+
+  "levels": [
+    {
+      "name": "l1d",
+      "geometry": {
+        "capacity_bytes": 49152,
+        "line_bytes": 64,
+        "associativity": 12,
+        "banks": 1
+      },
+      "indexing": "VIPT",
+      "policies": {
+        "read_miss": "allocate",
+        "write_miss": "allocate",
+        "write_hit": "write_back",
+        "replacement": "lru"
+      },
+      "inclusion_of_upstream": "none",
+      "miss_handling": {
+        "mshrs": 124,
+        "mshr_targets": 8,
+        "victim_buffer_entries": 0,
+        "fill_buffer_entries": 0
+      },
+      "upstream_port": {
+        "handshake": {
+          "request_strobes": "single_valid_with_rw",
+          "accept": "ready",
+          "read_data_return": "valid_with_id"
+        },
+        "channels": { "address": "shared", "data": "split_read_write" },
+        "address_granularity": "byte",
+        "address_width_bits": 48,
+        "address_alignment_bytes": 1,
+        "read_width_bits": 512,
+        "write_width_bits": 512,
+        "write_granularity_bytes": 1,
+        "read_byte_enables": false,
+        "write_response": false
+      },
+      "fill": { "beat_order": "critical_first", "bypass_to_upstream": true },
+      "timing": {
+        "read_hit_latency_cycles": 4,
+        "write_hit_throughput_cycles": 1,
+        "tag_compare_stage": "same_cycle",
+        "emit_parameters": false
+      },
+      "storage": {
+        "data_array_organization": "banked_by_word",
+        "way_access": "parallel",
+        "tag_array": {
+          "kind": "inferred_sram",
+          "read_port": "registered",
+          "byte_enables": false,
+          "cleared_on_reset": false
+        },
+        "data_array": {
+          "kind": "inferred_sram",
+          "read_port": "registered",
+          "byte_enables": true,
+          "cleared_on_reset": false
+        },
+        "valid_bits": {
+          "kind": "flop_file",
+          "read_port": "combinational",
+          "byte_enables": false,
+          "cleared_on_reset": true
+        },
+        "dirty_bits": {
+          "kind": "flop_file",
+          "read_port": "combinational",
+          "byte_enables": false,
+          "cleared_on_reset": true
+        },
+        "replacement_bits": {
+          "kind": "flop_file",
+          "read_port": "combinational",
+          "byte_enables": false,
+          "cleared_on_reset": true
+        }
+      },
+      "maintenance": {
+        "invalidate_line": true,
+        "invalidate_all": true,
+        "flush_line": true,
+        "flush_all": true
+      }
+    },
+
+    {
+      "name": "l2",
+      "geometry": {
+        "capacity_bytes": 1048576,
+        "line_bytes": 64,
+        "associativity": 16,
+        "banks": 1
+      },
+      "indexing": "PIPT",
+      "policies": {
+        "read_miss": "allocate",
+        "write_miss": "allocate",
+        "write_hit": "write_back",
+        "replacement": "lru"
+      },
+      "inclusion_of_upstream": "inclusive",
+      "miss_handling": {
+        "mshrs": 16,
+        "mshr_targets": 8,
+        "victim_buffer_entries": 0,
+        "fill_buffer_entries": 0
+      },
+      "upstream_port": {
+        "handshake": {
+          "request_strobes": "single_valid_with_rw",
+          "accept": "ready",
+          "read_data_return": "valid_with_id"
+        },
+        "channels": { "address": "shared", "data": "split_read_write" },
+        "address_granularity": "line",
+        "address_width_bits": 46,
+        "address_alignment_bytes": 32,
+        "read_width_bits": 512,
+        "write_width_bits": 512,
+        "write_granularity_bytes": 32,
+        "read_byte_enables": false,
+        "write_response": true
+      },
+      "fill": { "beat_order": "critical_first", "bypass_to_upstream": true },
+      "timing": {
+        "read_hit_latency_cycles": 8,
+        "write_hit_throughput_cycles": 1,
+        "tag_compare_stage": "next_cycle",
+        "emit_parameters": false
+      },
+      "storage": {
+        "data_array_organization": "way_in_address",
+        "way_access": "serial_tag_then_data",
+        "tag_array": {
+          "kind": "inferred_sram",
+          "read_port": "registered",
+          "byte_enables": false,
+          "cleared_on_reset": false
+        },
+        "data_array": {
+          "kind": "inferred_sram",
+          "read_port": "registered",
+          "byte_enables": true,
+          "cleared_on_reset": false
+        },
+        "valid_bits": {
+          "kind": "inferred_sram",
+          "read_port": "registered",
+          "byte_enables": false,
+          "cleared_on_reset": false
+        },
+        "dirty_bits": {
+          "kind": "inferred_sram",
+          "read_port": "registered",
+          "byte_enables": false,
+          "cleared_on_reset": false
+        },
+        "replacement_bits": {
+          "kind": "inferred_sram",
+          "read_port": "registered",
+          "byte_enables": false,
+          "cleared_on_reset": false
+        }
+      },
+      "maintenance": {
+        "invalidate_line": true,
+        "invalidate_all": true,
+        "flush_line": true,
+        "flush_all": true
+      }
+    },
+
+    {
+      "name": "l3",
+      "geometry": {
+        "capacity_bytes": 33554432,
+        "line_bytes": 64,
+        "associativity": 16,
+        "banks": 8,
+        "bank_interleave_granularity": "line",
+        "bank_select_position": "above_index"
+      },
+      "indexing": "PIPT",
+      "policies": {
+        "read_miss": "no_allocate",
+        "write_miss": "allocate",
+        "write_hit": "write_back",
+        "replacement": "lru"
+      },
+      "inclusion_of_upstream": "exclusive",
+      "miss_handling": {
+        "mshrs": 64,
+        "mshr_targets": 8,
+        "victim_buffer_entries": 0,
+        "fill_buffer_entries": 0
+      },
+      "upstream_port": {
+        "handshake": {
+          "request_strobes": "single_valid_with_rw",
+          "accept": "ready",
+          "read_data_return": "valid_with_id"
+        },
+        "channels": { "address": "shared", "data": "split_read_write" },
+        "address_granularity": "line",
+        "address_width_bits": 46,
+        "address_alignment_bytes": 32,
+        "read_width_bits": 512,
+        "write_width_bits": 512,
+        "write_granularity_bytes": 32,
+        "read_byte_enables": false,
+        "write_response": true
+      },
+      "fill": { "beat_order": "critical_first", "bypass_to_upstream": false },
+      "timing": {
+        "read_hit_latency_cycles": 8,
+        "write_hit_throughput_cycles": 1,
+        "tag_compare_stage": "next_cycle",
+        "emit_parameters": false
+      },
+      "storage": {
+        "data_array_organization": "way_in_address",
+        "way_access": "serial_tag_then_data",
+        "tag_array": {
+          "kind": "macro",
+          "read_port": "registered",
+          "byte_enables": false,
+          "cleared_on_reset": false
+        },
+        "data_array": {
+          "kind": "macro",
+          "read_port": "registered",
+          "byte_enables": true,
+          "cleared_on_reset": false
+        },
+        "valid_bits": {
+          "kind": "inferred_sram",
+          "read_port": "registered",
+          "byte_enables": false,
+          "cleared_on_reset": false
+        },
+        "dirty_bits": {
+          "kind": "inferred_sram",
+          "read_port": "registered",
+          "byte_enables": false,
+          "cleared_on_reset": false
+        },
+        "replacement_bits": {
+          "kind": "inferred_sram",
+          "read_port": "registered",
+          "byte_enables": false,
+          "cleared_on_reset": false
+        }
+      },
+      "maintenance": {
+        "invalidate_line": true,
+        "invalidate_all": true,
+        "flush_line": true,
+        "flush_all": true
+      }
+    }
+  ],
+
+  "memory": {
+    "name": "ddr5",
+    "capacity_bytes": 68719476736,
+    "banks": 16,
+    "read_latency_cycles": 240,
+    "write_throughput_cycles": 4,
+    "timing_style": "parameterized",
+    "range_check": true,
+    "init": { "format": "none" },
+    "upstream_port": {
+      "handshake": {
+        "request_strobes": "single_valid_with_rw",
+        "accept": "ready",
+        "read_data_return": "valid_with_id"
+      },
+      "channels": { "address": "shared", "data": "split_read_write" },
+      "address_granularity": "line",
+      "address_width_bits": 46,
+      "address_alignment_bytes": 32,
+      "read_width_bits": 512,
+      "write_width_bits": 512,
+      "write_granularity_bytes": 32,
+      "read_byte_enables": false,
+      "write_response": true
+    }
+  }
+}

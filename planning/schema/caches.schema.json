@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://uarchlabs.com/schemas/cachegen/caches-0.11.0.json",
+  "$id": "https://uarchlabs.com/schemas/cachegen/caches-0.12.0.json",
   "title": "cachegen cache definitions",
   "type": "object",
   "required": [
@@ -11,7 +11,7 @@
   "additionalProperties": false,
   "properties": {
     "schema_version": {
-      "const": "0.11.0"
+      "const": "0.12.0"
     },
     "file_type": {
       "const": "caches"
@@ -177,7 +177,11 @@
                 "fifo"
               ]
             }
-          }
+          },
+          "required": [
+            "read_miss",
+            "replacement"
+          ]
         },
         "inclusion": {
           "enum": [
@@ -236,6 +240,11 @@
                 }
               }
             }
+          ],
+          "required": [
+            "mshrs",
+            "victim_buffer_entries",
+            "fill_buffer_entries"
           ]
         },
         "fill": {
@@ -251,7 +260,11 @@
             "bypass_to_upstream": {
               "type": "boolean"
             }
-          }
+          },
+          "required": [
+            "beat_order",
+            "bypass_to_upstream"
+          ]
         },
         "timing": {
           "type": "object",
@@ -276,7 +289,11 @@
             "emit_parameters": {
               "type": "boolean"
             }
-          }
+          },
+          "required": [
+            "read_latency_cycles",
+            "emit_parameters"
+          ]
         },
         "storage": {
           "type": "object",
@@ -311,7 +328,10 @@
             "replacement_bits": {
               "$ref": "#/$defs/array_storage"
             }
-          }
+          },
+          "required": [
+            "data_array"
+          ]
         },
         "maintenance": {
           "type": "object",
@@ -329,7 +349,13 @@
             "flush_all": {
               "type": "boolean"
             }
-          }
+          },
+          "required": [
+            "invalidate_line",
+            "invalidate_all",
+            "flush_line",
+            "flush_all"
+          ]
         },
         "init": {
           "$ref": "#/$defs/memory_init"
@@ -630,6 +656,109 @@
             "required": [
               "geometry"
             ]
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "cache_type"
+            ],
+            "properties": {
+              "cache_type": {
+                "enum": [
+                  "icache",
+                  "dcache",
+                  "unified"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "storage": {
+                "required": [
+                  "data_array_organization",
+                  "way_access",
+                  "tag_array",
+                  "data_array",
+                  "valid_bits",
+                  "replacement_bits"
+                ]
+              },
+              "timing": {
+                "required": [
+                  "read_latency_cycles",
+                  "emit_parameters",
+                  "tag_compare_stage"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "cache_type"
+            ],
+            "properties": {
+              "cache_type": {
+                "enum": [
+                  "dcache",
+                  "unified"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "policies": {
+                "required": [
+                  "read_miss",
+                  "replacement",
+                  "write_miss",
+                  "write_hit"
+                ]
+              },
+              "timing": {
+                "required": [
+                  "read_latency_cycles",
+                  "emit_parameters",
+                  "tag_compare_stage",
+                  "write_throughput_cycles"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "policies"
+            ],
+            "properties": {
+              "policies": {
+                "required": [
+                  "write_hit"
+                ],
+                "properties": {
+                  "write_hit": {
+                    "const": "write_back"
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "storage"
+            ],
+            "properties": {
+              "storage": {
+                "required": [
+                  "dirty_bits"
+                ]
+              }
+            }
           }
         }
       ]

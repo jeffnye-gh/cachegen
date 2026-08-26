@@ -1,12 +1,10 @@
 {
-  "schema_version": "0.10.0",
+  "schema_version": "0.11.0",
   "file_type": "links",
   "include": [],
   "links": {
     "pe_port": {
       "protocol": "custom",
-      "from_port_type": "pe_init",
-      "to_port_type": "pe_targ",
       "custom": {
         "handshake": {
           "request_strobes": "single_valid_with_rw",
@@ -26,12 +24,12 @@
         "read_byte_enables": false,
         "write_response": false,
         "outstanding_requests": 1
-      }
+      },
+      "master_port_type": "pe_mstr",
+      "slave_port_type": "pe_slv"
     },
     "tl_l1i_l2": {
       "protocol": "tilelink",
-      "from_port_type": "tl_init",
-      "to_port_type": "tl_targ",
       "arbitration": "none",
       "tilelink": {
         "conformance": "TL-UH",
@@ -40,12 +38,12 @@
         "size_bits": 3,
         "source_bits": 3,
         "sink_bits": 2
-      }
+      },
+      "master_port_type": "tl_mstr",
+      "slave_port_type": "tl_slv"
     },
     "tl_l1d_l2": {
       "protocol": "tilelink",
-      "from_port_type": "tl_init",
-      "to_port_type": "tl_targ",
       "arbitration": "none",
       "tilelink": {
         "conformance": "TL-C",
@@ -54,12 +52,12 @@
         "size_bits": 3,
         "source_bits": 4,
         "sink_bits": 2
-      }
+      },
+      "master_port_type": "tl_mstr",
+      "slave_port_type": "tl_slv"
     },
     "tl_l2_mem": {
       "protocol": "tilelink",
-      "from_port_type": "tl_init",
-      "to_port_type": "tl_targ",
       "arbitration": "none",
       "tilelink": {
         "conformance": "TL-UH",
@@ -68,7 +66,9 @@
         "size_bits": 3,
         "source_bits": 5,
         "sink_bits": 3
-      }
+      },
+      "master_port_type": "tl_mstr",
+      "slave_port_type": "tl_slv"
     }
   }
 }

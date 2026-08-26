@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://uarchlabs.com/schemas/cachegen/links-0.10.0.json",
+  "$id": "https://uarchlabs.com/schemas/cachegen/links-0.11.0.json",
   "title": "cachegen link definitions",
   "type": "object",
   "required": [
@@ -11,7 +11,7 @@
   "additionalProperties": false,
   "properties": {
     "schema_version": {
-      "const": "0.10.0"
+      "const": "0.11.0"
     },
     "file_type": {
       "const": "links"
@@ -62,8 +62,8 @@
       "type": "object",
       "required": [
         "protocol",
-        "from_port_type",
-        "to_port_type"
+        "master_port_type",
+        "slave_port_type"
       ],
       "additionalProperties": false,
       "properties": {
@@ -271,12 +271,12 @@
             }
           }
         },
-        "from_port_type": {
+        "master_port_type": {
           "type": "string",
           "pattern": "^[a-z][a-z0-9_]*$",
           "maxLength": 32
         },
-        "to_port_type": {
+        "slave_port_type": {
           "type": "string",
           "pattern": "^[a-z][a-z0-9_]*$",
           "maxLength": 32

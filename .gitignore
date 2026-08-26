@@ -14,3 +14,6 @@ examples/1mb_l1/fpga/timing/*
 versions/*
 context-report.md
 .claude/tmp/current-prompt.md
+
+cli/bin/
+cli/obj/

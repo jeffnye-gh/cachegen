@@ -1,0 +1,38 @@
+{
+  "schema_version": "0.12.0",
+  "file_type": "topology",
+  "addressing": {
+    "pa_bits": 32,
+    "va_bits": 39,
+    "page_bytes": 4096
+  },
+  "nodes": {
+    "cpu": {
+      "cache": "cpu"
+    },
+    "l1": {
+      "cache": "l1"
+    },
+    "mem": {
+      "cache": "mem"
+    }
+  },
+  "edges": [
+    {
+      "name": "e0",
+      "from": "cpu",
+      "to": "l1",
+      "link": "l_core",
+      "from_port": "mem",
+      "to_port": "core"
+    },
+    {
+      "name": "e1",
+      "from": "l1",
+      "to": "mem",
+      "link": "nosuch",
+      "from_port": "mem",
+      "to_port": "up"
+    }
+  ]
+}

@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://uarchlabs.com/schemas/cachegen/topology-0.12.0.json",
+  "$id": "https://uarchlabs.com/schemas/cachegen/topology-0.13.0.json",
   "title": "cachegen topology",
   "type": "object",
   "required": [
@@ -13,7 +13,7 @@
   "additionalProperties": false,
   "properties": {
     "schema_version": {
-      "const": "0.12.0"
+      "const": "0.13.0"
     },
     "file_type": {
       "const": "topology"
@@ -44,7 +44,8 @@
     "addressing": {
       "type": "object",
       "required": [
-        "pa_bits"
+        "pa_bits",
+        "page_bytes"
       ],
       "additionalProperties": false,
       "properties": {
@@ -118,7 +119,9 @@
       "required": [
         "from",
         "to",
-        "link"
+        "link",
+        "from_port",
+        "to_port"
       ],
       "additionalProperties": false,
       "properties": {

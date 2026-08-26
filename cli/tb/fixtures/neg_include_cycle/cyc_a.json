@@ -1,0 +1,18 @@
+{
+  "schema_version": "0.11.0",
+  "file_type": "caches",
+  "include": [
+    {
+      "file": "cyc_b.json",
+      "type": "caches"
+    }
+  ],
+  "caches": {
+    "cyc_a_agent": {
+      "cache_type": "agent",
+      "ports": {
+        "mem": "p_init"
+      }
+    }
+  }
+}
