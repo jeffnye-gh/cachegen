@@ -1,10 +1,10 @@
 {
   "schema_version": "0.10.0",
   "file_type": "system",
-  "name": "neg_include_cycle",
+  "name": "neg_link_disagree",
   "include": [
     {
-      "file": "../base/base_caches.json",
+      "file": "caches.json",
       "type": "caches"
     },
     {
@@ -14,10 +14,6 @@
     {
       "file": "../base/base_topology.json",
       "type": "topology"
-    },
-    {
-      "file": "cyc_a.json",
-      "type": "caches"
     }
   ]
 }

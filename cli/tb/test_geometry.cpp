@@ -2,7 +2,7 @@
 // FILE:    test_geometry.cpp
 // SOURCE:  CLI-001
 // STATUS:  WORKING
-// UPDATED: 2026-08-25
+// UPDATED: 2026-08-26
 // CONTACT: Jeff Nye
 //
 // The derivation of R-8, checked against the pacino nodes. Every
@@ -56,7 +56,9 @@ TEST(GeometryMath, FieldDecomposition)
 }
 
 // --------------------------------------------------------------------
-// 32KB, 4 way, 64 byte line, against pa_bits 32 and a 4KB page
+// 32KB, 8 way, 64 byte line, against pa_bits 32 and a 4KB page. Eight
+// ways puts 4096 bytes in a way, exactly one page, so the index stops
+// at bit 11 and no index bit is translated.
 // --------------------------------------------------------------------
 TEST(GeometryPacino, L1iDerivation)
 {
@@ -67,22 +69,25 @@ TEST(GeometryPacino, L1iDerivation)
   const Model::Geom &g = n->geom;
   ASSERT_TRUE(g.valid);
 
-  EXPECT_EQ(uint64_t(128),  g.sets);
-  EXPECT_EQ(uint64_t(128),  g.sets_per_bank);
-  EXPECT_EQ(uint64_t(8192), g.bytes_per_way);
+  EXPECT_EQ(uint64_t(64),   g.sets);
+  EXPECT_EQ(uint64_t(64),   g.sets_per_bank);
+  EXPECT_EQ(uint64_t(4096), g.bytes_per_way);
   EXPECT_EQ(6,  g.offset_bits);
-  EXPECT_EQ(7,  g.index_bits);
-  EXPECT_EQ(19, g.tag_bits);
+  EXPECT_EQ(6,  g.index_bits);
+  EXPECT_EQ(20, g.tag_bits);
   EXPECT_EQ(0,  g.bank_bits);
   EXPECT_EQ(32, g.offset_bits + g.index_bits + g.tag_bits);
 
   EXPECT_EQ(uint64_t(0x0000003f), g.offset.mask);
-  EXPECT_EQ(uint64_t(0x00001fc0), g.index.mask);
-  EXPECT_EQ(uint64_t(0xffffe000), g.tag.mask);
+  EXPECT_EQ(uint64_t(0x00000fc0), g.index.mask);
+  EXPECT_EQ(uint64_t(0xfffff000), g.tag.mask);
   EXPECT_EQ(0,  g.offset.shift);
   EXPECT_EQ(6,  g.index.shift);
-  EXPECT_EQ(13, g.tag.shift);
+  EXPECT_EQ(12, g.tag.shift);
   EXPECT_EQ(31, g.tag.msb);
+
+  // the index stops one bit below the 4096 byte page offset
+  EXPECT_EQ(11, g.index.msb);
 
   // 64 byte line over a 32 byte TileLink bus
   EXPECT_EQ(2, g.refill_beats);
@@ -131,7 +136,7 @@ TEST(GeometryPacino, MemoryIsTerminal)
 }
 
 // --------------------------------------------------------------------
-// An agent node carries ports only, there is nothing to derive.
+// An agent node carries interfaces only, there is nothing to derive.
 // --------------------------------------------------------------------
 TEST(GeometryPacino, AgentHasNoGeometry)
 {
@@ -140,12 +145,12 @@ TEST(GeometryPacino, AgentHasNoGeometry)
   ASSERT_NE(nullptr, n);
 
   EXPECT_TRUE(n->resolved);
-  EXPECT_EQ("agent", n->cache_type);
+  EXPECT_EQ("agent", n->node_type);
   EXPECT_FALSE(n->geom.valid);
 }
 
 // --------------------------------------------------------------------
-// T-7, D-5 allows a target port to host more than one edge. The l2
+// T-7, D-5 allows a slave port to host more than one edge. The l2
 // up ports are one edge each here, the count is still recorded.
 // --------------------------------------------------------------------
 TEST(GeometryPacino, PortOccupancyIsRecorded)
@@ -153,9 +158,9 @@ TEST(GeometryPacino, PortOccupancyIsRecorded)
   auto drv = Fixture::run(Fixture::pacino());
   const Model &m = drv->model();
 
-  ASSERT_EQ(size_t(1), m.occupancy.count("l2.up_i"));
-  ASSERT_EQ(size_t(1), m.occupancy.count("l2.up_d"));
-  EXPECT_EQ(1, m.occupancy.at("l2.up_i"));
-  EXPECT_EQ(1, m.occupancy.at("l2.up_d"));
-  EXPECT_EQ(1, m.occupancy.at("mem.up"));
+  ASSERT_EQ(size_t(1), m.occupancy.count("l2.up_i.req"));
+  ASSERT_EQ(size_t(1), m.occupancy.count("l2.up_d.req"));
+  EXPECT_EQ(1, m.occupancy.at("l2.up_i.req"));
+  EXPECT_EQ(1, m.occupancy.at("l2.up_d.req"));
+  EXPECT_EQ(1, m.occupancy.at("mem.up.req"));
 }

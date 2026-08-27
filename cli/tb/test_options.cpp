@@ -2,7 +2,7 @@
 // FILE:    test_options.cpp
 // SOURCE:  CLI-001
 // STATUS:  WORKING
-// UPDATED: 2026-08-25
+// UPDATED: 2026-08-26
 // CONTACT: Jeff Nye
 //
 // The loader and the diagnostic object, the parts of R-3 and R-10 the

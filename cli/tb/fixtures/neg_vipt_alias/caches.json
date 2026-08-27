@@ -3,7 +3,7 @@
   "file_type": "caches",
   "include": [
     {
-      "file": "base_ports.json",
+      "file": "../base/base_ports.json",
       "type": "ports"
     }
   ],
@@ -36,12 +36,12 @@
         }
       },
       "geometry": {
-        "capacity_bytes": 4096,
+        "capacity_bytes": 32768,
         "line_bytes": 64,
         "associativity": 4,
         "banks": 1
       },
-      "indexing": "PIPT",
+      "indexing": "VIPT",
       "policies": {
         "read_miss": "allocate",
         "replacement": "lru"

@@ -1,6 +1,6 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://uarchlabs.com/schemas/cachegen/caches-0.12.0.json",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://uarchlabs.com/schemas/cachegen/caches-0.13.0.json",
   "title": "cachegen cache definitions",
   "type": "object",
   "required": [
@@ -11,7 +11,7 @@
   "additionalProperties": false,
   "properties": {
     "schema_version": {
-      "const": "0.12.0"
+      "const": "0.13.0"
     },
     "file_type": {
       "const": "caches"
@@ -61,17 +61,19 @@
     "cache_node": {
       "type": "object",
       "required": [
-        "cache_type"
+        "node_type",
+        "interfaces"
       ],
       "additionalProperties": false,
       "properties": {
-        "cache_type": {
+        "node_type": {
           "enum": [
             "icache",
             "dcache",
             "unified",
             "memory",
-            "agent"
+            "agent",
+            "interconnect"
           ]
         },
         "geometry": {
@@ -177,11 +179,7 @@
                 "fifo"
               ]
             }
-          },
-          "required": [
-            "read_miss",
-            "replacement"
-          ]
+          }
         },
         "inclusion": {
           "enum": [
@@ -240,11 +238,6 @@
                 }
               }
             }
-          ],
-          "required": [
-            "mshrs",
-            "victim_buffer_entries",
-            "fill_buffer_entries"
           ]
         },
         "fill": {
@@ -260,11 +253,7 @@
             "bypass_to_upstream": {
               "type": "boolean"
             }
-          },
-          "required": [
-            "beat_order",
-            "bypass_to_upstream"
-          ]
+          }
         },
         "timing": {
           "type": "object",
@@ -289,11 +278,7 @@
             "emit_parameters": {
               "type": "boolean"
             }
-          },
-          "required": [
-            "read_latency_cycles",
-            "emit_parameters"
-          ]
+          }
         },
         "storage": {
           "type": "object",
@@ -328,10 +313,7 @@
             "replacement_bits": {
               "$ref": "#/$defs/array_storage"
             }
-          },
-          "required": [
-            "data_array"
-          ]
+          }
         },
         "maintenance": {
           "type": "object",
@@ -349,13 +331,7 @@
             "flush_all": {
               "type": "boolean"
             }
-          },
-          "required": [
-            "invalidate_line",
-            "invalidate_all",
-            "flush_line",
-            "flush_all"
-          ]
+          }
         },
         "init": {
           "$ref": "#/$defs/memory_init"
@@ -363,7 +339,7 @@
         "range_check": {
           "type": "boolean"
         },
-        "ports": {
+        "interfaces": {
           "type": "object",
           "minProperties": 1,
           "propertyNames": {
@@ -372,9 +348,41 @@
             "maxLength": 32
           },
           "additionalProperties": {
-            "type": "string",
-            "pattern": "^[a-z][a-z0-9_]*$",
-            "maxLength": 32
+            "type": "object",
+            "required": [
+              "link",
+              "ports"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "link": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9_]*$",
+                "maxLength": 32
+              },
+              "arbitration": {
+                "enum": [
+                  "none",
+                  "fixed_priority",
+                  "round_robin",
+                  "weighted"
+                ]
+              },
+              "ports": {
+                "type": "object",
+                "minProperties": 1,
+                "propertyNames": {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9_]*$",
+                  "maxLength": 32
+                },
+                "additionalProperties": {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9_]*$",
+                  "maxLength": 32
+                }
+              }
+            }
           }
         }
       },
@@ -382,10 +390,10 @@
         {
           "if": {
             "required": [
-              "cache_type"
+              "node_type"
             ],
             "properties": {
-              "cache_type": {
+              "node_type": {
                 "const": "icache"
               }
             }
@@ -431,10 +439,10 @@
         {
           "if": {
             "required": [
-              "cache_type"
+              "node_type"
             ],
             "properties": {
-              "cache_type": {
+              "node_type": {
                 "const": "memory"
               }
             }
@@ -531,10 +539,10 @@
         {
           "if": {
             "required": [
-              "cache_type"
+              "node_type"
             ],
             "properties": {
-              "cache_type": {
+              "node_type": {
                 "enum": [
                   "icache",
                   "dcache",
@@ -563,18 +571,18 @@
         {
           "if": {
             "required": [
-              "cache_type"
+              "node_type"
             ],
             "properties": {
-              "cache_type": {
-                "const": "agent"
+              "node_type": {
+                "enum": [
+                  "agent",
+                  "interconnect"
+                ]
               }
             }
           },
           "then": {
-            "required": [
-              "ports"
-            ],
             "not": {
               "anyOf": [
                 {
@@ -639,10 +647,10 @@
         {
           "if": {
             "required": [
-              "cache_type"
+              "node_type"
             ],
             "properties": {
-              "cache_type": {
+              "node_type": {
                 "enum": [
                   "icache",
                   "dcache",
@@ -661,10 +669,10 @@
         {
           "if": {
             "required": [
-              "cache_type"
+              "node_type"
             ],
             "properties": {
-              "cache_type": {
+              "node_type": {
                 "enum": [
                   "icache",
                   "dcache",
@@ -698,10 +706,10 @@
         {
           "if": {
             "required": [
-              "cache_type"
+              "node_type"
             ],
             "properties": {
-              "cache_type": {
+              "node_type": {
                 "enum": [
                   "dcache",
                   "unified"

@@ -1,11 +1,11 @@
 {
-  "schema_version": "0.10.0",
+  "schema_version": "0.12.0",
   "file_type": "links",
   "links": {
     "l_mem": {
       "protocol": "custom",
-      "from_port_type": "p_init",
-      "to_port_type": "p_targ",
+      "master_port_type": "p_init",
+      "slave_port_type": "p_targ",
       "custom": {
         "handshake": {
           "request_strobes": "single_valid_with_rw",

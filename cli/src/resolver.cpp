@@ -2,7 +2,7 @@
 // FILE:    resolver.cpp
 // SOURCE:  CLI-001
 // STATUS:  WORKING
-// UPDATED: 2026-08-25
+// UPDATED: 2026-08-26
 // CONTACT: Jeff Nye
 // --------------------------------------------------------------------
 #include "resolver.h"
@@ -15,19 +15,42 @@ namespace cgen
 {
 
 // --------------------------------------------------------------------
+const json *Resolver::iface_of(const json *body,
+                               const std::string &iface)
+{
+  if(body == nullptr || !body->is_object())      return nullptr;
+  if(!body->contains("interfaces"))              return nullptr;
+  const json &i = (*body)["interfaces"];
+  if(!i.is_object() || !i.contains(iface))       return nullptr;
+  if(!i[iface].is_object())                      return nullptr;
+  return &i[iface];
+}
+
+// --------------------------------------------------------------------
 std::string Resolver::port_type_of(const json *body,
+                                   const std::string &iface,
                                    const std::string &port)
 {
-  if(body == nullptr || !body->is_object())         return "";
-  if(!body->contains("ports"))                      return "";
-  const json &p = (*body)["ports"];
-  if(!p.is_object() || !p.contains(port))           return "";
-  if(!p[port].is_string())                          return "";
+  const json *f = iface_of(body, iface);
+  if(f == nullptr || !f->contains("ports"))      return "";
+  const json &p = (*f)["ports"];
+  if(!p.is_object() || !p.contains(port))        return "";
+  if(!p[port].is_string())                       return "";
   return p[port].get<std::string>();
 }
 
 // --------------------------------------------------------------------
-// Every topology node names a cache definition, D-35.
+std::string Resolver::link_of(const json *body,
+                              const std::string &iface)
+{
+  const json *f = iface_of(body, iface);
+  if(f == nullptr || !f->contains("link"))       return "";
+  if(!(*f)["link"].is_string())                  return "";
+  return (*f)["link"].get<std::string>();
+}
+
+// --------------------------------------------------------------------
+// Every topology node names a node definition, D-35.
 // --------------------------------------------------------------------
 void Resolver::bind_nodes(Model &m)
 {
@@ -70,9 +93,9 @@ void Resolver::bind_nodes(Model &m)
     n.cache_path = c->path;
 
     if(c->body && c->body->is_object()) {
-      if(c->body->contains("cache_type") &&
-         (*c->body)["cache_type"].is_string()) {
-        n.cache_type = (*c->body)["cache_type"].get<std::string>();
+      if(c->body->contains("node_type") &&
+         (*c->body)["node_type"].is_string()) {
+        n.node_type = (*c->body)["node_type"].get<std::string>();
       }
       if(c->body->contains("indexing") &&
          (*c->body)["indexing"].is_string()) {
@@ -85,28 +108,52 @@ void Resolver::bind_nodes(Model &m)
 }
 
 // --------------------------------------------------------------------
-// Every port instance on every cache definition names a port type.
+// Every interface names one link and a map of port instances to port
+// types. Both sides of that are resolved here, once per definition,
+// so an unused interface is checked as well as an attached one.
 // --------------------------------------------------------------------
-void Resolver::bind_cache_ports()
+void Resolver::bind_interfaces()
 {
   for(const auto &kv : syms_.of(Kind::Cache)) {
     const SymbolTable::Entry &c = kv.second;
     if(c.body == nullptr || !c.body->is_object())  continue;
-    if(!c.body->contains("ports"))                 continue;
+    if(!c.body->contains("interfaces"))            continue;
 
-    const json &ports = (*c.body)["ports"];
-    if(!ports.is_object()) continue;
+    const json &ifaces = (*c.body)["interfaces"];
+    if(!ifaces.is_object()) continue;
 
-    for(auto it = ports.begin(); it != ports.end(); ++it) {
-      if(!it.value().is_string()) continue;
-      std::string pt = it.value().get<std::string>();
-      if(syms_.find(Kind::PortType, pt) != nullptr) continue;
+    for(auto fi = ifaces.begin(); fi != ifaces.end(); ++fi) {
+      if(!fi.value().is_object()) continue;
+      const std::string site = c.path + "/interfaces/" + fi.key();
 
-      diags_.error(c.file, c.path + "/ports/" + it.key(),
-                   "T-1.port_type",
-                   "cache " + msg->tq(c.name) + " port " +
-                   msg->tq(it.key()) + " names port type " +
-                   msg->tq(pt) + " which is not defined");
+      // the link the interface carries
+      if(fi.value().contains("link") && fi.value()["link"].is_string()) {
+        std::string ln = fi.value()["link"].get<std::string>();
+        if(syms_.find(Kind::Link, ln) == nullptr) {
+          diags_.error(c.file, site + "/link", "T-1.iface_link",
+                       "node " + msg->tq(c.name) + " interface " +
+                       msg->tq(fi.key()) + " names link " +
+                       msg->tq(ln) + " which is not defined");
+        }
+      }
+
+      // the port types the interface carries
+      if(!fi.value().contains("ports"))         continue;
+      const json &ports = fi.value()["ports"];
+      if(!ports.is_object())                    continue;
+
+      for(auto pi = ports.begin(); pi != ports.end(); ++pi) {
+        if(!pi.value().is_string()) continue;
+        std::string pt = pi.value().get<std::string>();
+        if(syms_.find(Kind::PortType, pt) != nullptr) continue;
+
+        diags_.error(c.file, site + "/ports/" + pi.key(),
+                     "T-1.port_type",
+                     "node " + msg->tq(c.name) + " interface " +
+                     msg->tq(fi.key()) + " port " + msg->tq(pi.key()) +
+                     " names port type " + msg->tq(pt) +
+                     " which is not defined");
+      }
     }
   }
 }
@@ -116,7 +163,7 @@ void Resolver::bind_cache_ports()
 // --------------------------------------------------------------------
 void Resolver::bind_link_ports()
 {
-  const char *ends[2] = { "from_port_type", "to_port_type" };
+  const char *ends[2] = { "master_port_type", "slave_port_type" };
 
   for(const auto &kv : syms_.of(Kind::Link)) {
     const SymbolTable::Entry &l = kv.second;
@@ -138,6 +185,17 @@ void Resolver::bind_link_ports()
 void Resolver::collect_edges(const std::vector<Loader::File> &files,
                              Model &m)
 {
+  struct Take { const char *key; std::string Model::Edge::*field; };
+  static const Take take[] = {
+    { "name",           &Model::Edge::name       },
+    { "from",           &Model::Edge::from       },
+    { "to",             &Model::Edge::to         },
+    { "from_interface", &Model::Edge::from_iface },
+    { "to_interface",   &Model::Edge::to_iface   },
+    { "from_port",      &Model::Edge::from_port  },
+    { "to_port",        &Model::Edge::to_port    }
+  };
+
   for(const Loader::File &f : files) {
     if(f.declared != "topology")                     continue;
     if(!f.doc.contains("edges") || !f.doc["edges"].is_array()) continue;
@@ -151,18 +209,11 @@ void Resolver::collect_edges(const std::vector<Loader::File> &files,
       e.file = f.disp;
       e.path = "/edges/" + std::to_string(i);
 
-      if(j.contains("name")      && j["name"].is_string())
-        e.name = j["name"].get<std::string>();
-      if(j.contains("from")      && j["from"].is_string())
-        e.from = j["from"].get<std::string>();
-      if(j.contains("to")        && j["to"].is_string())
-        e.to = j["to"].get<std::string>();
-      if(j.contains("link")      && j["link"].is_string())
-        e.link = j["link"].get<std::string>();
-      if(j.contains("from_port") && j["from_port"].is_string())
-        e.from_port = j["from_port"].get<std::string>();
-      if(j.contains("to_port")   && j["to_port"].is_string())
-        e.to_port = j["to_port"].get<std::string>();
+      for(const Take &t : take) {
+        if(j.contains(t.key) && j[t.key].is_string()) {
+          e.*(t.field) = j[t.key].get<std::string>();
+        }
+      }
 
       m.edges.push_back(e);
     }
@@ -170,108 +221,130 @@ void Resolver::collect_edges(const std::vector<Loader::File> &files,
 }
 
 // --------------------------------------------------------------------
-// Endpoints resolve against nodes, the type against links, and the
-// named port instances against the cache definitions behind the nodes.
+// One end of one edge: the node, then the interface on the node
+// definition behind it, then the port instance in that interface.
 // --------------------------------------------------------------------
-void Resolver::bind_edge(Model &m, Model::Edge &e)
+void Resolver::bind_edge_end(Model &m, Model::Edge &e, bool from_end)
 {
-  const char *ends[2]  = { "from", "to" };
-  std::string names[2] = { e.from, e.to };
+  const char *key   = from_end ? "from" : "to";
+  const std::string &node  = from_end ? e.from       : e.to;
+  const std::string &iface = from_end ? e.from_iface : e.to_iface;
+  const std::string &port  = from_end ? e.from_port  : e.to_port;
+  std::string &type = from_end ? e.from_port_type : e.to_port_type;
+  std::string &link = from_end ? e.from_link      : e.to_link;
+  bool &ok = from_end ? e.from_ok : e.to_ok;
 
-  for(int i = 0; i < 2; ++i) {
-    bool ok = false;
-    if(names[i].empty()) {
-      diags_.error(e.file, e.path + "/" + ends[i], "T-1.edge_endpoint",
-                   "edge " + msg->tq(m.label(e)) + " has no " +
-                   ends[i] + " endpoint");
-    } else if(syms_.find(Kind::Node, names[i]) == nullptr) {
-      diags_.error(e.file, e.path + "/" + ends[i], "T-1.edge_endpoint",
-                   "edge " + msg->tq(m.label(e)) + " " + ends[i] +
-                   " endpoint " + msg->tq(names[i]) +
-                   " is not a topology node");
-    } else {
-      ok = true;
-    }
-    if(i == 0) e.from_ok = ok; else e.to_ok = ok;
+  ok = false;
+
+  if(node.empty()) {
+    diags_.error(e.file, e.path + "/" + key, "T-1.edge_endpoint",
+                 "edge " + msg->tq(m.label(e)) + " has no " + key +
+                 " endpoint");
+    return;
+  }
+  if(syms_.find(Kind::Node, node) == nullptr) {
+    diags_.error(e.file, e.path + "/" + key, "T-1.edge_endpoint",
+                 "edge " + msg->tq(m.label(e)) + " " + key +
+                 " endpoint " + msg->tq(node) +
+                 " is not a topology node");
+    return;
+  }
+  ok = true;
+
+  const Model::Node *n = m.node(node);
+  if(n == nullptr || !n->resolved) return;
+
+  const std::string ikey = std::string(key) + "_interface";
+  if(iface.empty()) {
+    diags_.error(e.file, e.path + "/" + ikey, "T-1.edge_interface",
+                 "edge " + msg->tq(m.label(e)) +
+                 " does not name a " + ikey + " on node " +
+                 msg->tq(node));
+    return;
+  }
+  if(iface_of(n->body, iface) == nullptr) {
+    diags_.error(e.file, e.path + "/" + ikey, "T-1.edge_interface",
+                 "edge " + msg->tq(m.label(e)) + " names interface " +
+                 msg->tq(iface) + " which node " + msg->tq(node) +
+                 " does not have, its definition is " +
+                 msg->tq(n->cache));
+    return;
   }
 
-  if(e.link.empty()) {
-    diags_.error(e.file, e.path + "/link", "T-1.edge_link",
-                 "edge " + msg->tq(m.label(e)) +
-                 " does not name a link definition");
-  } else {
-    const SymbolTable::Entry *l = syms_.find(Kind::Link, e.link);
-    if(l == nullptr) {
-      diags_.error(e.file, e.path + "/link", "T-1.edge_link",
-                   "edge " + msg->tq(m.label(e)) + " names link " +
-                   msg->tq(e.link) + " which is not defined");
-    } else {
-      e.link_ok = true;
-      const json &b = *l->body;
-      if(b.contains("from_port_type") && b["from_port_type"].is_string())
-        e.link_from_type = b["from_port_type"].get<std::string>();
-      if(b.contains("to_port_type") && b["to_port_type"].is_string())
-        e.link_to_type = b["to_port_type"].get<std::string>();
-      if(b.contains("protocol") && b["protocol"].is_string())
-        e.protocol = b["protocol"].get<std::string>();
+  link = link_of(n->body, iface);
 
-      if(e.protocol == "tilelink" && b.contains("tilelink")) {
-        const json &t = b["tilelink"];
-        if(t.contains("conformance") && t["conformance"].is_string())
-          e.conformance = t["conformance"].get<std::string>();
-        if(t.contains("data_bus_bytes") &&
-           t["data_bus_bytes"].is_number_integer()) {
-          e.width_bytes = t["data_bus_bytes"].get<int>();
-          e.width_known = true;
-        }
-      } else if(e.protocol == "custom" && b.contains("custom")) {
-        const json &c = b["custom"];
-        if(c.contains("read_width_bits") &&
-           c["read_width_bits"].is_number_integer()) {
-          int bits = c["read_width_bits"].get<int>();
-          if(bits % 8 == 0) {
-            e.width_bytes = bits / 8;
-            e.width_known = true;
-          }
-        }
+  const std::string pkey = std::string(key) + "_port";
+  if(port.empty()) {
+    diags_.error(e.file, e.path + "/" + pkey, "T-1.edge_port",
+                 "edge " + msg->tq(m.label(e)) + " does not name a " +
+                 pkey + " on node " + msg->tq(node));
+    return;
+  }
+
+  std::string pt = port_type_of(n->body, iface, port);
+  if(pt.empty()) {
+    diags_.error(e.file, e.path + "/" + pkey, "T-1.edge_port",
+                 "edge " + msg->tq(m.label(e)) + " names port " +
+                 msg->tq(port) + " which interface " + msg->tq(iface) +
+                 " on node " + msg->tq(node) + " does not have");
+    return;
+  }
+  type = pt;
+}
+
+// --------------------------------------------------------------------
+// The link is not on the edge, both ends carry one. They have to name
+// the same definition. Disagreement is reported by the checker, T-9,
+// so that this stage stays a binding stage.
+// --------------------------------------------------------------------
+void Resolver::bind_edge_link(Model &m, Model::Edge &e)
+{
+  (void)m;
+  if(e.from_link.empty() || e.to_link.empty()) return;
+  if(e.from_link != e.to_link)                 return;
+
+  const SymbolTable::Entry *l = syms_.find(Kind::Link, e.from_link);
+  if(l == nullptr || l->body == nullptr)       return;  // T-1 has it
+
+  e.link    = e.from_link;
+  e.link_ok = true;
+
+  const json &b = *l->body;
+  if(b.contains("master_port_type") && b["master_port_type"].is_string())
+    e.link_master_type = b["master_port_type"].get<std::string>();
+  if(b.contains("slave_port_type") && b["slave_port_type"].is_string())
+    e.link_slave_type = b["slave_port_type"].get<std::string>();
+  if(b.contains("protocol") && b["protocol"].is_string())
+    e.protocol = b["protocol"].get<std::string>();
+
+  if(e.protocol == "tilelink" && b.contains("tilelink")) {
+    const json &t = b["tilelink"];
+    if(t.contains("conformance") && t["conformance"].is_string())
+      e.conformance = t["conformance"].get<std::string>();
+    if(t.contains("data_bus_bytes") &&
+       t["data_bus_bytes"].is_number_integer()) {
+      e.width_bytes = t["data_bus_bytes"].get<int>();
+      e.width_known = true;
+    }
+  } else if(e.protocol == "custom" && b.contains("custom")) {
+    const json &c = b["custom"];
+    if(c.contains("read_width_bits") &&
+       c["read_width_bits"].is_number_integer()) {
+      int bits = c["read_width_bits"].get<int>();
+      if(bits % 8 == 0) {
+        e.width_bytes = bits / 8;
+        e.width_known = true;
       }
     }
   }
+}
 
-  // the named port instance has to exist on the cache behind the node
-  struct End { bool ok; const std::string *port; std::string *type;
-               const std::string *node; const char *key; };
-  End list[2] = {
-    { e.from_ok, &e.from_port, &e.from_port_type, &e.from, "from_port" },
-    { e.to_ok,   &e.to_port,   &e.to_port_type,   &e.to,   "to_port"   }
-  };
-
-  for(const End &en : list) {
-    if(!en.ok) continue;
-
-    if(en.port->empty()) {
-      // D-30 says the edge names the port instance, the schema leaves
-      // it optional. Treated as an error, recorded as a schema gap.
-      diags_.error(e.file, e.path, "T-1.edge_port",
-                   "edge " + msg->tq(m.label(e)) + " does not name a " +
-                   en.key + " on node " + msg->tq(*en.node));
-      continue;
-    }
-
-    const Model::Node *n = m.node(*en.node);
-    if(n == nullptr || !n->resolved) continue;
-
-    std::string pt = port_type_of(n->body, *en.port);
-    if(pt.empty()) {
-      diags_.error(e.file, e.path + "/" + en.key, "T-1.edge_port",
-                   "edge " + msg->tq(m.label(e)) + " names port " +
-                   msg->tq(*en.port) + " which node " +
-                   msg->tq(*en.node) + " does not have, its cache is " +
-                   msg->tq(n->cache));
-      continue;
-    }
-    *en.type = pt;
-  }
+// --------------------------------------------------------------------
+void Resolver::bind_edge(Model &m, Model::Edge &e)
+{
+  bind_edge_end(m, e, true);
+  bind_edge_end(m, e, false);
+  bind_edge_link(m, e);
 }
 
 // --------------------------------------------------------------------
@@ -293,7 +366,7 @@ void Resolver::resolve(const std::vector<Loader::File> &files, Model &m)
   }
 
   bind_nodes(m);
-  bind_cache_ports();
+  bind_interfaces();
   bind_link_ports();
   collect_edges(files, m);
 

@@ -1,5 +1,5 @@
 {
-  "schema_version": "0.12.0",
+  "schema_version": "0.14.0",
   "file_type": "topology",
   "addressing": {
     "pa_bits": 32,
@@ -21,18 +21,20 @@
     {
       "name": "e0",
       "from": "cpu",
+      "from_interface": "mem",
+      "from_port": "req",
       "to": "l1",
-      "link": "l_core",
-      "from_port": "mem",
-      "to_port": "core"
+      "to_interface": "core",
+      "to_port": "req"
     },
     {
       "name": "e1",
       "from": "l1",
+      "from_interface": "mem",
+      "from_port": "req",
       "to": "nosuch",
-      "link": "l_mem",
-      "from_port": "mem",
-      "to_port": "up"
+      "to_interface": "up",
+      "to_port": "req"
     }
   ]
 }

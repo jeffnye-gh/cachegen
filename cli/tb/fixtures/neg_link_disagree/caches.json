@@ -3,7 +3,7 @@
   "file_type": "caches",
   "include": [
     {
-      "file": "base_ports.json",
+      "file": "../base/base_ports.json",
       "type": "ports"
     }
   ],
@@ -23,7 +23,7 @@
       "node_type": "icache",
       "interfaces": {
         "core": {
-          "link": "l_core",
+          "link": "l_mem",
           "ports": {
             "req": "p_targ"
           }

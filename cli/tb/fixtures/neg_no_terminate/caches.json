@@ -3,7 +3,7 @@
   "file_type": "caches",
   "include": [
     {
-      "file": "base_ports.json",
+      "file": "../base/base_ports.json",
       "type": "ports"
     }
   ],
@@ -32,6 +32,12 @@
           "link": "l_mem",
           "ports": {
             "req": "p_init"
+          }
+        },
+        "up2": {
+          "link": "l_mem",
+          "ports": {
+            "req": "p_targ"
           }
         }
       },

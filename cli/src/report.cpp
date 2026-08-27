@@ -2,7 +2,7 @@
 // FILE:    report.cpp
 // SOURCE:  CLI-001
 // STATUS:  WORKING
-// UPDATED: 2026-08-25
+// UPDATED: 2026-08-26
 // CONTACT: Jeff Nye
 // --------------------------------------------------------------------
 #include "report.h"
@@ -52,7 +52,7 @@ void Report::nodes(const Model &m) const
   for(const Model::Node &n : m.nodes) {
     std::string head = "  node " + msg->tq(n.name) + " cache " +
                        msg->tq(n.cache);
-    if(!n.cache_type.empty()) head += " type " + n.cache_type;
+    if(!n.node_type.empty()) head += " type " + n.node_type;
     if(!n.indexing.empty())   head += " indexing " + n.indexing;
     msg->imsg(head);
 
@@ -105,17 +105,20 @@ void Report::edges(const Model &m) const
   msg->imsg("Edges, " + i2s(int(m.edges.size())) + " total");
 
   for(const Model::Edge &e : m.edges) {
-    std::string a = e.from + (e.from_port.empty() ? "" :
-                              "." + e.from_port);
-    std::string b = e.to   + (e.to_port.empty()   ? "" :
-                              "." + e.to_port);
+    std::string a = e.from;
+    if(!e.from_iface.empty()) a += "." + e.from_iface;
+    if(!e.from_port.empty())  a += "." + e.from_port;
+    std::string b = e.to;
+    if(!e.to_iface.empty())   b += "." + e.to_iface;
+    if(!e.to_port.empty())    b += "." + e.to_port;
     msg->imsg("  edge " + msg->tq(m.label(e)) + "  " + a + " -> " + b);
 
-    std::string l = "    link " + msg->tq(e.link);
     if(!e.link_ok) {
-      msg->imsg(l + "  unresolved");
+      msg->imsg("    link " + msg->tq(e.from_link) + " -> " +
+                msg->tq(e.to_link) + "  unresolved");
       continue;
     }
+    std::string l = "    link " + msg->tq(e.link);
     if(!e.protocol.empty())    l += " protocol " + e.protocol;
     if(!e.conformance.empty()) l += " " + e.conformance;
     if(e.width_known)          l += " width " + i2s(e.width_bytes) +
@@ -132,7 +135,7 @@ void Report::edges(const Model &m) const
 }
 
 // --------------------------------------------------------------------
-// T-7 is recorded rather than reported, D-5 allows a target port to
+// T-7 is recorded rather than reported, D-5 allows a slave port to
 // host more than one edge.
 // --------------------------------------------------------------------
 void Report::ports(const Model &m) const

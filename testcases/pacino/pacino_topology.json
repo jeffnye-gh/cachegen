@@ -1,5 +1,5 @@
 {
-  "schema_version": "0.13.0",
+  "schema_version": "0.14.0",
   "file_type": "topology",
   "include": [],
   "addressing": {
@@ -31,42 +31,47 @@
     {
       "name": "ifu_l1i",
       "from": "ifu",
+      "from_interface": "mem",
+      "from_port": "req",
       "to": "l1i",
-      "link": "pe_port",
-      "from_port": "mem",
-      "to_port": "core"
+      "to_interface": "core",
+      "to_port": "req"
     },
     {
       "name": "lsu_l1d",
       "from": "lsu",
+      "from_interface": "mem",
+      "from_port": "req",
       "to": "l1d",
-      "link": "pe_port",
-      "from_port": "mem",
-      "to_port": "core"
+      "to_interface": "core",
+      "to_port": "req"
     },
     {
       "name": "l1i_l2",
       "from": "l1i",
+      "from_interface": "mem",
+      "from_port": "req",
       "to": "l2",
-      "link": "tl_l1i_l2",
-      "from_port": "mem",
-      "to_port": "up_i"
+      "to_interface": "up_i",
+      "to_port": "req"
     },
     {
       "name": "l1d_l2",
       "from": "l1d",
+      "from_interface": "mem",
+      "from_port": "req",
       "to": "l2",
-      "link": "tl_l1d_l2",
-      "from_port": "mem",
-      "to_port": "up_d"
+      "to_interface": "up_d",
+      "to_port": "req"
     },
     {
       "name": "l2_mem",
       "from": "l2",
+      "from_interface": "down",
+      "from_port": "req",
       "to": "mem",
-      "link": "tl_l2_mem",
-      "from_port": "down",
-      "to_port": "up"
+      "to_interface": "up",
+      "to_port": "req"
     }
   ]
 }

@@ -6,7 +6,7 @@
  FILE:    cgen_decisions.md
  SOURCE:  PA session, schema derivation
  STATUS:  DRAFT
- UPDATED: 2026-08-25
+ UPDATED: 2026-08-26
  CONTACT: Jeff Nye
 ```
 
@@ -24,17 +24,36 @@ Provenance is marked on every decision. [J] is Jeff's call. [PA] is
 a proposal that has not been ruled on. [D] is derived from an
 external specification and is cited.
 
+A decision that was reversed keeps its number and is marked
+CORRECTED, with the date and the reason. Other documents cite these
+numbers, so they do not get renumbered or deleted.
+
 ---
 # Terms
 
 ```
 node        an instance in the topology graph
-cache def   an entry in a caches file, instantiable more than once
+node def    an entry in a caches file, instantiable more than once
+interface   a named group of ports on a node def. Carries exactly
+            one link and, optionally, an arbitration policy
+port        a named endpoint inside an interface, carrying a type
 link def    an entry in a links file, a connection type
 port type   a named endpoint kind with a role
-initiator   the end of a link that issues requests
-target      the end that responds
+master      the end of a link that issues requests
+slave       the end that responds
 ```
+
+Vocabulary is master and slave. Not initiator and target, not
+manager and subordinate. TileLink 1.9.3: the agent with the master
+interface requests the agent with the slave interface to perform
+memory operations, and the topology figure puts the slave interface
+on the cache's core side and the master on its memory side. AXI
+agrees, an Arm processor is a manager and a memory controller is a
+subordinate.
+
+TRAP. TileLink 0.3.3 calls the memory side "manager", the opposite
+of AXI's use of the same word. Specs 1.7 and 1.9.3 use master and
+slave and are the ones followed here.
 
 ---
 # File set
@@ -44,7 +63,7 @@ optional include list.
 
 ```
   system      root file, include list and nothing else
-  caches      cache and memory definitions
+  caches      node definitions, caches and memories and agents
   links       connection type definitions
   ports       port type definitions
   topology    the graph: node instances and typed edges
@@ -87,6 +106,11 @@ D-10 [PA] Include paths need a stated base directory. Relative to
      the including file and relative to the system root are both
      defensible and they differ once includes nest.
 
+     The tool resolves relative to the including file. That is an
+     assumption recorded in CLI-001 and exercised by the
+     Loader.NestedIncludeResolvesAgainstTheIncludingFile test, not
+     a ruling.
+
 ---
 # Schema versus tool
 
@@ -104,31 +128,58 @@ D-13 [PA, accepted by J] Shape and vocabulary in the schema, since
      under any of the given schemas", which is not a usable message.
 
 D-14 [J] dependentRequired is not used. Group completeness is a tool
-     check so that it can produce a real message.
+     check so that it can produce a real message. See D-46 for the
+     boundary as it actually stands in caches.schema.json 0.13.0.
+
+D-45 [J] 2026-08-26. A check the tool can perform by reasoning over
+     what is already in the file does not become a schema
+     requirement. Three cases were raised and all three were ruled
+     tool work:
+
+       arbitration on an interface with one port is meaningless
+       an interface holding ports of both roles is legal but has
+         no use, and needs no schema marker
+       which role an interface arbitrates does not need naming
+
+     The rule behind all three: if stating it in the schema only
+     protects against a configuration nobody would write, leave it
+     out and let the tool reason.
 
 ## Tool checks, enumerated
 
 ```
-  T-1  undefined name: edge endpoint, cache ref, link ref, port type
+  T-1  undefined name: edge endpoint, edge interface, edge port,
+       node def ref, interface link ref, port type
   T-2  duplicate definition across files
-  T-3  port type compatibility on both ends of every edge
-  T-4  port role matches edge direction
+  T-3  port type compatibility on both ends of every edge, against
+       the master_port_type and slave_port_type the link declares
+  T-4  port role matches edge direction, from is master, to is slave
   T-5  graph terminates, no cycles
   T-6  group completeness: a field group is wholly present or
-       wholly absent; a partly populated group is an error
-  T-7  port occupancy: whether one target port may host more than
-       one edge. See Q-04.
+       wholly absent; a partly populated group is an error. See
+       D-46 for which groups this still owns
+  T-7  port occupancy: whether one slave port may host more than
+       one edge. See Q-04
   T-8  cross field arithmetic: capacity, line, associativity, sets,
-       tag width, VIPT index budget
+       tag width, bank divide, VIPT index budget
+  T-9  link agreement: the interfaces at the two ends of an edge
+       must name the same link definition. See D-43
 ```
 
 ---
-# Cache definitions
+# Node definitions
 
-D-15 [J] cache_type is a declared field. Values icache, dcache,
-     unified, memory.
+D-15 [J] CORRECTED 2026-08-26. Was: cache_type is a declared field,
+     values icache, dcache, unified, memory.
 
-D-16 [J] memory is a cache_type, not a separate file type or
+     Now: node_type is a declared field. Values icache, dcache,
+     unified, memory, agent, interconnect. The field was renamed
+     because the caches file holds more than caches. agent is a
+     producer or consumer with interfaces and nothing else, and
+     exists so an edge into an L1 has a from. interconnect is the
+     same shape and exists for D-33.
+
+D-16 [J] memory is a node_type, not a separate file type or
      schema. Bulk memory is a cache with associativity 1.
 
      PA had argued this was false, on the grounds that a memory
@@ -139,7 +190,12 @@ D-16 [J] memory is a cache_type, not a separate file type or
      objection, that a memory smaller than the address space
      decodes rather than compares, is unresolved. See Q-05.
 
-D-17 [J] Only cache_type and geometry are required. Every field
+D-17 [J] CORRECTED 2026-08-26. Was: only cache_type and geometry
+     are required.
+
+     Now: only node_type and interfaces are required. geometry is
+     required by conditional for the four node types that have one,
+     and forbidden for agent and interconnect. Every other field
      group is optional and absence means the group does not apply.
 
      This replaced a scheme in which every field was required. The
@@ -153,17 +209,24 @@ D-18 [J] "Doesn't apply" versus "forgot to say" is a non problem.
      If everything necessary for a cache is absent or none, it is a
      memory. If only part is specified it is an error. T-6.
 
-D-19 [PA] Three conditionals survive in the cache schema and are
-     the only ones that catch a contradiction rather than an
-     inapplicable field:
+D-19 [PA] The conditionals that survive in the cache schema are the
+     ones that catch a contradiction rather than an inapplicable
+     field:
+
        icache forbids write_hit, write_miss, dirty_bits, and forces
          flush_line and flush_all false
        memory forbids indexing, policies, inclusion, miss_handling,
          fill, maintenance, the tag and status arrays, and pins
          associativity to 1
        cache types forbid init and range_check
+       agent and interconnect forbid every group except interfaces
+       write_hit write_back requires dirty_bits
 
-D-20 [J] Ports are typed references on the cache node. What happens
+D-20 [J] CORRECTED 2026-08-26. Was: ports are typed references on
+     the cache node.
+
+     Now: interfaces are named groups on the node definition, and
+     ports are typed references inside an interface. What happens
      with those ports inside the cache is tool work for now.
 
 D-21 [PA] No port bodies in the cache schema. Protocol, widths and
@@ -171,6 +234,43 @@ D-21 [PA] No port bodies in the cache schema. Protocol, widths and
      them by construction. Stating them on the node wrote the same
      fact twice and gave a shared node one port definition for
      several different attached caches.
+
+D-42 [J] 2026-08-26. The hierarchy is node, then interface, then
+     port.
+
+```
+       node        node_type, and the type specialisation
+         interface link, arbitration
+           port    role, master or slave
+```
+
+     An interface is the smallest scope that sees every contender
+     on one link, which is why arbitration lives there, D-27. It is
+     also what the emitter needs, since an arbiter is sized by the
+     port list it serves and that list is exactly one interface.
+
+D-46 [J] 2026-08-26. Group completeness is the tool's, T-6. The six
+     unconditional required lists that had accumulated inside the
+     group objects were removed from caches.schema.json, since each
+     one duplicated a T-6 member and produced a second, worse
+     diagnostic for the same defect. R-07 already rejected blanket
+     required lists on every field group.
+
+     The per-node_type conditionals of D-19 stay, so the boundary
+     is not clean and is stated here rather than left to be
+     rediscovered. The schema still carries required member lists
+     inside three conditional branches:
+
+```
+       icache, dcache, unified   storage and timing members
+       dcache, unified           policies and timing members
+       write_hit == write_back   storage dirty_bits
+```
+
+     T-6 is therefore the only check for miss_handling, fill and
+     maintenance on every node type, for policies on an icache, and
+     for storage and timing on a memory. Everywhere else the schema
+     reaches the defect first and T-6 is redundant.
 
 ---
 # Link definitions
@@ -194,7 +294,7 @@ D-24 [D] TileLink per-link parameters, spec 1.9.3 Table 4:
      Conformance levels TL-UL, TL-UH, TL-C. TL-UL is read and write
      only. TL-UH adds multibeat, atomics and hints. TL-C adds cache
      block transfers and channels B, C and E.
-     Source: sifive tilelink_spec_1.9.3.pdf, verified this session.
+     Source: sifive tilelink_spec_1.9.3.pdf, verified in session.
 
 D-25 [PA] The custom protocol body decomposes the handshake into
      three independent choices: request_strobes, accept, and
@@ -206,11 +306,36 @@ D-25 [PA] The custom protocol body decomposes the handshake into
      accept.
 
 D-26 [PA] A link definition is a type, not an instance. It carries
-     no from or to. Topology edges reference it by name. Several
-     edges naming one link definition are attachments to one bus.
+     no from or to. It declares master_port_type and
+     slave_port_type. Interfaces reference it by name. Several
+     interfaces naming one link definition are attachments to one
+     bus.
 
-D-27 [PA] Arbitration belongs on the link definition, since that is
-     the bus.
+D-27 [PA] CORRECTED 2026-08-26. Was: arbitration belongs on the
+     link definition, since that is the bus. That is WRONG.
+
+     A link is point to point in both AXI and TileLink, so a link
+     cannot see another link and cannot arbitrate between them.
+     Arbitration is on the INTERFACE, which is the smallest scope
+     that aggregates every port contending for one link.
+
+     Node was the other candidate and was rejected. The argument
+     for it was that contention is really for the tag and data
+     arrays behind the interfaces. That is a different mechanism:
+     array port scheduling, resolved by a fixed pipeline priority
+     or by the array read port count, not by an arbiter with a
+     policy. One field on the node would make two unlike things
+     look like one knob.
+
+     STBus was cited for the node. It does not support it. An STBus
+     Node is a standalone crossbar module whose entire content is
+     its attachments, which in this model is an interconnect node
+     whose only members are interfaces. STBus places arbitration in
+     the thing that aggregates the contending ports, and here that
+     thing is the interface.
+
+     The field is optional, enum none, fixed_priority, round_robin,
+     weighted. Nothing in the tool consumes it yet. See Q-08.
 
 ---
 # Port definitions
@@ -218,15 +343,21 @@ D-27 [PA] Arbitration belongs on the link definition, since that is
 D-28 [J] A ports file declares port types. Simple enums are enough
      for now.
 
-D-29 [PA] A port type carries a role, initiator or target. Without
-     it nothing distinguishes the two ends and T-4 has no basis. If
-     the role is to come from a naming convention instead, drop the
-     field.
+D-29 [J] CORRECTED 2026-08-26. Was: a port type carries a role,
+     initiator or target.
 
-D-30 [PA] An edge names the port instance on each end rather than
-     letting the tool infer it from the type. l3u has three target
-     ports of the same type, so type alone cannot say which edge
-     lands where.
+     Now: a port type carries a role, master or slave. The field
+     stays, T-4 has no basis without it. Only the vocabulary
+     changed, see Terms.
+
+D-30 [PA] CORRECTED 2026-08-26. Was: an edge names the port
+     instance on each end rather than letting the tool infer it
+     from the type.
+
+     Now: an edge names node.interface.port on each end. Type alone
+     cannot say which edge lands where when a node has three slave
+     ports of one type, and interface alone cannot either once an
+     interface holds more than one port.
 
 ---
 # Topology
@@ -240,22 +371,41 @@ D-32 [J] Typed edges are the departure from DOT that matters. DOT
      one type are the same bus. DOT has no definition namespace to
      resolve against.
 
-D-33 [J] A shared bus does not need a bus node. The edge type
-     carries it.
+D-33 [J] CORRECTED 2026-08-26. Was: a shared bus does not need a
+     bus node, the edge type carries it. That is WRONG.
+
+     A shared bus needs a node. AXI treats an interconnect as
+     another device with symmetrical Manager and Subordinate ports.
+     TileLink's own topology figure draws the crossbar as an agent
+     with several interfaces. interconnect was added to the
+     node_type enum by D-15 for this.
 
 D-34 [J] Direction and multiplicity are handled by any DAG
      representation.
 
 D-35 [PA] Nodes are instances. The node key is the instance name
-     and a cache field names the definition, so one cache
-     definition can be instantiated on two cores. Naming a node the
-     same as its cache gives the one to one case.
+     and a cache field names the definition, so one node definition
+     can be instantiated on two cores. Naming a node the same as
+     its definition gives the one to one case.
 
-D-36 [PA, contested] Entry points are an attach object of core and
-     port. J challenged core as a first class type: it is a magic
-     string with no definition, and a core is only one kind of
-     requester. DMA engines, accelerators, prefetchers, IO bridges
-     and debug ports all issue requests. See Q-02.
+D-36 [PA] SUPERSEDED 2026-08-26 by D-15. The attach object of core
+     and port is gone. A requester is an agent node like any other,
+     so there is no magic string and no first class core type. This
+     also answers Q-02.
+
+D-43 [J] 2026-08-26. The link is carried by the interface, not by
+     the edge. An edge therefore names no link. Both ends of an
+     edge carry one, and they must name the same definition, which
+     is T-9.
+
+     The alternative, keeping link on the edge as well, writes the
+     same fact in three places and lets two of them disagree
+     silently.
+
+D-44 [J] 2026-08-26. An edge is
+     from, from_interface, from_port, to, to_interface, to_port,
+     all required, plus an optional name. Six required fields is
+     the price of naming both ends unambiguously.
 
 ---
 # Standing conventions
@@ -263,8 +413,8 @@ D-36 [PA, contested] Entry points are an attach object of core and
 Carried from earlier work. Not re-argued.
 
 D-37 No derived value appears in the input. sets, tag width, the
-     word offset field and the refill beat count are computed by
-     the tool.
+     word offset field, the bank field and the refill beat count
+     are computed by the tool.
 
 D-38 No value plus units pair anywhere in the input. Integers, in
      bytes and bits. A rendered string may appear in output for a
@@ -287,27 +437,39 @@ D-41 [J] Simulation control is not configuration. Clock period,
      selection, output directories, module prefixes and macro names
      are tool requirements or CLI flags.
 
+D-47 [J] The schema version lives in $id and in schema_version, and
+     NEVER in a file name. A versioned file name is how a stale
+     system schema reached the tree and cost a CLI-001 test
+     failure. The five schemas are
+
+```
+       planning/schema/system.schema.json
+       planning/schema/ports.schema.json
+       planning/schema/caches.schema.json
+       planning/schema/links.schema.json
+       planning/schema/topology.schema.json
+```
+
+D-48 [J] Tool decisions, from planning/tools/tool_decisions.md and
+     restated here because they bound everything above: C++20 not
+     C++23, namespace cgen, one class per file, Make never CMake,
+     nlohmann json, pboettch json-schema-validator, Boost
+     ProgramOptions, gtest, --cmd={check,emit}, no positionals,
+     --output defaults to ./output, --eoe off by default.
+
 ---
 # Open questions
 
-Q-02 Is a node kind needed, and what are the kinds? A core is
-     currently a bare string inside attach. Requesters other than
-     cores exist. A consistent model would make every graph
-     participant a node with a kind, which would also remove the
-     asymmetry of memory being a cache_type while an initiator is a
-     magic string.
+Q-04 May one slave port host more than one edge? Two edges aimed at
+     the same node.interface.port currently type check cleanly. The
+     tool records occupancy and reports nothing. If a bus is
+     expressed by several edges naming one link, this is legal; if
+     a port is point to point, it is an error and the shared case
+     is expressed by several ports on one interface instead.
 
-Q-03 Node and edge shape. Nodes are an object keyed by name, edges
-     are an array of objects. Two shapes for two halves of one
-     graph. DOT gives both the same shape. Whether the DOT
-     correspondence should be structural or notational, that is,
-     round trippable to a .dot file for viewing, was raised and not
-     settled.
-
-Q-04 May one target port host more than one edge? Two edges aimed
-     at the same port currently type check cleanly. If a bus is
-     expressed by several edges sharing a link type, this is legal;
-     if a port is point to point, it is an error. T-7 needs a rule.
+     The interface model makes the second reading the more likely
+     one, since an interface with several ports is now the natural
+     way to write a shared bus. Not ruled on.
 
 Q-05 A memory smaller than the address space decodes rather than
      compares. Whether "no tag compare" needs a field, or follows
@@ -316,10 +478,37 @@ Q-05 A memory smaller than the address space decodes rather than
 Q-06 The elaborated output schema is untouched and stale. It still
      carries the old artifact kind enum and has no home for fields
      added since. Nothing in this document has been reconciled
-     against it.
+     against it. Whether there is an elaborated output FILE at all,
+     or the emitter holds derived values in memory, is also open.
+     A file buys provenance and a regeneration diff, neither of
+     which blocks emission.
 
 Q-07 Version compatibility across files. Each file carries its own
-     schema_version and the tool has to reject a mismatched set.
+     schema_version and the tool has to reject a mismatched set. It
+     does not yet; each file is validated against its own schema
+     and a mismatch shows up as a schema_version const violation
+     rather than as a set-level message.
+
+Q-08 Nothing consumes arbitration. The field is accepted and
+     carried, and no stage reads it. It becomes live when the
+     emitter needs to size an arbiter, and until then a wrong value
+     is not detected.
+
+Q-09 G-3, bank placement. Nothing states whether index_bits spans
+     the whole set space or one bank. The R-7 rule that
+     offset + index + tag == pa_bits forces the whole-set reading,
+     which is what the tool computes. bank_select_position says
+     above_index or below_index but the schema does not determine
+     the field lsb and msb, so they are not emitted. Needs a
+     ruling.
+
+Q-10 Is emitted RTL regenerated in place or hand-owned after the
+     first emission? Close to irreversible once adaptation starts.
+
+Q-11 DW-8. Is testcases/1mb_l1 a pacino template or a generic
+     reference? Decides whether the emitter targets
+     SystemVerilog-2023 with a translation first, or writes fresh.
+     CLI-001 reports the directory is not in this tree.
 
 ---
 # Rejected
@@ -350,27 +539,44 @@ R-06 [PA] protocol as an enum alongside a structural handshake
      description. The two decided the same thing and could
      contradict each other.
 
-R-07 [PA] Blanket required lists on every field group. See D-17.
+R-07 [PA] Blanket required lists on every field group. See D-17 and
+     D-46.
+
+R-08 [PA] Keeping link on the edge as well as on the interface, as
+     a redundant cross check. See D-43.
 
 ---
 # Current state
 
-Schemas at 0.10.0, all validating with python jsonschema 4.26.0,
-draft 2020-12, with accept and reject cases for every conditional:
+Schemas, all validating, with accept and reject cases for every
+conditional. Versions are in $id and schema_version, D-47.
 
 ```
-  cgen_ports_0.10.0.schema.json
-  cgen_caches_0.10.0.schema.json
-  cgen_links_0.10.0.schema.json
-  cgen_topology_0.10.0.schema.json
-  cgen_system_0.10.0.schema.json
+  system.schema.json     0.10.0   unchanged
+  ports.schema.json      0.11.0   unchanged
+  links.schema.json      0.12.0   arbitration removed, D-27
+  caches.schema.json     0.13.0   node/interface/port, D-42
+  topology.schema.json   0.14.0   edge names node.interface.port
 ```
 
-Worked examples: an icache, a dcache, a unified L1, a memory, three
-TileLink conformance levels, the two 1mb_l1 ad hoc interfaces, and a
-two processor topology with split L2 on one core, unified on the
-other, sharing an L3 into DRAM. The port type check has been
-demonstrated catching a protocol mismatch and a role mismatch.
+The tool front half loads, resolves, checks and derives against
+these. cgen --cmd=check on testcases/pacino runs end to end and
+produces no diagnostics. The gtest suite is 31 of 31, one negative
+fixture per diagnostic plus the pacino positive fixture.
+
+pacino's l1i was 32KB over four ways, which put 8192 bytes in a way
+against a 4096 byte page and left index bit 12 above the page
+offset, so one physical line could land in two sets. A VIPT way
+must not exceed a page, so at a 4KB page a way caps at 4KB and 32KB
+needs eight of them. l1i is now eight way, matching l1d, and both
+L1s sit exactly at the budget with the index ending at bit 11.
+
+TRAP. pboettch json-schema-validator implements DRAFT 7 and erases
+$schema. The schemas declare 2020-12. Everything the suite exercises
+runs under the tool's draft 7 validator, so the reject cases are
+verified there. Any conditional without a fixture is verified only
+under a 2020-12 validator in Python and is not known to behave the
+same way in the tool.
 
 ---
 # Method note
@@ -385,5 +591,4 @@ module by module and classify every parameter, port and structural
 choice as a config field, a derived value, or a project convention.
 That produces the field list in one pass. Until it is done, the
 field set is not known to be complete, only known to cover what has
-been reported so far.
-
+been reported so far. See Q-11.

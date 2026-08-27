@@ -1,5 +1,5 @@
 {
-  "schema_version": "0.11.0",
+  "schema_version": "0.13.0",
   "file_type": "caches",
   "include": [
     {
@@ -9,17 +9,37 @@
   ],
   "caches": {
     "cpu": {
-      "cache_type": "agent",
-      "ports": {
-        "mem": "p_init"
+      "node_type": "agent",
+      "interfaces": {
+        "mem": {
+          "link": "l_core",
+          "ports": {
+            "req": "p_init"
+          }
+        }
       }
     },
     "l1": {
-      "cache_type": "icache",
-      "ports": {
-        "core": "p_targ",
-        "mem": "p_init",
-        "spare": "nosuch"
+      "node_type": "icache",
+      "interfaces": {
+        "core": {
+          "link": "l_core",
+          "ports": {
+            "req": "p_targ"
+          }
+        },
+        "mem": {
+          "link": "l_mem",
+          "ports": {
+            "req": "p_init"
+          }
+        },
+        "spare": {
+          "link": "l_core",
+          "ports": {
+            "req": "nosuch"
+          }
+        }
       },
       "geometry": {
         "capacity_bytes": 4096,
@@ -82,9 +102,14 @@
       }
     },
     "mem": {
-      "cache_type": "memory",
-      "ports": {
-        "up": "p_targ"
+      "node_type": "memory",
+      "interfaces": {
+        "up": {
+          "link": "l_mem",
+          "ports": {
+            "req": "p_targ"
+          }
+        }
       },
       "geometry": {
         "capacity_bytes": 65536,

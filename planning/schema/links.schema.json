@@ -1,6 +1,6 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://uarchlabs.com/schemas/cachegen/links-0.11.0.json",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://uarchlabs.com/schemas/cachegen/links-0.12.0.json",
   "title": "cachegen link definitions",
   "type": "object",
   "required": [
@@ -11,7 +11,7 @@
   "additionalProperties": false,
   "properties": {
     "schema_version": {
-      "const": "0.11.0"
+      "const": "0.12.0"
     },
     "file_type": {
       "const": "links"
@@ -71,14 +71,6 @@
           "enum": [
             "tilelink",
             "custom"
-          ]
-        },
-        "arbitration": {
-          "enum": [
-            "none",
-            "fixed_priority",
-            "round_robin",
-            "weighted"
           ]
         },
         "tilelink": {

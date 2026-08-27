@@ -1,5 +1,5 @@
 {
-  "schema_version": "0.11.0",
+  "schema_version": "0.12.0",
   "file_type": "links",
   "include": [],
   "links": {
@@ -30,7 +30,6 @@
     },
     "tl_l1i_l2": {
       "protocol": "tilelink",
-      "arbitration": "none",
       "tilelink": {
         "conformance": "TL-UH",
         "data_bus_bytes": 32,
@@ -44,7 +43,6 @@
     },
     "tl_l1d_l2": {
       "protocol": "tilelink",
-      "arbitration": "none",
       "tilelink": {
         "conformance": "TL-C",
         "data_bus_bytes": 32,
@@ -58,7 +56,6 @@
     },
     "tl_l2_mem": {
       "protocol": "tilelink",
-      "arbitration": "none",
       "tilelink": {
         "conformance": "TL-UH",
         "data_bus_bytes": 32,

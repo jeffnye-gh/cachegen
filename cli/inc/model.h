@@ -8,6 +8,10 @@
 // The resolved design. Nodes carry their derived geometry, edges
 // carry the port types and link width that resolution recovered.
 // No value in here is read from the input, see D-37 and R-8.
+//
+// An edge names node.interface.port at each end. The link is not on
+// the edge, it is carried by the interface at each end, so an edge
+// holds two link names and they have to agree.
 // --------------------------------------------------------------------
 #pragma once
 #include <cstdint>
@@ -60,7 +64,7 @@ public:
   struct Node {
     std::string name;
     std::string cache;            // cache definition it instantiates
-    std::string cache_type;
+    std::string node_type;
     std::string indexing;
     std::string file;             // site of the node entry
     std::string path;
@@ -75,13 +79,17 @@ public:
     std::string name;             // may be empty, name is optional
     std::string from;
     std::string to;
-    std::string link;
+    std::string from_iface;       // interface named on the from node
+    std::string to_iface;
     std::string from_port;
     std::string to_port;
+    std::string from_link;        // link carried by the from interface
+    std::string to_link;
+    std::string link;             // the agreed link, empty when not
     std::string from_port_type;   // type carried by the node port
     std::string to_port_type;
-    std::string link_from_type;   // type the link definition declares
-    std::string link_to_type;
+    std::string link_master_type; // types the link definition declares
+    std::string link_slave_type;
     std::string protocol;
     std::string conformance;
     int         width_bytes{0};
@@ -101,7 +109,7 @@ public:
   std::vector<Node> nodes;
   std::vector<Edge> edges;
 
-  // edges landing on one port instance, keyed "node.port", T-7
+  // edges landing on one port instance, keyed "node.iface.port", T-7
   std::map<std::string, int> occupancy;
 
   std::string system_name;

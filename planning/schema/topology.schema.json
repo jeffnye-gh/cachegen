@@ -1,6 +1,6 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://uarchlabs.com/schemas/cachegen/topology-0.13.0.json",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://uarchlabs.com/schemas/cachegen/topology-0.14.0.json",
   "title": "cachegen topology",
   "type": "object",
   "required": [
@@ -13,7 +13,7 @@
   "additionalProperties": false,
   "properties": {
     "schema_version": {
-      "const": "0.13.0"
+      "const": "0.14.0"
     },
     "file_type": {
       "const": "topology"
@@ -118,9 +118,10 @@
       "type": "object",
       "required": [
         "from",
-        "to",
-        "link",
+        "from_interface",
         "from_port",
+        "to",
+        "to_interface",
         "to_port"
       ],
       "additionalProperties": false,
@@ -131,13 +132,16 @@
         "from": {
           "$ref": "#/$defs/ident"
         },
-        "to": {
-          "$ref": "#/$defs/ident"
-        },
-        "link": {
+        "from_interface": {
           "$ref": "#/$defs/ident"
         },
         "from_port": {
+          "$ref": "#/$defs/ident"
+        },
+        "to": {
+          "$ref": "#/$defs/ident"
+        },
+        "to_interface": {
           "$ref": "#/$defs/ident"
         },
         "to_port": {

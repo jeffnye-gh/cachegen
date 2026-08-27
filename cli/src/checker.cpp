@@ -2,7 +2,7 @@
 // FILE:    checker.cpp
 // SOURCE:  CLI-001
 // STATUS:  WORKING
-// UPDATED: 2026-08-25
+// UPDATED: 2026-08-26
 // CONTACT: Jeff Nye
 // --------------------------------------------------------------------
 #include "checker.h"
@@ -35,11 +35,11 @@ bool has_member(const json &g, const std::string &k)
   return g.is_object() && g.contains(k);
 }
 
-std::string cache_type_of(const json &c)
+std::string node_type_of(const json &c)
 {
-  if(c.is_object() && c.contains("cache_type") &&
-     c["cache_type"].is_string()) {
-    return c["cache_type"].get<std::string>();
+  if(c.is_object() && c.contains("node_type") &&
+     c["node_type"].is_string()) {
+    return c["node_type"].get<std::string>();
   }
   return "";
 }
@@ -72,8 +72,8 @@ void Checker::port_types(Model &m)
       const std::string *node;
     };
     const End ends[2] = {
-      { &e.from_port_type, &e.link_from_type, "from_port", &e.from },
-      { &e.to_port_type,   &e.link_to_type,   "to_port",   &e.to   }
+      { &e.from_port_type, &e.link_master_type, "from_port", &e.from },
+      { &e.to_port_type,   &e.link_slave_type,  "to_port",   &e.to   }
     };
 
     for(const End &en : ends) {
@@ -92,8 +92,8 @@ void Checker::port_types(Model &m)
 }
 
 // --------------------------------------------------------------------
-// T-4, the from end of an edge is an initiator and the to end is a
-// target, D-29.
+// T-4, the from end of an edge is the master and the to end is the
+// slave, D-29. Master is the requesting side, TileLink 1.9.3.
 // --------------------------------------------------------------------
 void Checker::port_roles(Model &m)
 {
@@ -105,8 +105,8 @@ void Checker::port_roles(Model &m)
       const std::string *node;
     };
     const End ends[2] = {
-      { &e.from_port_type, "initiator", "from_port", &e.from },
-      { &e.to_port_type,   "target",    "to_port",   &e.to   }
+      { &e.from_port_type, "master", "from_port", &e.from },
+      { &e.to_port_type,   "slave",  "to_port",   &e.to   }
     };
 
     for(const End &en : ends) {
@@ -236,8 +236,9 @@ void Checker::groups()
     if(c.body == nullptr || !c.body->is_object()) continue;
 
     const json       &b  = *c.body;
-    const std::string ct = cache_type_of(b);
-    if(ct == "agent") continue;          // agent carries ports only
+    const std::string ct = node_type_of(b);
+    // an agent or an interconnect carries interfaces and nothing else
+    if(ct == "agent" || ct == "interconnect") continue;
 
     bool is_i   = ct == "icache";
     bool is_mem = ct == "memory";
@@ -282,26 +283,51 @@ void Checker::groups()
 }
 
 // --------------------------------------------------------------------
-// T-7. D-5 settles Q-04 for the target end: one target port may host
+// T-7. D-5 settles Q-04 for the slave end: one slave port may host
 // more than one edge, so the count is recorded and nothing is
-// reported. The initiator end is left open, see the task file.
+// reported. The master end is left open, see the task file.
 // --------------------------------------------------------------------
 void Checker::occupancy(Model &m)
 {
   m.occupancy.clear();
   for(const Model::Edge &e : m.edges) {
-    if(e.from_ok && !e.from_port.empty()) {
-      ++m.occupancy[e.from + "." + e.from_port];
+    if(e.from_ok && !e.from_iface.empty() && !e.from_port.empty()) {
+      ++m.occupancy[e.from + "." + e.from_iface + "." + e.from_port];
     }
-    if(e.to_ok && !e.to_port.empty()) {
-      ++m.occupancy[e.to + "." + e.to_port];
+    if(e.to_ok && !e.to_iface.empty() && !e.to_port.empty()) {
+      ++m.occupancy[e.to + "." + e.to_iface + "." + e.to_port];
     }
+  }
+}
+
+// --------------------------------------------------------------------
+// T-9. The interface at each end of an edge carries a link. Both ends
+// have to name the same one. An end whose link never resolved is
+// skipped, T-1.iface_link reported it.
+// --------------------------------------------------------------------
+void Checker::link_agree(Model &m)
+{
+  for(const Model::Edge &e : m.edges) {
+    if(e.from_link.empty() || e.to_link.empty())          continue;
+    if(e.from_link == e.to_link)                          continue;
+    if(syms_.find(Kind::Link, e.from_link) == nullptr)    continue;
+    if(syms_.find(Kind::Link, e.to_link)   == nullptr)    continue;
+
+    diags_.error(e.file, e.path, "T-9.link_agree",
+                 "edge " + msg->tq(m.label(e)) + " interface " +
+                 msg->tq(e.from_iface) + " on node " +
+                 msg->tq(e.from) + " carries link " +
+                 msg->tq(e.from_link) + " but interface " +
+                 msg->tq(e.to_iface) + " on node " + msg->tq(e.to) +
+                 " carries link " + msg->tq(e.to_link) +
+                 ", both ends of an edge must agree");
   }
 }
 
 // --------------------------------------------------------------------
 void Checker::run(Model &m)
 {
+  link_agree(m);
   port_types(m);
   port_roles(m);
   graph(m);

@@ -1,30 +1,50 @@
 {
-  "schema_version": "0.12.0",
+  "schema_version": "0.13.0",
   "file_type": "caches",
   "include": [],
   "caches": {
     "ifu": {
-      "cache_type": "agent",
-      "ports": {
-        "mem": "pe_mstr"
+      "node_type": "agent",
+      "interfaces": {
+        "mem": {
+          "link": "pe_port",
+          "ports": {
+            "req": "pe_mstr"
+          }
+        }
       }
     },
     "lsu": {
-      "cache_type": "agent",
-      "ports": {
-        "mem": "pe_mstr"
+      "node_type": "agent",
+      "interfaces": {
+        "mem": {
+          "link": "pe_port",
+          "ports": {
+            "req": "pe_mstr"
+          }
+        }
       }
     },
     "l1i": {
-      "cache_type": "icache",
-      "ports": {
-        "core": "pe_slv",
-        "mem": "tl_mstr"
+      "node_type": "icache",
+      "interfaces": {
+        "core": {
+          "link": "pe_port",
+          "ports": {
+            "req": "pe_slv"
+          }
+        },
+        "mem": {
+          "link": "tl_l1i_l2",
+          "ports": {
+            "req": "tl_mstr"
+          }
+        }
       },
       "geometry": {
         "capacity_bytes": 32768,
         "line_bytes": 64,
-        "associativity": 4,
+        "associativity": 8,
         "banks": 1
       },
       "indexing": "VIPT",
@@ -84,10 +104,20 @@
       }
     },
     "l1d": {
-      "cache_type": "dcache",
-      "ports": {
-        "core": "pe_slv",
-        "mem": "tl_mstr"
+      "node_type": "dcache",
+      "interfaces": {
+        "core": {
+          "link": "pe_port",
+          "ports": {
+            "req": "pe_slv"
+          }
+        },
+        "mem": {
+          "link": "tl_l1d_l2",
+          "ports": {
+            "req": "tl_mstr"
+          }
+        }
       },
       "geometry": {
         "capacity_bytes": 32768,
@@ -161,11 +191,26 @@
       }
     },
     "l2": {
-      "cache_type": "unified",
-      "ports": {
-        "up_i": "tl_slv",
-        "up_d": "tl_slv",
-        "down": "tl_mstr"
+      "node_type": "unified",
+      "interfaces": {
+        "up_i": {
+          "link": "tl_l1i_l2",
+          "ports": {
+            "req": "tl_slv"
+          }
+        },
+        "up_d": {
+          "link": "tl_l1d_l2",
+          "ports": {
+            "req": "tl_slv"
+          }
+        },
+        "down": {
+          "link": "tl_l2_mem",
+          "ports": {
+            "req": "tl_mstr"
+          }
+        }
       },
       "geometry": {
         "capacity_bytes": 524288,
@@ -241,9 +286,14 @@
       }
     },
     "mem": {
-      "cache_type": "memory",
-      "ports": {
-        "up": "tl_slv"
+      "node_type": "memory",
+      "interfaces": {
+        "up": {
+          "link": "tl_l2_mem",
+          "ports": {
+            "req": "tl_slv"
+          }
+        }
       },
       "geometry": {
         "capacity_bytes": 1073741824,

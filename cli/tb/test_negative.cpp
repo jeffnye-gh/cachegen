@@ -2,7 +2,7 @@
 // FILE:    test_negative.cpp
 // SOURCE:  CLI-001
 // STATUS:  WORKING
-// UPDATED: 2026-08-25
+// UPDATED: 2026-08-26
 // CONTACT: Jeff Nye
 //
 // One negative fixture per diagnostic, R-11. Each is minimal and each
@@ -64,9 +64,11 @@ TEST(Negative, DanglingCacheReference)
   expect_one("neg_dangling_cache", "T-1.node_cache", "nosuch");
 }
 
+// The link is carried by the interface, so an undefined link is a
+// diagnostic against the node definition, not against the edge.
 TEST(Negative, DanglingLinkReference)
 {
-  expect_one("neg_dangling_link", "T-1.edge_link", "nosuch");
+  expect_one("neg_dangling_link", "T-1.iface_link", "nosuch");
 }
 
 TEST(Negative, UnknownPortType)
@@ -98,7 +100,15 @@ TEST(Negative, PortTypeMismatchOnAnEdge)
 
 TEST(Negative, PortRoleMismatchAgainstEdgeDirection)
 {
-  expect_one("neg_port_role_mismatch", "T-4.port_role", "initiator");
+  expect_one("neg_port_role_mismatch", "T-4.port_role", "master");
+}
+
+// --------------------------------------------------------------------
+// T-9, the link is on the interface, both ends must name the same one
+// --------------------------------------------------------------------
+TEST(Negative, EdgeEndsDisagreeOnTheLink)
+{
+  expect_one("neg_link_disagree", "T-9.link_agree", "l_core");
 }
 
 // --------------------------------------------------------------------
@@ -150,4 +160,11 @@ TEST(Negative, NonPowerOfTwoCapacity)
 TEST(Negative, BanksDoesNotDivideTheSetCount)
 {
   expect_one("neg_banks_not_divide", "T-8.bank_divide", "3 banks");
+}
+
+// A VIPT way wider than a page puts an index bit above the page
+// offset, so one physical line can land in two sets.
+TEST(Negative, ViptWayWiderThanAPage)
+{
+  expect_one("neg_vipt_alias", "T-8.vipt_index", "8192");
 }
