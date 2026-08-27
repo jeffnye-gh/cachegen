@@ -114,12 +114,6 @@
                 "word",
                 "line"
               ]
-            },
-            "bank_select_position": {
-              "enum": [
-                "below_index",
-                "above_index"
-              ]
             }
           },
           "allOf": [
@@ -136,8 +130,7 @@
               },
               "then": {
                 "required": [
-                  "bank_interleave_granularity",
-                  "bank_select_position"
+                  "bank_interleave_granularity"
                 ]
               }
             }

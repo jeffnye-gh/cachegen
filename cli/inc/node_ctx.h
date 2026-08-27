@@ -16,6 +16,7 @@
 #include "link_sig.h"
 #include "model.h"
 #include "replacement.h"
+#include <map>
 #include <memory>
 #include <string>
 #include <vector>
@@ -40,7 +41,7 @@ public:
   // build from the resolved model, returns false with why set
   bool build(const Model &m, const Model::Node &n,
              const nlohmann::json *caches_root,
-             const std::vector<const nlohmann::json *> &link_defs,
+             const std::map<std::string, LinkRef> &link_defs,
              std::string &why);
 
   // --- identity -----------------------------------------------------
@@ -57,20 +58,36 @@ public:
   int  way_bits() const;
   int  set_idx_bits() const;
 
+  // ------------------------------------------------------------------
   // --- policy -------------------------------------------------------
-  const std::string &indexing()    const { return indexing_; }
-  const std::string &read_miss()   const { return read_miss_; }
-  const std::string &write_miss()  const { return write_miss_; }
-  const std::string &write_hit()   const { return write_hit_; }
-  const std::string &inclusion()   const { return inclusion_; }
-  const std::string &beat_order()  const { return beat_order_; }
+  //
+  // R-6b. EVERY ACCESSOR BELOW RECORDS THE READ, and the record is
+  // made HERE rather than where the value was extracted in build().
+  //
+  // That is the whole mechanism and it is deliberate. Extracting a
+  // value into a member is not consuming it: inclusion is extracted
+  // and no emitter has ever asked for it, so the configuration says
+  // inclusive and the emitted design is the same either way. Marking
+  // at extraction would call that field consumed and hide exactly
+  // what R-6b exists to surface.
+  //
+  // The moment an emitter calls one of these, the field leaves the
+  // unconsumed report, in the same change that made it live. Nothing
+  // has to be remembered and no list has to be maintained.
+  // ------------------------------------------------------------------
+  const std::string &indexing()    const;
+  const std::string &read_miss()   const;
+  const std::string &write_miss()  const;
+  const std::string &write_hit()   const;
+  const std::string &inclusion()   const;
+  const std::string &beat_order()  const;
   bool has_writes() const { return type_ != "icache"; }
-  bool has_dirty()  const { return write_hit_ == "write_back"; }
-  bool range_check() const { return range_check_; }
+  bool has_dirty()  const;
+  bool range_check() const;
 
-  int  mshrs() const { return mshrs_; }
-  int  read_latency() const { return read_latency_; }
-  const std::string &tag_stage() const { return tag_stage_; }
+  int  mshrs() const;
+  int  read_latency() const;
+  const std::string &tag_stage() const;
 
   const std::string &array_kind(const char *which) const;
   bool cleared_on_reset(const char *which) const;
@@ -87,7 +104,11 @@ public:
   int mem_data_bits()  const;
   int refill_beats()   const;
 
-  const Replacement &repl() const { return *repl_; }
+  const Replacement &repl() const;
+
+  // where this node's cache definition sits, for the R-6b record
+  const std::string &cfg_file() const { return cfg_file_; }
+  const std::string &cfg_path() const { return cfg_path_; }
 
   // module names, all derived from the instance name
   std::string mod(const char *suffix = "") const;
@@ -96,6 +117,14 @@ public:
 private:
   void arrays(const nlohmann::json &st);
 
+  // R-6b, one read against the cache definition this node came from
+  void mark(const std::string &rel) const;
+
+  // the storage JSON key one array name selects
+  static const char *array_key(const char *which);
+
+  std::string cfg_file_;      // the file the cache definition sits in
+  std::string cfg_path_;      // its JSON pointer, /caches/l1i
   std::string name_;
   std::string type_;
   std::string indexing_;

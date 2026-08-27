@@ -19,6 +19,8 @@
 // --------------------------------------------------------------------
 #include "diag_codes.h"
 #include "fixture.h"
+#include "gen_log.h"
+#include "tool_vars.h"
 #include <gtest/gtest.h>
 #include <algorithm>
 #include <filesystem>
@@ -125,20 +127,37 @@ TEST(Emit, ProducesTheExpectedFileSetForPacino)
   const std::string sys = m.system_name;
   ASSERT_FALSE(sys.empty());
 
+  // R-3, CLI-005. Vars.mk sits at the ROOT of the output tree,
+  // because every node Makefile and the system Makefile include the
+  // one copy. It is the only emitted file outside a directory.
+  EXPECT_TRUE(has(files, cgen::ToolVars::file_name()))
+    << "no Vars.mk at the output root";
+
   std::set<std::string> dirs;
   for(const std::string &f : files) {
+    if(f == cgen::ToolVars::file_name()) continue;
     const std::string d = head_dir(f);
     EXPECT_FALSE(d.empty())
-      << f << " is not inside a node or a system directory";
+      << f << " is not inside a node, a system or the log directory";
     dirs.insert(d);
   }
 
-  // R-4. One directory per topology INSTANCE name, plus the system.
+  // R-4. One directory per topology INSTANCE name, plus the system,
+  // plus the R-6 log directory.
   std::set<std::string> want;
   for(const cgen::Model::Node &n : m.nodes) want.insert(n.name);
   want.insert(sys);
+  want.insert(cgen::GenLog::dir());
   EXPECT_EQ(want, dirs)
     << "the directories do not match the topology instances";
+
+  // R-6. The three logs, all of them.
+  EXPECT_TRUE(has(files, std::string(cgen::GenLog::dir()) + "/" +
+                         cgen::GenLog::emission_name()));
+  EXPECT_TRUE(has(files, std::string(cgen::GenLog::dir()) + "/" +
+                         cgen::GenLog::unconsumed_name()));
+  EXPECT_TRUE(has(files, std::string(cgen::GenLog::dir()) + "/" +
+                         cgen::GenLog::geometry_name()));
 
   // every node carries its module, its package and its build
   for(const cgen::Model::Node &n : m.nodes) {
@@ -325,6 +344,13 @@ TEST(Emit, AFileTheRunDidNotWriteIsLeftAlone)
 // written text, and it is a rule a generator can break silently: the
 // node name prefix is added when a file is written, after the line
 // that carries it was built.
+//
+// CLI-005. Vars.mk IS EXEMPT, for two reasons that are both about
+// text this task does not own. Most of it is the master copy
+// planning/tools/Vars.mk, copied verbatim, and planning/ is read only
+// so its 86 column $(error) line cannot be reflowed. The rest is tool
+// paths from the command line, whose length is the user's. Every
+// other emitted file, the logs included, is held to the rule.
 // --------------------------------------------------------------------
 TEST(Emit, NoEmittedLineIsWiderThanEightyColumns)
 {
@@ -337,6 +363,7 @@ TEST(Emit, NoEmittedLineIsWiderThanEightyColumns)
 
   int over = 0;
   for(const std::string &f : files) {
+    if(f == cgen::ToolVars::file_name()) continue;
     const std::string body = Fixture::slurp(out + "/" + f);
     size_t at = 0;
     int    ln = 1;

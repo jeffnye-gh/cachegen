@@ -100,27 +100,36 @@ bool Emitter::put(const std::string &rel, const SvFile &f)
 // --------------------------------------------------------------------
 bool Emitter::build_nodes(const Model &m, const Loader &loader)
 {
-  std::vector<const json *> link_roots;
-
+  // Each link definition keeps the file and the pointer it sits at,
+  // so a stage reading one of its fields can record the read against
+  // the place it came from. R-6b.
   for(const Loader::File &f : loader.files()) {
-    if(f.doc.contains("links") && f.doc["links"].is_object()) {
-      link_roots.push_back(&f.doc["links"]);
-      for(auto it = f.doc["links"].begin();
-          it != f.doc["links"].end(); ++it) {
-        links_[it.key()] = &it.value();
-      }
+    if(!f.doc.contains("links") || !f.doc["links"].is_object()) continue;
+    for(auto it = f.doc["links"].begin();
+        it != f.doc["links"].end(); ++it) {
+      LinkRef r;
+      r.body = &it.value();
+      r.file = f.disp;
+      r.ptr  = "/links/" + it.key();
+      links_[it.key()] = r;
     }
   }
 
   bool ok = true;
   for(const Model::Node &n : m.nodes) {
-    if(!n.resolved) continue;
+    if(!n.resolved) {
+      skipped_.push_back({ n.name,
+                           "the node did not resolve, see the "
+                           "diagnostics" });
+      continue;
+    }
     NodeCtx c;
     std::string why;
-    if(!c.build(m, n, n.body, link_roots, why)) {
+    if(!c.build(m, n, n.body, links_, why)) {
       diags_.error(n.file, n.path, code::emit_unsupported,
                    "node " + msg->tq(n.name) +
                    " cannot be emitted, " + why);
+      skipped_.push_back({ n.name, why });
       ok = false;
       continue;
     }
@@ -140,7 +149,8 @@ void Emitter::emit_shared(const Model &m)
 
   bool any_tl = false;
   for(auto &kv : links_) {
-    if(kv.second->value("protocol", std::string()) == "tilelink") {
+    if(kv.second.body != nullptr &&
+       kv.second.body->value("protocol", std::string()) == "tilelink") {
       any_tl = true;
     }
   }
@@ -157,7 +167,8 @@ void Emitter::emit_shared(const Model &m)
   for(auto &kv : links_) {
     LinkSig s;
     std::string why;
-    if(!s.build(*kv.second, why)) continue;
+    if(kv.second.body == nullptr) continue;
+    if(!s.build(*kv.second.body, why, kv.second)) continue;
     const std::string nm = RtlPkg::link_pkg(kv.first) + ".sv";
     SvFile f = file(nm);
     RtlPkg::link(f, kv.first, s);
@@ -309,6 +320,89 @@ void Emitter::emit_node(const NodeCtx &c)
 }
 
 // --------------------------------------------------------------------
+// R-3. Vars.mk at the root of the output tree. Every emitted Makefile
+// includes it, so no build resolves a tool from PATH.
+//
+// This is the ONE emitted file whose contents may vary with the
+// command line. R-11 stands for every other one.
+// --------------------------------------------------------------------
+bool Emitter::emit_vars()
+{
+  const std::string src = vars_path_.empty()
+                          ? ToolVars::default_source()
+                          : vars_path_;
+
+  std::string why;
+  if(!tools_.load(src, why)) {
+    diags_.error(src, "", code::emit_vars,
+                 "the emitted build includes " +
+                 std::string(ToolVars::file_name()) + " and " + why +
+                 ". Give the path with --vars, or set CGEN_ROOT so "
+                 "the default " +
+                 std::string(ToolVars::relative_source()) +
+                 " resolves");
+    return false;
+  }
+
+  const std::string root = ToolVars::cgen_root();
+  for(const std::string &t : tool_args_) {
+    std::string w;
+    if(tools_.set(t, root, w)) continue;
+    diags_.error(src, "", code::emit_vars,
+                 "--tool " + msg->tq(t) + " is not usable, " + w);
+    return false;
+  }
+
+  SvFile f = file(ToolVars::file_name(), SvFile::Kind::Make);
+  tools_.emit(f);
+  return put(ToolVars::file_name(), f);
+}
+
+// --------------------------------------------------------------------
+// R-6. The logs, written last so the emission log can name every file
+// and the unconsumed report can see every read the emitters made.
+// --------------------------------------------------------------------
+void Emitter::emit_logs(const Model &m, const Loader &loader)
+{
+  const std::string dir = GenLog::dir();
+  if(!mkpath(dir)) return;
+
+  // R-8. The table is built AFTER emission, so every test that was
+  // emitted has already registered the field it exercises.
+  static const FieldUse empty;
+  feats_.build(m, use_ ? *use_ : empty, loader.files());
+
+  {
+    SvFile f = file(GenLog::features_name(), SvFile::Kind::Make);
+    GenLog::features(f, feats_);
+    put(dir + "/" + GenLog::features_name(), f);
+  }
+
+  {
+    SvFile f = file(GenLog::geometry_name(), SvFile::Kind::Make);
+    GenLog::geometry(f, m);
+    put(dir + "/" + GenLog::geometry_name(), f);
+  }
+  {
+    SvFile f = file(GenLog::unconsumed_name(), SvFile::Kind::Make);
+    GenLog::unconsumed(f, m, use_ ? *use_ : empty);
+    put(dir + "/" + GenLog::unconsumed_name(), f);
+  }
+
+  // the emission log names itself, so its own path joins the list
+  // before it is written rather than after
+  {
+    std::vector<std::string> all = written_;
+    all.push_back(dir + "/" + GenLog::emission_name());
+    std::sort(all.begin(), all.end());
+
+    SvFile f = file(GenLog::emission_name(), SvFile::Kind::Make);
+    GenLog::emission(f, m, nodes_, all, skipped_, tools_);
+    put(dir + "/" + GenLog::emission_name(), f);
+  }
+}
+
+// --------------------------------------------------------------------
 void Emitter::emit_system(const Model &m)
 {
   const std::string dir = sys_ + "/rtl";
@@ -402,6 +496,15 @@ bool Emitter::run(const Model &m, const Loader &loader)
   if(!build_nodes(m, loader)) return false;
   if(!mkpath("")) return false;
 
+  // R-3. Vars.mk first: every Makefile below includes it, and a tree
+  // whose Makefiles include a file that was never written is worse
+  // than a tree that was never written.
+  if(!emit_vars()) return false;
+
+  // R-8. Installed for the whole of emission, so every test emitter
+  // below can register the configuration field its check exercises.
+  Features::Scope cov(feats_);
+
   emit_shared(m);
   for(const Model::Node &n : m.nodes) {
     auto it = nodes_.find(n.name);
@@ -409,6 +512,12 @@ bool Emitter::run(const Model &m, const Loader &loader)
   }
   emit_system(m);
   emit_build(m);
+
+  std::sort(written_.begin(), written_.end());
+
+  // R-6. Last, so the unconsumed report sees every read the emitters
+  // made and the emission log can name every file.
+  emit_logs(m, loader);
 
   std::sort(written_.begin(), written_.end());
   return !diags_.has_error();

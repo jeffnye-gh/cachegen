@@ -7,6 +7,7 @@
 // --------------------------------------------------------------------
 #include "geometry.h"
 #include "diag_codes.h"
+#include "field_use.h"
 #include "msg.h"
 
 using nlohmann::json;
@@ -90,6 +91,11 @@ void Geometry::one(Model &m, Model::Node &n)
   q.line_bytes     = g["line_bytes"].get<uint64_t>();
   q.associativity  = g["associativity"].get<int>();
   q.banks          = g["banks"].get<int>();
+
+  cfg_read(n.cache_file, site + "/capacity_bytes");
+  cfg_read(n.cache_file, site + "/line_bytes");
+  cfg_read(n.cache_file, site + "/associativity");
+  cfg_read(n.cache_file, site + "/banks");
 
   if(!m.has_addressing) {
     diags_.error(n.cache_file, site, code::t8_no_addressing,
@@ -213,22 +219,40 @@ void Geometry::one(Model &m, Model::Node &n)
 }
 
 // --------------------------------------------------------------------
-// R-6, CLI-004. The bank select field.
+// R-7, CLI-005. THE BANK SELECT FIELD. bank_select_position is gone.
 //
 // The index already spans the WHOLE set space, because the rule
 // offset + index + tag == pa_bits forces it and leaves no bits over.
 // A bank select is therefore a subfield of one of the three fields,
-// never a fourth field beside them. bank_select_position says which
-// end of the index it is taken from, and bank_interleave_granularity
-// says whether it is taken from the index at all.
+// never a fourth field beside them. That much CLI-004 established and
+// it still holds.
 //
-//   line, above_index   the top bank_bits of the index
-//   line, below_index   the bottom bank_bits of the index
-//   word                the select lies inside the line, below the
-//                       line boundary, and the index is untouched
+// What CLI-004 got from a second field, this derives from the first
+// one alone. bank_interleave_granularity SAYS WHERE THE SELECT SITS,
+// and nothing else is needed:
 //
-// The line cases are checked against sets_per_bank, which is derived
-// independently above. A disagreement means the reading is wrong.
+//   line   CONSECUTIVE LINES ALTERNATE BANKS. That is the definition
+//          of line interleaving, so the select is the bits
+//          IMMEDIATELY ABOVE THE OFFSET, which is the bottom
+//          bank_bits of the index. What is left of the index is the
+//          set index within one bank, above the select.
+//
+//   word   consecutive words alternate banks, so the select sits
+//          BELOW the line boundary, inside the offset. The index is
+//          untouched and sets_per_bank derived as sets / banks is
+//          wrong as well, because every bank then holds every set.
+//          Unresolved, with the reason, exactly as CLI-004 left it.
+//
+// bank_select_position said above_index or below_index. It is deleted
+// because it could contradict the granularity: line interleaving IS
+// the bits above the offset, and above_index is the other end of the
+// index. pacino declared line and above_index together, and the two
+// readings of that pair disagree. One field cannot disagree with
+// itself.
+//
+// The line case is checked against sets_per_bank, which is derived
+// independently above. A disagreement means the reading is wrong and
+// the field is left unresolved rather than emitted.
 // --------------------------------------------------------------------
 void Geometry::bank_field(Model::Node &n, const json &g)
 {
@@ -241,9 +265,8 @@ void Geometry::bank_field(Model::Node &n, const json &g)
   if(g.contains("bank_interleave_granularity")) {
     q.bank_granularity =
         g["bank_interleave_granularity"].get<std::string>();
-  }
-  if(g.contains("bank_select_position")) {
-    q.bank_position = g["bank_select_position"].get<std::string>();
+    cfg_read(n.cache_file,
+             n.cache_path + "/geometry/bank_interleave_granularity");
   }
 
   // one bank, there is no select and nothing is taken from the index
@@ -267,18 +290,18 @@ void Geometry::bank_field(Model::Node &n, const json &g)
 
   // ------------------------------------------------------------------
   // word interleaving puts the select below the line boundary, so it
-  // is inside the offset and bank_select_position has no bearing on
-  // it. sets_per_bank, derived as sets / banks above, is then wrong
-  // as well: every bank holds every set and a fraction of each line.
-  // That is a derivation this task is not permitted to change, so the
-  // field is reported unresolved rather than guessed.
+  // is inside the offset. sets_per_bank, derived as sets / banks
+  // above, is then wrong as well: every bank holds every set and a
+  // fraction of each line. That is a derivation this task is not
+  // permitted to change, so the field is reported unresolved rather
+  // than guessed.
   // ------------------------------------------------------------------
   if(q.bank_granularity == "word") {
     q.bank_note = "bank_interleave_granularity is word, which puts "
-                  "the select inside the line offset where "
-                  "bank_select_position does not reach, and leaves "
-                  "sets_per_bank derived as sets / banks disagreeing "
-                  "with every bank holding every set";
+                  "the select inside the line offset rather than in "
+                  "the index, and leaves sets_per_bank derived as "
+                  "sets / banks disagreeing with every bank holding "
+                  "every set";
     return;
   }
 
@@ -299,21 +322,14 @@ void Geometry::bank_field(Model::Node &n, const json &g)
     return;
   }
 
-  if(q.bank_position == "above_index") {
-    q.bank      = make_field(q.index.msb - q.bank_bits + 1, q.bank_bits);
-    q.set_index = make_field(q.index.lsb, q.index_bits - q.bank_bits);
-  } else if(q.bank_position == "below_index") {
-    q.bank      = make_field(q.index.lsb, q.bank_bits);
-    q.set_index = make_field(q.index.lsb + q.bank_bits,
-                             q.index_bits - q.bank_bits);
-  } else {
-    q.bank_note = "bank_select_position " +
-                  (q.bank_position.empty()
-                       ? std::string("is absent")
-                       : msg->tq(q.bank_position)) +
-                  ", neither above_index nor below_index";
-    return;
-  }
+  // ------------------------------------------------------------------
+  // line: the select is the bits immediately above the offset, so it
+  // takes the bottom bank_bits of the index and the set index is what
+  // sits above it.
+  // ------------------------------------------------------------------
+  q.bank      = make_field(q.index.lsb, q.bank_bits);
+  q.set_index = make_field(q.index.lsb + q.bank_bits,
+                           q.index_bits - q.bank_bits);
 
   // ------------------------------------------------------------------
   // the corroboration. sets_per_bank came from sets / banks and the
@@ -332,9 +348,11 @@ void Geometry::bank_field(Model::Node &n, const json &g)
   }
 
   q.bank_resolved = true;
-  q.bank_note     = "the index spans the whole set space, so the " +
-                    q.bank_position +
-                    " select is taken out of it, leaving " +
+  q.bank_note     = "line granularity means consecutive lines "
+                    "alternate banks, so the select is the " +
+                    std::to_string(q.bank_bits) +
+                    (q.bank_bits == 1 ? " bit" : " bits") +
+                    " immediately above the offset, leaving " +
                     u64(q.sets_per_bank) + " sets in each of the " +
                     std::to_string(q.banks) + " banks";
 }

@@ -54,6 +54,19 @@ public:
   static std::unique_ptr<Driver> run_emit(const std::string &system_file,
                                           const std::string &out_dir);
 
+  // ------------------------------------------------------------------
+  // CLI-005, R-3. The same with a chosen master Vars.mk and a chosen
+  // set of --tool overrides. An empty vars path takes the default.
+  // ------------------------------------------------------------------
+  static std::unique_ptr<Driver> run_emit_vars(
+      const std::string &system_file,
+      const std::string &out_dir,
+      const std::string &vars,
+      const std::vector<std::string> &tools = {});
+
+  // the master Vars.mk the tool would take by default
+  static std::string vars_master();
+
   // a scratch directory under the system temp area, emptied first so
   // one run cannot see what an earlier one left
   static std::string scratch(const std::string &leaf);

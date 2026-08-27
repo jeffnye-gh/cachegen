@@ -6,6 +6,7 @@
 // CONTACT: Jeff Nye
 // --------------------------------------------------------------------
 #include "link_sig.h"
+#include "field_use.h"
 
 using nlohmann::json;
 
@@ -13,11 +14,43 @@ namespace cgen
 {
 
 namespace {
-int as_int(const json &j, const char *key, int dflt)
+
+// ------------------------------------------------------------------
+// Every read of a link field goes through one of these two, so R-6b
+// records the field at the point the value is taken and nowhere else.
+// ------------------------------------------------------------------
+int as_int(const json &j, const char *key, int dflt,
+           const LinkRef &site, const char *group)
 {
   if(!j.contains(key)) return dflt;
+  if(!site.file.empty()) {
+    cfg_read(site.file,
+             site.ptr + "/" + group + "/" + key);
+  }
   return j[key].get<int>();
 }
+
+std::string as_str(const json &j, const char *key,
+                   const std::string &dflt,
+                   const LinkRef &site, const char *group)
+{
+  if(!j.contains(key)) return dflt;
+  if(!site.file.empty()) {
+    cfg_read(site.file, site.ptr + "/" + group + "/" + key);
+  }
+  return j[key].get<std::string>();
+}
+
+bool as_bool(const json &j, const char *key, bool dflt,
+             const LinkRef &site, const char *group)
+{
+  if(!j.contains(key)) return dflt;
+  if(!site.file.empty()) {
+    cfg_read(site.file, site.ptr + "/" + group + "/" + key);
+  }
+  return j[key].get<bool>();
+}
+
 } // namespace
 
 // --------------------------------------------------------------------
@@ -55,12 +88,16 @@ void LinkSig::add(const std::string &local, int bits, bool m_drives,
 }
 
 // --------------------------------------------------------------------
-bool LinkSig::build(const json &link, std::string &why)
+bool LinkSig::build(const json &link, std::string &why,
+                    const LinkRef &site)
 {
   sigs_.clear();
   tied_.clear();
 
   protocol_ = link.value("protocol", std::string());
+  if(!site.file.empty() && link.contains("protocol")) {
+    cfg_read(site.file, site.ptr + "/protocol");
+  }
 
   if(protocol_ == "tilelink") {
     if(!link.contains("tilelink")) {
@@ -68,7 +105,7 @@ bool LinkSig::build(const json &link, std::string &why)
             "tilelink body";
       return false;
     }
-    tl(link["tilelink"]);
+    tl(link["tilelink"], site);
     return true;
   }
 
@@ -78,7 +115,7 @@ bool LinkSig::build(const json &link, std::string &why)
             "body";
       return false;
     }
-    return custom(link["custom"], why);
+    return custom(link["custom"], why, site);
   }
 
   why = "protocol '" + protocol_ + "' is not one the emitter covers";
@@ -94,16 +131,16 @@ bool LinkSig::build(const json &link, std::string &why)
 // field whose parameter is zero is not a signal, which is why add()
 // drops a zero width.
 // --------------------------------------------------------------------
-void LinkSig::tl(const json &t)
+void LinkSig::tl(const json &t, const LinkRef &site)
 {
-  conformance_ = t.value("conformance", std::string("TL-UL"));
-  data_bytes_  = as_int(t, "data_bus_bytes", 4);
+  conformance_ = as_str(t, "conformance", "TL-UL", site, "tilelink");
+  data_bytes_  = as_int(t, "data_bus_bytes", 4, site, "tilelink");
   data_bits_   = data_bytes_ * 8;
-  addr_bits_   = as_int(t, "address_bits", 32);
+  addr_bits_   = as_int(t, "address_bits", 32, site, "tilelink");
 
-  const int z = as_int(t, "size_bits",   3);
-  const int o = as_int(t, "source_bits", 0);
-  const int i = as_int(t, "sink_bits",   0);
+  const int z = as_int(t, "size_bits",   3, site, "tilelink");
+  const int o = as_int(t, "source_bits", 0, site, "tilelink");
+  const int i = as_int(t, "sink_bits",   0, site, "tilelink");
 
   bce_ = conformance_ == "TL-C";
 
@@ -163,13 +200,14 @@ void LinkSig::tl_channel(const char *ch, bool m_drives, bool mask,
 // The ad hoc processor port, D-25. The three handshake choices are
 // independent and each adds or removes signals on its own.
 // --------------------------------------------------------------------
-bool LinkSig::custom(const json &cu, std::string &why)
+bool LinkSig::custom(const json &cu, std::string &why,
+                     const LinkRef &site)
 {
   conformance_ = "custom";
-  addr_bits_   = as_int(cu, "address_width_bits", 32);
+  addr_bits_ = as_int(cu, "address_width_bits", 32, site, "custom");
 
-  const int rw_bits = as_int(cu, "read_width_bits",  32);
-  const int ww_bits = as_int(cu, "write_width_bits", 32);
+  const int rw_bits = as_int(cu, "read_width_bits",  32, site, "custom");
+  const int ww_bits = as_int(cu, "write_width_bits", 32, site, "custom");
   data_bits_  = rw_bits > ww_bits ? rw_bits : ww_bits;
   data_bytes_ = data_bits_ / 8;
 
@@ -178,16 +216,20 @@ bool LinkSig::custom(const json &cu, std::string &why)
   const json &ch = cu.contains("channels") ? cu["channels"]
                                            : json::object();
 
-  const std::string strobes = hs.value("request_strobes",
-                                       std::string("single_valid_with_rw"));
-  const std::string accept  = hs.value("accept", std::string("ready"));
-  const std::string ret     = hs.value("read_data_return",
-                                       std::string("valid_flag"));
-  const std::string addr_ch = ch.value("address", std::string("shared"));
-  const std::string data_ch = ch.value("data",
-                                       std::string("split_read_write"));
+  const std::string strobes =
+      as_str(hs, "request_strobes", "single_valid_with_rw", site,
+             "custom/handshake");
+  const std::string accept =
+      as_str(hs, "accept", "ready", site, "custom/handshake");
+  const std::string ret =
+      as_str(hs, "read_data_return", "valid_flag", site,
+             "custom/handshake");
+  const std::string addr_ch =
+      as_str(ch, "address", "shared", site, "custom/channels");
+  const std::string data_ch =
+      as_str(ch, "data", "split_read_write", site, "custom/channels");
 
-  const int id_bits = as_int(cu, "id_width_bits", 0);
+  const int id_bits = as_int(cu, "id_width_bits", 0, site, "custom");
 
   // ------------------------------------------------------------------
   // request strobes
@@ -221,7 +263,8 @@ bool LinkSig::custom(const json &cu, std::string &why)
   // ------------------------------------------------------------------
   // write data and its strobes
   // ------------------------------------------------------------------
-  const int gran = as_int(cu, "write_granularity_bytes", 0);
+  const int gran = as_int(cu, "write_granularity_bytes", 0, site,
+                          "custom");
   const int wstrb = gran > 0 ? (ww_bits / 8) / gran : 0;
 
   if(data_ch == "split_read_write") {
@@ -243,7 +286,7 @@ bool LinkSig::custom(const json &cu, std::string &why)
     return false;
   }
 
-  if(cu.value("read_byte_enables", false)) {
+  if(as_bool(cu, "read_byte_enables", false, site, "custom")) {
     add("rstrb", (rw_bits / 8), true, "read byte enables");
   }
 
@@ -278,7 +321,7 @@ bool LinkSig::custom(const json &cu, std::string &why)
     return false;
   }
 
-  if(cu.value("write_response", false)) {
+  if(as_bool(cu, "write_response", false, site, "custom")) {
     add("bvalid", 1, false, "the write completed");
   }
 

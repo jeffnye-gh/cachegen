@@ -25,10 +25,15 @@
 // --------------------------------------------------------------------
 #pragma once
 #include "diag_list.h"
+#include "feature_table.h"
+#include "field_use.h"
+#include "gen_log.h"
+#include "link_sig.h"
 #include "loader.h"
 #include "model.h"
 #include "node_ctx.h"
 #include "sv_file.h"
+#include "tool_vars.h"
 #include <map>
 #include <string>
 #include <vector>
@@ -41,6 +46,24 @@ class Emitter
 public:
   Emitter(DiagList &diags, const std::string &out_dir)
     : diags_(diags), out_(out_dir) {}
+
+  // ------------------------------------------------------------------
+  // R-3. The master Vars.mk and the tool paths the command line set.
+  // An empty path means ToolVars::default_source().
+  // ------------------------------------------------------------------
+  void set_vars(const std::string &vars_path,
+                const std::vector<std::string> &tools) {
+    vars_path_ = vars_path;
+    tool_args_ = tools;
+  }
+
+  const ToolVars &tool_vars() const { return tools_; }
+
+  // R-6. What the run recorded reading, for the unconsumed report.
+  void set_field_use(const FieldUse *u) { use_ = u; }
+
+  // R-8. The feature table this run built.
+  const Features &features() const { return feats_; }
 
   // Returns false when nothing was written. R-3 refusal is the
   // ordinary case of that and is reported through emit.refused.
@@ -55,6 +78,8 @@ public:
 
 private:
   bool build_nodes(const Model &m, const Loader &loader);
+  bool emit_vars();                 // R-3, Vars.mk at the output root
+  void emit_logs(const Model &m, const Loader &loader);
   void emit_shared(const Model &m);
   void emit_node(const NodeCtx &c);
   void emit_system(const Model &m);
@@ -74,8 +99,15 @@ private:
   std::string sys_;
   std::string src_;          // the BASE name of the config, R-11
 
-  std::map<std::string, NodeCtx>            nodes_;
-  std::map<std::string, const nlohmann::json *> links_;
+  ToolVars                 tools_;
+  std::string              vars_path_;
+  std::vector<std::string> tool_args_;
+  const FieldUse          *use_{nullptr};
+  Features                 feats_;
+
+  std::map<std::string, NodeCtx>  nodes_;
+  std::map<std::string, LinkRef>  links_;
+  std::vector<GenLog::Skipped>    skipped_;
   std::vector<std::string> written_;
   std::vector<std::string> notes_;
   std::vector<std::string> shared_;   // shared package paths

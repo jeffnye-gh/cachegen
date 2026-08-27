@@ -7,6 +7,7 @@
 // --------------------------------------------------------------------
 #include "symbol_table.h"
 #include "diag_codes.h"
+#include "field_use.h"
 #include "msg.h"
 
 using nlohmann::json;
@@ -107,6 +108,10 @@ void SymbolTable::scan_addressing(const Loader::File &f)
     return;
   }
   const json &a = f.doc["addressing"];
+
+  cfg_read(f.disp, "/addressing/pa_bits");
+  if(a.contains("va_bits"))    cfg_read(f.disp, "/addressing/va_bits");
+  if(a.contains("page_bytes")) cfg_read(f.disp, "/addressing/page_bytes");
 
   int pa   = a.value("pa_bits", 0);
   bool hv  = a.contains("va_bits")    && a["va_bits"].is_number_integer();

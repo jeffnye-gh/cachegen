@@ -7,6 +7,7 @@
 // --------------------------------------------------------------------
 #include "loader.h"
 #include "diag_codes.h"
+#include "field_use.h"
 #include "msg.h"
 #include <algorithm>
 #include <filesystem>
@@ -110,6 +111,12 @@ void Loader::load_one(const std::string &path,
   }
 
   f.declared = f.doc["file_type"].get<std::string>();
+  cfg_read(disp, "/file_type");
+
+  // schema_set validates the document against the schema its
+  // schema_version selects, so the version is read even though no
+  // stage on this path assigns it to anything.
+  if(f.doc.contains("schema_version")) cfg_read(disp, "/schema_version");
 
   if(f.declared != claimed) {
     diags_.error(from_file.empty() ? disp : from_file,
@@ -128,6 +135,7 @@ void Loader::load_one(const std::string &path,
 void Loader::follow_includes(const File &f, std::vector<std::string> &stack)
 {
   if(!f.doc.contains("include") || !f.doc["include"].is_array()) return;
+  cfg_read(f.disp, "/include");
 
   // copy, files_ can reallocate while the recursion runs
   const json inc = f.doc["include"];
@@ -150,6 +158,7 @@ void Loader::follow_includes(const File &f, std::vector<std::string> &stack)
 
     std::string rel  = e["file"].get<std::string>();
     std::string type = e["type"].get<std::string>();
+    cfg_read(parent_disp, ptr);
     fs::path    tgt  = fs::path(rel).is_absolute() ? fs::path(rel)
                                                    : base / rel;
 

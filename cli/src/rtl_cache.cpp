@@ -618,7 +618,7 @@ void RtlCache::master(SvFile &f, const NodeCtx &c,
     f.ln("            if(!write_q || last_a) begin");
     f.ln("              mstate <= M_RSP;");
     f.ln("            end else begin");
-    f.ln("              abeat  <= BeatIdxBits'(abeat + 1);");
+    f.ln("              abeat  <= abeat + BeatIdxBits'(1);");
     f.ln("            end");
   } else {
     f.ln("            mstate <= M_RSP;");
@@ -638,13 +638,13 @@ void RtlCache::master(SvFile &f, const NodeCtx &c,
     f.ln("              fill_q[int'(dbeat)*BeatBits +: BeatBits] <=");
     f.ln("                  " + d + "_data;");
     f.ln("              if(last_d) mstate <= M_DONE;");
-    f.ln("              else       dbeat  <= BeatIdxBits'(dbeat + 1);");
+    f.ln("              else       dbeat  <= dbeat + BeatIdxBits'(1);");
     f.ln("            end");
   } else {
     f.ln("            fill_q[int'(dbeat)*BeatBits +: BeatBits] <=");
     f.ln("                " + d + "_data;");
     f.ln("            if(last_d) mstate <= M_DONE;");
-    f.ln("            else       dbeat  <= BeatIdxBits'(dbeat + 1);");
+    f.ln("            else       dbeat  <= dbeat + BeatIdxBits'(1);");
   }
   f.ln("          end");
   f.ln("        end");
@@ -1940,7 +1940,7 @@ void RtlCache::top(SvFile &f, const NodeCtx &c)
   if(marb) {
     f.ln("          rr_slv[b]  <= (b_sel[b] == src_t'(NSlv-1))");
     f.ln("                        ? src_t'(0)");
-    f.ln("                        : src_t'(b_sel[b] + 1);");
+    f.ln("                        : b_sel[b] + src_t'(1);");
   }
   f.ln("        end");
   f.ln("      end");
@@ -2035,7 +2035,7 @@ void RtlCache::top(SvFile &f, const NodeCtx &c)
   f.ln("      m_owner <= m_sel;");
   if(barb) {
     f.ln("      rr_bnk  <= (m_sel == bsel_t'(NBnk-1))");
-    f.ln("                 ? bsel_t'(0) : bsel_t'(m_sel + 1);");
+    f.ln("                 ? bsel_t'(0) : m_sel + bsel_t'(1);");
   }
   f.ln("    end");
   f.ln("  end");

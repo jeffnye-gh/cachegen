@@ -7,7 +7,7 @@
  FILE:    PROJECT_STATUS.md
  SOURCE:  various
  STATUS:  WORKING
- UPDATED: 2026.08.26
+ UPDATED: 2026.08.27
  CONTACT: Jeff Nye
 ```
 
@@ -23,83 +23,183 @@ in use are DRAFT, CLOSED, NOT STARTED and DEPRECATED.
 
 ## Where the work is
 
-The front half of cgen is built and runs. The back half does not
-exist.
+cgen reads the pacino configuration and emits a complete
+SystemVerilog design, its testbenches and a Make build. The
+emitted design lints clean, builds, elaborates and passes.
 
 ```
   DONE         five file input schema, node/interface/port model
   DONE         pacino worked example, five files, clean
   DONE         cgen front half: load, resolve, check, derive
-  DONE         planning/arch/cgen_decisions.md, current
-  NOT STARTED  RTL emission
+  DONE         cgen emitter: RTL, testbenches, Make build
+  DONE         generation logs, including field consumption
+  DONE         planning/arch/cgen_decisions.md, current to CLI-003
   NOT STARTED  the C++ functional model backend
-  NOT STARTED  the elaborated output, see TD-06
+  NOT STARTED  the elaborated output. TD-06, not a blocker
   NOT STARTED  cgen-gui
+  DEFERRED     usage documentation, generator conventions file,
+               portability outside this tree. Not needed while
+               cgen runs here.
 ```
 
-CLI-001, CLI-002 and CLI-003 have all run and delivered. The gtest
-suite is 48 of 48. cgen --cmd=check on testcases/pacino runs end to
-end and produces no diagnostics.
+CLI-001 through CLI-005 have run and delivered.
 
-Next free CLI number is CLI-004. Next free INFRA number is
+```
+  cli suite       86 of 86
+  emitted suite   76 of 76, through the generated Makefiles
+  emitted tree    83 files, 0 lint errors, 0 lint warnings
+```
+
+Next free CLI number is CLI-006. Next free INFRA number is
 INFRA-003.
 
 ---
 
-## What blocks RTL emission
+## State of the emitted RTL
 
-Three items. All are decisions, not work. Everything else in this
-file can be done in parallel with the emitter or not at all.
-
-```
-  1  TD-01, the 1mb_l1 question. Does the emitter target
-     SystemVerilog-2023 and write fresh, or is the existing
-     example a template to be translated first? CLI-003 could
-     not confirm the directory is in the tree at all. Until
-     this is answered the emitter has no target dialect and no
-     reference. THIS IS THE ONE THAT MATTERS.
-
-  2  Q-09, bank placement. The schema does not determine the
-     bank field lsb and msb, so they are not derived and cannot
-     be emitted. pacino's l2 has two banks, so the first
-     multi-bank design cannot have its address decomposition
-     written.
-
-  3  Open Item 12, the offset unit. Word count or byte count.
-     It changes a value, not a name, and it feeds the read mux,
-     the model and the datasheet. Cheapest of the three to
-     settle and the most expensive to change afterwards.
-```
-
-Two more are near-irreversible once emission starts and should be
-answered early rather than first:
+This is what another project would consume. The design is
+correct for what it implements and the list of what it does not
+implement is longer than the list of what it does.
 
 ```
-  Q-10  is emitted RTL regenerated in place or hand-owned after
-        the first emission?
-  D-40  the generator conventions file. PLRU bit encoding, tie
-        break direction, signal naming beyond clk and rstn, the
-        reset clear loop. Decided as the emitter needs them is
-        acceptable; recorded nowhere is not.
+  synthesizable    l1i, l1d, l2. Each is its own top.
+  not synthesizable
+                   mem, a behavioural memory model
+                   ifu, lsu, testbench drivers
+                   pacino_top, because it instantiates the agents
 ```
 
-Not blocking, contrary to earlier readings: the elaborated output
-schema, version compatibility across files, the guard diagnostics,
-and every record item in the Technical Debt table.
+Emitted per node under output/<node>/, plus output/pacino/ for
+the system top, the shared packages and the build. Vars.mk sits
+at the output root and every Makefile includes it.
+
+WHAT THE EMITTED CACHE DOES NOT DO. A consumer will hit these
+and none of them is reported by the tool as a limitation:
+
+```
+  the cache is BLOCKING. mshrs reaches a comment and sizes
+    nothing. mshr_targets, victim_buffer_entries and
+    fill_buffer_entries are read by nothing.
+  read_latency_cycles is IGNORED on every cache. It is honoured
+    only by the memory model. TD-19.
+  inclusion is not enforced. Enforcing it needs the probe path
+    that TL-C's B and C channels carry, and those are tied off.
+  no maintenance port is emitted. invalidate_line,
+    invalidate_all, flush_line and flush_all are inert.
+  way_access and data_array_organization are inert. Every way's
+    tag and data array is read on every access.
+  TL-C's B, C and E channels are emitted and tied off.
+```
+
+74 of pacino's 287 configuration fields are read by no stage.
+The full list is generated at output/logs/unconsumed.log.
+
+216 features are enumerated from the configuration. 35 have a
+behavioural test. 107 are consumed but shape emitted text or a
+derived width rather than a behaviour, so the build verifies
+them rather than a test. 74 are inert.
+
+---
+
+## Session-007: CLI-005. Build environment and top level tests.
+
+Vars.mk is copied from planning/tools/Vars.mk to the output root
+and every emitted Makefile includes it. No emitted recipe carries
+a bare tool name. The option is --vars, defaulting to
+$CGEN_ROOT/planning/tools/Vars.mk, and --tool VAR=PATH sets a
+path. $CGEN_ROOT is special: a path inside the tree is written
+back as $(CGEN_ROOT)/... so the emitted tree stays portable.
+
+VERILATOR 5.048 PRODUCED NONE OF THE TEN WARNINGS CLI-004's
+output showed. Those came from 5.020, which ran because no
+emitted Makefile said which Verilator to use. Both halves were
+one finding. All ten were fixed in the emitter regardless: nine
+were one helper casting after the addition, TYPE'(x + 1), which
+performs the add at 32 bits and truncates afterward. Sizing the
+literal instead is correct under any version.
+
+FIELD CONSUMPTION IS NOW MEASURED. The tool records every leaf at
+load and every read at the point a stage takes a value. What is
+left is the unconsumed report. 74 of 287. The CLI-005 hypothesis,
+written from CLI-004's observations, named seven.
+
+Two rules make the number meaningful and both belong in the
+decision record:
+
+```
+  PRESENCE IS NOT A READ. T-6 asks whether a field exists and
+    never looks at its value, so it does not mark. Otherwise the
+    whole maintenance group counts as consumed.
+  THE RECORD IS MADE IN THE ACCESSOR, not at extraction. NodeCtx
+    extracts inclusion and nothing calls inclusion(). Four of
+    fifteen accessors have no caller.
+```
+
+Four logs under output/logs: emission, unconsumed, features,
+geometry.
+
+The top level testbench went from 7 checks to 22. It emits four
+memory images per run at named points, in a plain text format
+with a fixed width hex address and data per line. The pair either
+side of an eviction is the write_back evidence and no unit test
+can produce it.
+
+A defect found by running it: the first version gave both agents
+one address, so ifu's cold miss warmed the line in l2 and lsu's
+miss never reached memory. The test measured l2 and called it the
+memory, and it passed. Second instance of a test measuring the
+wrong thing and reporting success. TD-20.
+
+---
+
+## Session-006: CLI-004. RTL emission.
+
+78 files, 10,329 lines of SystemVerilog, from the pacino
+configuration. Every file linted clean under Verilator 5.048 with
+-Wall. Every unit testbench and the system top compiled,
+elaborated and ran, 61 checks passing where the bar was only that
+they run and report.
+
+THREE DECISIONS TREATED AS GATES DID NOT GATE ANYTHING. The
+target dialect was already stated in CLAUDE.md, so the RTL was
+written fresh and the 1mb_l1 question never arose. The bank field
+was derived. The offset unit went behind one named parameter,
+AddrUnitBytes, so reversing it is one edit in one file.
+
+The emitter decided 17 generator conventions because D-40's file
+does not exist. They are reported in the task file. TD-21.
+
+THREE RTL DEFECTS LINT COULD NOT SEE, all found by pushing past
+the stated bar to a passing simulation:
+
+```
+  the l2's TileLink slave answered a multi beat line request
+    with one beat. A deadlock, invisible to every unit test,
+    visible only when a real L1 talks to a real L2.
+  a fill answering a write miss ORed the written word into the
+    fetched line instead of replacing it.
+  the fill merge then ran on reads, because the write strobe
+    register held the previous request's mask.
+```
+
+Also found: verilog_style.md's file-scope wildcard import puts
+package members into $unit, which is shared across the whole
+compilation, so four node packages collide at the system build
+while each node lints clean alone. The emitter's answer is to
+prefix every package member with the node name. The style rule
+stands. TD-22.
 
 ---
 
 ## Session-005: CLI-003. Diagnostic coverage measured.
 
-The tool now carries one authoritative list of every diagnostic
-code it can emit, cli/inc/diag_codes.h, 37 codes generated with the
-run-time table from one X macro. 42 emission sites draw their
-string from it. A test relates the list to what the fixtures
-produce, in both directions.
+One authoritative list of every diagnostic code the tool can
+emit, cli/inc/diag_codes.h, 37 codes with the constants and the
+run-time table generated from one X macro.
 
 21 OF THE 37 CODES HAD NO FIXTURE. CLI-002 had reported two. The
-suite was 31 of 31 green while more than half the tool's
-diagnostics had never fired in the life of the project.
+suite was 31 of 31 green while more than half the diagnostics had
+never fired in the life of the project.
 
 ```
   fixture added           13
@@ -107,26 +207,17 @@ diagnostics had never fired in the life of the project.
   suite                   31 of 31 -> 48 of 48
 ```
 
-The eight unreachable are the finding. Six are unreachable because
-the schema rejects the input before the tool's check runs, which is
-the D-46 pattern appearing in geometry rather than in group
-completeness. One, schema.open, needs a file mode a fixture cannot
-carry.
-
-T-8.field_sum IS DEAD BY ARITHMETIC. tag_bits is assigned
-pa_bits - offset - index on the line above a test asking whether
-the three sum to pa_bits. It is an identity. It is also the check
-that would have to catch the S-12 class, three disagreeing sources
-for tag width, and it cannot, because by the time it runs there is
-only one source.
+Six of the eight are unreachable because the schema rejects the
+input before the tool's check runs, which is the D-46 pattern
+appearing in geometry. T-8.field_sum is dead by arithmetic: it
+tests an identity assigned on the line above it, and it is the
+check that would have to catch the S-12 class.
 
 The draft 7 question is closed. The five schemas use neither
-construct on which draft 7 and 2020-12 differ. unevaluatedProperties
-appears nowhere and all 24 uses of $ref are the sole key of their
-object, so the tool was validating them correctly throughout. The
-declarations now read draft 7 and SchemaFiles.DeclareDraft07
-enumerates planning/schema and asserts it. Python jsonschema is no
-longer a validator of record.
+construct on which draft 7 and 2020-12 differ, so the tool was
+validating them correctly throughout. They now declare draft 7
+and a test asserts it. Python jsonschema is not a validator of
+record.
 
 ---
 
@@ -142,90 +233,51 @@ the link to the interface.
       port    role, master or slave
 ```
 
-An edge names node.interface.port at each end and no longer names a
-link. Both ends must agree on the link, which is T-9.
-
-node_type replaced cache_type and gained interconnect. Values are
-icache, dcache, unified, memory, agent, interconnect. memory is a
-cache with associativity 1. agent and interconnect carry interfaces
-and nothing else.
-
 TWO PRE-EXISTING DEFECTS WERE REPAIRED, NEITHER PART OF THE
-INTERFACE WORK:
-
-```
-  T-4 compared port roles against initiator and target while the
-      schemas and the example carry master and slave
-  the resolver read from_port_type and to_port_type off a link
-      while the schema declares master_port_type and
-      slave_port_type, so T-3 NEVER FIRED AT ALL and was
-      silently dead
-```
+INTERFACE WORK. T-4 compared port roles against initiator and
+target while the schemas carry master and slave. The resolver
+read from_port_type off a link where the schema declares
+master_port_type, SO T-3 NEVER FIRED AT ALL.
 
 The measured baseline was 11 of 30, not the 29 of 30 recorded in
 handoff 002. That figure and handoff 002's schema version table
-both described the intended shape rather than the tree. See TD-14.
+both described the intended shape rather than the tree. TD-14.
 
-Group completeness was settled toward the tool. The six
-unconditional required lists inside the group objects were removed
-so T-6 owns completeness and produces the readable message. The
-per-node_type conditionals stay, so the boundary is uneven by
-decision and is recorded as D-46.
-
-pacino's l1i went from four ways to eight, which closes the VIPT
-alias. A way must not exceed a page, so at a 4096 byte page a way
-caps at 4096 bytes and 32KB needs eight of them. Both L1s now sit
-exactly at the budget. The negative side of that check moved to the
-neg_vipt_alias fixture so coverage was not lost with the fix.
+pacino's l1i went from four ways to eight, closing the VIPT
+alias. A VIPT way must not exceed a page.
 
 ---
 
 ## Session-003: CLI-001. The tool's front half.
 
-12 classes under cli/inc and cli/src, gtest under cli/tb. cgen
---cmd=check loads, resolves, checks and derives. No emission.
-
-Nine schema gaps found, G-1 through G-9. G-1, G-2, G-5, G-6 and G-7
-closed in the same line of work. G-4 and G-8 were superseded by the
-interface model. G-3 survives as Q-09 and is a blocker above. G-9
-survives: a definition no node instantiates gets no geometry
-derivation and no arithmetic check.
+12 classes, gtest under cli/tb. cgen --cmd=check loads, resolves,
+checks and derives. Nine schema gaps found. G-9 survives: a
+definition no node instantiates gets no geometry derivation and
+no arithmetic check.
 
 ---
 
-## Session-002: INFRA-002. Schema 2.0.0 audited.
+## Sessions 001 and 002: INFRA-001 and INFRA-002.
 
-Superseded by the rebuild. Recorded because the defect classes
-recur. Read-only assessment against the 64 INFRA-001 findings: 7
-CLOSED, 6 PARTIAL, 1 WITHDRAWN, 50 OPEN.
+Superseded by the five-file rebuild. Recorded because the defect
+classes recur.
 
-The hypothesis was NOT confirmed and that was the deliverable. The
-real defect was elsewhere: 2.0.0 applied the
-reject-when-inapplicable principle in one branch of four.
-
-One defect it introduced is the pattern that has now recurred three
-times: $defs.artifact_kind asserted two enums were one definition
-referenced twice while leaving the second unrevised. A false claim
-of unity. Compare T-3 firing on nothing, and handoff 002's version
-table describing the target rather than the disk.
-
----
-
-## Session-001: INFRA-001. First assessment.
-
-39 files, 14,727 lines. 64 findings: 20 planning, 19
-schema-vs-RTL, 25 schema-vs-model.
-
-Two silent-wrong-answer defects rather than gaps:
+INFRA-001 found 64 findings over 39 files. Two were silent wrong
+answers rather than gaps:
 
 ```
-  M-03  options.cpp:321 reads json["mm_capacity_value"] into
-        mm_capacity. 8MB reloads as 8. Open, gated on TD-01.
+  M-03  options.cpp reads json["mm_capacity_value"] into
+        mm_capacity. 8MB reloads as 8.
   S-12  tag width has three disagreeing sources. RTL hard-wires
-        14, the model derives 5 from its default 8MB
-        mm_capacity, the schema derives it from pa_bits. They
-        agree only at 4GB. See T-8.field_sum, session-005.
+        14, the model derives 5, the schema derives from
+        pa_bits. They agree only at 4GB.
 ```
+
+INFRA-002's hypothesis was NOT confirmed and that was the
+deliverable. One defect it introduced is the pattern that has now
+recurred four times: a claim that two things are one, recorded
+without a read. Compare T-3 firing on nothing, handoff 002's
+version table, and CLI-005's seven-field estimate against 74.
 
 ---
 
@@ -233,28 +285,33 @@ Two silent-wrong-answer defects rather than gaps:
 
 | Module / document                  | Status      | Notes                                                       |
 |------------------------------------|-------------|-------------------------------------------------------------|
-| cgen (cli), front half             | DRAFT       | load, resolve, check, derive. 48 of 48. No emission.         |
-| cgen (cli), emitter                | NOT STARTED | Gated on TD-01. No task written.                             |
-| cgen (cli), functional model       | NOT STARTED | No task written.                                             |
-| cli/inc, cli/src, cli/tb           | DRAFT       | 15 classes, 3 test files added by CLI-003.                   |
+| cgen (cli)                         | DRAFT       | load, resolve, check, derive, emit. 86 of 86.                |
+| cgen emitted RTL                   | DRAFT       | 83 files, lint clean, 76 of 76. See State of the emitted RTL.|
+| cgen (cli), functional model       | NOT STARTED | Deferred. Not needed for the RTL handoff.                    |
+| cli/inc, cli/src, cli/tb           | DRAFT       | 27 classes, 8 test files.                                    |
 | cli/tb/fixtures                    | DRAFT       | 26 configurations plus 2 broken schema sets. TD-16.          |
 | cgen-gui                           | NOT STARTED | No task written.                                             |
 | planning/schema/system             | DRAFT       | 0.10.0. Include list only. Draft 7 declared.                 |
 | planning/schema/ports              | DRAFT       | 0.11.0. Port type plus role, master/slave.                   |
-| planning/schema/caches             | DRAFT       | 0.13.0. node_type, six values. interfaces required.          |
-| planning/schema/links              | DRAFT       | 0.12.0. Arbitration removed. TileLink bounds from 1.9.3.     |
-| planning/schema/topology           | DRAFT       | 0.14.0. Edge names node.interface.port, six required fields. |
-| planning/schema/elaborated         | DEPRECATED  | Predates the file split. Stale against everything. TD-06.    |
-| planning/arch/cgen_decisions.md    | DRAFT       | 48 decisions, 8 open questions, 8 rejected. Current.         |
+| planning/schema/caches             | DRAFT       | 0.13.0. bank_select_position removed, CLI-005.               |
+| planning/schema/links              | DRAFT       | 0.12.0. TileLink bounds from spec 1.9.3 Table 4.             |
+| planning/schema/topology           | DRAFT       | 0.14.0. Edge names node.interface.port.                      |
+| planning/schema/examples           | DRAFT       | TWO FILES INVALID. Carry bank_select_position. TD-23.        |
+| planning/schema/elaborated         | DEPRECATED  | Predates the file split. Nothing reads it. TD-06.            |
+| planning/arch/cgen_decisions.md    | DRAFT       | Current to CLI-003. CLI-004 and CLI-005 rulings not folded   |
+|                                    |             | in. TD-21.                                                   |
+| planning/tools/Vars.mk             | DRAFT       | New. The master copy the emitter reads and copies.           |
 | planning/PROJECT_CORE.md           | DRAFT       | TD-03, TD-04, TD-05.                                         |
 | planning/GLOSSARY.md               | DEPRECATED  | Retired by decision. Split pending. TD-02.                   |
-| planning/ANTIPATTERNS.md           | NOT STARTED | Header only. Four candidates now exist. TD-07.               |
+| planning/ANTIPATTERNS.md           | NOT STARTED | Header only. Six candidates now exist. TD-07.                |
 | planning/CLOSED_TECH_DEBT.md       | NOT STARTED | Header only. TD-07.                                          |
 | planning/tools/tool_decisions.md   | DRAFT       | Validation section pending from CLI-003 R-7.                 |
 | planning/tools/verilator_decisions | DRAFT       | Predecessor specifics: bp_pkg, NUM_PRED_SLOTS. TD-08.        |
-| planning/tools/verilog_style.md    | DRAFT       | Unchanged since INFRA-001. Feeds the emitter.                |
-| testcases/pacino                   | DRAFT       | Five files, clean. Every number still invented. TD-09.       |
-| testcases/1mb_l1                   | UNKNOWN     | CLI-001 and CLI-003 could not find it in this tree. TD-01.   |
+| planning/tools/verilog_style.md    | DRAFT       | The import rule is a correctness trap, not a preference.     |
+|                                    |             | TD-22.                                                       |
+| testcases/pacino                   | DRAFT       | Five files, clean, emitting. Every number invented. TD-09.   |
+| testcases/1mb_l1                   | UNKNOWN     | Not found in this tree by CLI-001 or CLI-003. No longer      |
+|                                    |             | blocks anything: the emitter wrote fresh. TD-01.             |
 | templates/TASK_TEMPLATE.md         | DRAFT       | TD-12. Shows modified in git status.                         |
 
 ---
@@ -266,77 +323,99 @@ CLOSED rather than removed, because other documents cite them.
 
 | #  | Item                                    | Resolution path                                              |
 |----|-----------------------------------------|--------------------------------------------------------------|
-| 01 | Is testcases/1mb_l1 a pacino template   | JEFF DECISION. BLOCKS THE EMITTER. Decides whether the       |
-|    | or a generic reference? Formerly DW-8.  | generator targets SystemVerilog-2023 and writes fresh, or    |
-|    |                                         | the example is translated first. Two tasks report the        |
-|    |                                         | directory is not in this tree, so the first question is      |
-|    |                                         | whether it exists. Every file in it was .v Verilog-2001.     |
-| 02 | GLOSSARY.md retirement.                 | Four documents in one. Check table becomes machine readable  |
-|    |                                         | data; scope lists become their own document; standing rules  |
-|    |                                         | have already moved to cgen_decisions.md; the rest goes.      |
-| 03 | PROJECT_CORE cites CLAUDE.md content    | Names a "Fixed Constants" section that does not exist, and   |
-|    | that does not exist.                    | a suite-gating requirement CLAUDE.md does not state, which   |
-|    |                                         | makes the waiver paragraph unenforceable.                    |
-| 04 | PROJECT_CORE :121 and :123 contradict   | :121 makes the IA the sole modifier, :123 makes the user     |
-|    | on who modifies a planning document.    | the modifier. CLAUDE.md agrees with :123. Fix :121.          |
-| 05 | Schema file naming.                     | PARTIAL. D-47 settles the rule: version in $id and           |
-|    |                                         | schema_version, never in a filename. PROJECT_CORE still      |
-|    |                                         | names cache_config.schema.json and output_json.md, neither   |
-|    |                                         | of which exists. This file's old cgen_ prefixes are gone.    |
-| 06 | The elaborated output does not exist in | Decide whether there is a FILE at all. It buys provenance    |
-|    | the current shape.                      | and a regeneration diff, neither of which blocks emission.   |
-|    |                                         | Derived values in memory is the alternative and is what the  |
-|    |                                         | tool does today. NOT A BLOCKER.                              |
-| 07 | ANTIPATTERNS.md and CLOSED_TECH_DEBT.md | Four candidates now: a manifest naming a 7400-line           |
-|    | are empty.                              | third-party amalgamation; a prompt comparing a design to a   |
-|    |                                         | schema while calling it the input json; a version table      |
-|    |                                         | describing the target rather than the disk; a green suite    |
-|    |                                         | standing in for coverage that was never measured.            |
-| 08 | planning/tools carries predecessor      | verilator_decisions imports bp_pkg and names NUM_PRED_SLOTS, |
-|    | specifics that will mislead a prompt.   | a branch predictor parameter. Generalise or mark             |
-|    |                                         | illustrative. Feeds the emitter, so do it before RTL work.   |
-| 09 | Every geometry and timing number in     | JEFF EDIT. Sourced from nothing. The VIPT alias was the      |
-|    | the pacino config is invented.          | first consequence and is fixed. The timing numbers are       |
-|    |                                         | still arbitrary and the emitter will propagate them.         |
-| 10 | Ten RTL defects, S-17 a-j.              | Gated on TD-01 and on whether the directory exists.          |
-| 11 | Model defects, M-03, M-09, M-10, M-12,  | Gated on TD-01. mdl always exits 1, so any task gating on    |
-|    | M-15.                                   | "model tests pass" is blocked.                               |
-| 12 | Task template defects.                  | Deliverables says prompts/CB-000.md, header says CG-000. No  |
-|    |                                         | slot for granted permissions; every task so far has needed   |
-|    |                                         | one and used Context Comments instead. No interactive mode,  |
-|    |                                         | though CLI-002 was given interactively with an empty prompt  |
-|    |                                         | section and no requirements to check deliverables against.   |
-| 13 | Unruled [PA] decisions in               | TEN, not six. D-09, D-10, D-19, D-21, D-23, D-25, D-26,      |
-|    | cgen_decisions.md.                      | D-27, D-30, D-35. Five of them are load-bearing for the      |
-|    |                                         | model CLI-002 implemented across 48 files. D-27 is recorded  |
-|    |                                         | as settled in CLI-002 and still marked [PA]. Promote or      |
-|    |                                         | reopen each. NOT A BLOCKER.                                  |
-| 14 | Reported state has three times差         | A version table, a pass count and a schema shape have each   |
-|    | described the target, not the disk.     | been recorded from intent rather than from a read. Costs so  |
-|    |                                         | far: one CLI-001 test failure, one false 29 of 30 baseline,  |
-|    |                                         | one session opened on a wrong shape. Rule for               |
-|    |                                         | ANTIPATTERNS: a version, a count or a shape reported         |
-|    |                                         | without a read is a plan and must be marked as one.          |
-| 15 | The check enumeration and the           | T-7 appears in the enumeration and emits no code at all,     |
-|    | diagnostic code list disagree.          | so port occupancy is unchecked now that one port one edge    |
-|    |                                         | is ruled. topology.addressing is a code with no T number.    |
-|    |                                         | T-8.field_sum is dead by arithmetic and protects nothing.    |
-|    |                                         | Six more T-8 and load codes are unreachable because the      |
-|    |                                         | schema rejects first, which is D-46 again. Make the          |
-|    |                                         | enumeration and the code list one artifact.                  |
-| 16 | The fixture tree contains deliberately  | neg_include_parse/bad_ports.json is not valid JSON. Ten      |
-|    | broken files.                           | files under schemas_bad_parse and schemas_bad_build are      |
-|    |                                         | named *.schema.json and are broken on purpose. Any future    |
-|    |                                         | glob for **/*.schema.json or tree walk parsing every .json   |
-|    |                                         | will trip. ANTIPATTERNS candidate.                           |
-| 17 | CGEN_SCHEMA_DIR is undocumented.        | An environment variable selects which schemas validate the   |
-|    |                                         | configuration. Three CLI-003 fixtures depend on it. It       |
-|    |                                         | appears in no decision. D-41 covers CLI flags and tool       |
-|    |                                         | requirements and rules on no environment variable.           |
-| 18 | C++20 or C++23.                         | D-48 and the Makefile say C++20. CLAUDE.md and this file's   |
-|    |                                         | Tool Decisions said C++23. CLAUDE.md is the file the IA      |
-|    |                                         | reads every session. Corrected below to C++20; correct       |
-|    |                                         | CLAUDE.md or rule the other way.                             |
+| 01 | testcases/1mb_l1 is not in this tree.   | DOWNGRADED. It was recorded as blocking the emitter and it    |
+|    |                                         | did not: CLI-004 wrote fresh SystemVerilog-2023 per           |
+|    |                                         | CLAUDE.md and the question never arose. What remains is that  |
+|    |                                         | the module walk in the Method note was never done, so the     |
+|    |                                         | field set is not known to be complete.                        |
+| 02 | GLOSSARY.md retirement.                 | Standing rules have already moved to cgen_decisions.md. The   |
+|    |                                         | check table and scope lists remain.                           |
+| 03 | PROJECT_CORE cites CLAUDE.md content    | Names a "Fixed Constants" section that does not exist and a   |
+|    | that does not exist.                    | suite-gating requirement CLAUDE.md does not state.            |
+| 04 | PROJECT_CORE :121 and :123 contradict   | :121 makes the IA the sole modifier, :123 makes the user      |
+|    | on who modifies a planning document.    | the modifier. CLAUDE.md agrees with :123. Fix :121.           |
+| 05 | PROJECT_CORE names schema files that    | It still names cache_config.schema.json and output_json.md,   |
+|    | do not exist.                           | neither of which is in the tree.                              |
+| 06 | The elaborated output does not exist    | NOT A BLOCKER and no longer on any path. The emitter holds    |
+|    | in the current shape.                   | derived values in memory and emits them into the packages.    |
+|    |                                         | Decide whether the file is wanted at all.                     |
+| 07 | ANTIPATTERNS.md and CLOSED_TECH_DEBT.md | Six candidates: a manifest naming a third-party               |
+|    | are empty.                              | amalgamation; a prompt comparing a design to a schema while   |
+|    |                                         | calling it the input json; state reported without a read;     |
+|    |                                         | a green suite standing in for unmeasured coverage; a          |
+|    |                                         | testbench that races the design; a test that measures the     |
+|    |                                         | wrong thing and passes.                                       |
+| 08 | planning/tools carries predecessor      | verilator_decisions imports bp_pkg and names NUM_PRED_SLOTS.  |
+|    | specifics that will mislead a prompt.   | It was excluded from CLI-004 and CLI-005 by name for this     |
+|    |                                         | reason. Generalise or mark illustrative.                      |
+| 09 | Every geometry and timing number in     | JEFF EDIT. The VIPT alias was the first consequence and is    |
+|    | the pacino config is invented.          | fixed. The timing numbers are still arbitrary and the         |
+|    |                                         | emitted RTL now propagates them.                              |
+| 10 | Ten RTL defects, S-17 a-j, in           | Gated on whether that directory exists. Not on any path.      |
+|    | testcases/1mb_l1.                       |                                                               |
+| 11 | Model defects, M-03 and others, in      | Same. Not on any path.                                        |
+|    | testcases/1mb_l1.                       |                                                               |
+| 12 | Task template defects.                  | Deliverables says prompts/CB-000.md, header says CG-000. No   |
+|    |                                         | slot for granted permissions; five tasks have needed one and  |
+|    |                                         | used Context Comments. No interactive mode. Resume sha and    |
+|    |                                         | Model effort cannot be filled by the IA and are carried       |
+|    |                                         | unfilled every task.                                          |
+| 13 | Unruled [PA] decisions in               | TEN: D-09, D-10, D-19, D-21, D-23, D-25, D-26, D-27, D-30,    |
+|    | cgen_decisions.md.                      | D-35. Five are now load-bearing in SHIPPED RTL rather than    |
+|    |                                         | only in the schema. Promote or reopen each.                   |
+| 14 | State reported without a read.          | Four instances: handoff 002's version table, its 29 of 30     |
+|    |                                         | baseline, INFRA-002's claim that two enums were one, and      |
+|    |                                         | CLI-005's seven-field estimate against a measured 74. Rule:   |
+|    |                                         | a version, a count or a shape reported without a read is a    |
+|    |                                         | plan and must be marked as one.                               |
+| 15 | The check enumeration and the           | T-7 is in the enumeration and emits no code, so port          |
+|    | diagnostic code list disagree.          | occupancy is unchecked now that one port one edge is ruled.   |
+|    |                                         | topology.addressing is a code with no T number.               |
+|    |                                         | T-8.field_sum is dead by arithmetic. Make the enumeration     |
+|    |                                         | and the code list one artifact.                               |
+| 16 | The fixture tree contains deliberately  | neg_include_parse/bad_ports.json is not valid JSON. Ten       |
+|    | broken files.                           | files under schemas_bad_parse and schemas_bad_build are       |
+|    |                                         | named *.schema.json and are broken on purpose.                |
+| 17 | CGEN_SCHEMA_DIR is undocumented.        | An environment variable selects which schemas validate the    |
+|    |                                         | configuration. It appears in no decision. D-41 covers CLI     |
+|    |                                         | flags and rules on no environment variable.                   |
+| 18 | C++20 or C++23.                         | D-48 and the Makefile say C++20. CLAUDE.md says C++23.        |
+|    |                                         | CLAUDE.md is the file the IA reads every session.             |
+| 19 | read_latency_cycles is IGNORED on       | The memory model honours it and no cache does. A              |
+|    | every cache.                            | configuration asking for a 12 cycle L2 gets whatever the      |
+|    |                                         | pipeline happens to be, and nothing says so. Worse than the   |
+|    |                                         | other inert fields because it is a number a user would        |
+|    |                                         | believe. Interim: one line in the emitted control header,     |
+|    |                                         | as mshrs already has. Real fix: a configurable pipeline       |
+|    |                                         | depth with tag_compare_stage selecting the compare stage.     |
+| 20 | Nothing measures cycles.                | Two CLI-005 findings need it and neither can be settled       |
+|    |                                         | without it: a bank select in the wrong position is a          |
+|    |                                         | performance defect a functional test cannot see, and          |
+|    |                                         | read_latency_cycles cannot be verified. The functional        |
+|    |                                         | model will not see either.                                    |
+| 21 | The generator conventions file does     | D-40 says conventions live in an xxx_decisions.md file.       |
+|    | not exist.                              | CLI-004 decided 17 and CLI-005 added more, all reported in    |
+|    |                                         | task files and nowhere else. Not needed while cgen runs       |
+|    |                                         | here; needed before anyone else reads the emitted RTL.        |
+| 22 | verilog_style.md's import rule is a     | A file-scope wildcard import lands in $unit, shared across    |
+|    | correctness trap, not a preference.     | the compilation, so node packages collide at the system       |
+|    |                                         | build while each node lints clean alone. The rule STANDS and  |
+|    |                                         | the emitter prefixes package members to work around it. The   |
+|    |                                         | file should say WHY, because a hand written module has no     |
+|    |                                         | such workaround and no warning.                               |
+| 23 | Two files under planning/schema/        | caches_example.json:235 and zen5_dside_0.6.1.json:197 carry   |
+|    | examples are schema invalid.            | bank_select_position, deleted by CLI-005. Delete the line     |
+|    |                                         | and the trailing comma above it. Nothing validates that       |
+|    |                                         | directory, which is why it went unnoticed; adding it to the   |
+|    |                                         | fixture sweep prevents the next occurrence.                   |
+| 24 | --vars falls back to an upward          | With CGEN_ROOT unset the default cannot resolve, so the tool  |
+|    | directory search.                       | walks the working directory upward. RULED: that is an error   |
+|    |                                         | reported through emit.vars, not a search. The gtest suite     |
+|    |                                         | sets CGEN_ROOT in its fixture.                                |
+| 25 | A header under cli/inc may not share a  | cli/inc/features.h shadowed glibc's <features.h> because      |
+|    | name with a system header.              | -I./inc precedes the system path, and the build failed        |
+|    |                                         | inside /usr/include/time.h. Renamed to feature_table.h.       |
+|    |                                         | Belongs in CLAUDE.md as a rule.                               |
 
 ---
 
@@ -344,43 +423,43 @@ CLOSED rather than removed, because other documents cite them.
 
 | Priority | Item                                              | Status                        |
 |----------|---------------------------------------------------|-------------------------------|
-| 1        | TD-01. The 1mb_l1 question.                       | JEFF. BLOCKS THE EMITTER.     |
-| 2        | Q-09. Bank placement. index_bits spans the whole  | JEFF. BLOCKS a banked         |
-|          | set space; bank lsb and msb are undetermined.     | design. pacino l2 has two.    |
-| 3        | The offset unit. Word count or byte count.        | JEFF. BLOCKS the read mux.    |
-|          | Changes a value, not a name.                      | Cheapest of the three.        |
-| 4        | Q-10. Regenerate in place or hand-own after the   | JEFF. Near-irreversible       |
-|          | first emission.                                   | once adaptation starts.       |
-| 5        | D-40. The generator conventions file. PLRU bit    | OPEN. Decide as the emitter   |
-|          | encoding, tie break, signal naming, reset loop.   | needs them. Record them.      |
-| 6        | Port occupancy. Ruled: one port, one edge.        | RULED, NOT IMPLEMENTED. T-7   |
-|          |                                                   | emits no diagnostic. Q-04 in  |
-|          |                                                   | cgen_decisions still reads    |
-|          |                                                   | as open and leans the other   |
-|          |                                                   | way. Close it. TD-15.         |
-| 7        | The six schema-shadowed guard checks and          | OPEN, low. Keep as defence    |
-|          | T-8.field_sum.                                    | in depth or delete. field_sum |
-|          |                                                   | is an identity and should go. |
-| 8        | G-9. An uninstantiated definition gets no         | OPEN, low. Ruled as an error  |
-|          | geometry derivation and no arithmetic check.      | in session. Unimplemented.    |
-| 9        | Q-07. Version compatibility across a file set.    | OPEN, low. A mismatch shows   |
-|          |                                                   | as a schema_version const     |
-|          |                                                   | violation on one file.        |
-| 10       | Node and edge shape versus DOT.                   | OPEN, low. Nodes keyed by     |
-|          |                                                   | name, edges an array.         |
-| 11       | Q-05. A memory smaller than the address space     | OPEN, low. Whether "no tag    |
-|          | decodes rather than compares.                     | compare" needs a field.       |
-| 12       | Whether schemas are read from disk or compiled    | CLOSED. On disk, and          |
-|          | into the binary.                                  | selectable at run time. See   |
-|          |                                                   | TD-17.                        |
-| 13       | Include path base directory.                      | CLOSED by implementation.     |
+| 1        | TD-23. Fix the two invalid example files, and     | JEFF or one small task.       |
+|          | decide whether the suite validates that dir.      |                               |
+| 2        | TD-24. --vars: error, not a search.               | RULED. Unimplemented.         |
+| 3        | TD-19. Disclose read_latency_cycles in the        | Interim is one emitted line.  |
+|          | emitted control header.                           |                               |
+| 4        | Q-10. Regenerate in place or hand-own after the   | JEFF. There is now emitted    |
+|          | first emission.                                   | RTL, four logs and an images  |
+|          |                                                   | directory in the tree.        |
+| 5        | TD-13. The ten unruled [PA] decisions.            | JEFF. Five are load-bearing   |
+|          |                                                   | in shipped RTL.               |
+| 6        | TD-21. Fold the CLI-004 and CLI-005 rulings into  | PA-direct. Q-09 closed, the   |
+|          | cgen_decisions.md.                                | D-37 generalisation, the two  |
+|          |                                                   | field-consumption rules.      |
+| 7        | Port occupancy. RULED one port, one edge.         | T-7 emits no diagnostic.      |
+|          |                                                   | Q-04 still reads as open.     |
+| 8        | TD-25. The system header name rule into           | One line.                     |
+|          | CLAUDE.md. Also TD-18, C++20 versus C++23.        |                               |
+| 9        | G-9. An uninstantiated definition gets no         | OPEN, low. Ruled an error in  |
+|          | geometry derivation and no arithmetic check.      | session. Unimplemented.       |
+| 10       | The six schema-shadowed guard checks and          | OPEN, low. field_sum is an    |
+|          | T-8.field_sum.                                    | identity and should go.       |
+| 11       | Q-07, version compatibility across a file set.    | OPEN, low.                    |
+| 12       | Q-05. A memory smaller than the address space     | OPEN, low.                    |
+|          | decodes rather than compares.                     |                               |
+| 13       | Q-09, bank placement.                             | CLOSED. CLI-005. Granularity  |
+|          |                                                   | determines position;          |
+|          |                                                   | bank_select_position deleted. |
+| 14       | The offset unit, word or byte.                    | CLOSED. Byte, behind          |
+|          |                                                   | AddrUnitBytes. CLI-004.       |
+| 15       | Whether schemas are read from disk or compiled    | CLOSED. On disk, selectable   |
+|          | into the binary.                                  | at run time. TD-17.           |
+| 16       | Tool paths in the emitted build.                  | CLOSED. Vars.mk, --vars,      |
+|          |                                                   | --tool. CLI-005.              |
+| 17       | The draft 7 versus 2020-12 mismatch.              | CLOSED. CLI-003.              |
+| 18       | Include path base directory.                      | CLOSED by implementation.     |
 |          |                                                   | Relative to the including     |
 |          |                                                   | file. D-10, still [PA].       |
-| 14       | Install the schemas and the pacino files.         | CLOSED. Done and running.     |
-| 15       | The pacino L1I VIPT alias.                        | CLOSED. Eight ways, CLI-002.  |
-| 16       | The draft 7 versus 2020-12 mismatch.              | CLOSED. CLI-003. The schemas  |
-|          |                                                   | use no differing construct.   |
-| 17       | Node kinds beyond agent.                          | CLOSED. interconnect added.   |
 
 ---
 
@@ -404,16 +483,19 @@ CLOSED rather than removed, because other documents cite them.
 |                   | Stages accumulate rather than throwing. Codes are |
 |                   | declared once in cli/inc/diag_codes.h.            |
 | Schema location   | On disk, selectable by CGEN_SCHEMA_DIR. TD-17.    |
+| Tool paths        | Vars.mk, copied to the output root. --vars names  |
+|                   | the master, --tool VAR=PATH sets one. No emitted  |
+|                   | Makefile carries a bare tool name.                |
 | Style             | 80 columns, 2 space indent, ASCII, per CLAUDE.md  |
 
 ---
 
 ## Tool Checks
 
-The schema holds shape and vocabulary. These are tool work because
-the diagnostic matters more than the check. The authoritative list
-of emitted codes is cli/inc/diag_codes.h; this table and that list
-do not yet agree. TD-15.
+The schema holds shape and vocabulary. These are tool work
+because the diagnostic matters more than the check. The
+authoritative list of emitted codes is cli/inc/diag_codes.h; this
+table and that list do not agree. TD-15.
 
 ```
   T-1  undefined name: node ref, interface, port, interface link
@@ -433,14 +515,15 @@ do not yet agree. TD-15.
 ```
 
 Unnumbered but emitted: topology.addressing, the load.* family,
-the schema.* family.
+the schema.* family, the emit.* family.
 
 ---
 
 ## Architectural Decisions
 
-Full detail: planning/arch/cgen_decisions.md, which is current.
-Key decisions for quick reference only.
+Full detail: planning/arch/cgen_decisions.md, which is current to
+CLI-003. The CLI-004 and CLI-005 rulings below are NOT yet folded
+into it. TD-21.
 
 ### Configuration
 
@@ -448,60 +531,71 @@ Key decisions for quick reference only.
   graph. topology holds the graph and the addressing block.
 - include appears in every file type. system is excluded from
   every include type enum.
-- File name participates in the namespace: mysystem@myl1.
 - Full name enumeration at load, once. The tool is a linker.
 - The hierarchy is node, then interface, then port. An interface
-  carries exactly one link and an optional arbitration policy. A
-  port carries a role.
-- An edge names node.interface.port at each end. Six required
-  fields. An edge names no link; both ends carry one and must
-  agree.
+  carries exactly one link and an optional arbitration policy.
+- An edge names node.interface.port at each end. An edge names
+  no link; both ends carry one and must agree.
 - node_type: icache, dcache, unified, memory, agent,
   interconnect. Only node_type and interfaces are required.
 - Arbitration is on the interface. Not the link, which is point
-  to point and cannot see another link. Not the node, where
-  contention is array port scheduling, a different mechanism.
-- A shared bus needs a node. That is what interconnect is for.
+  to point. Not the node, where contention is array port
+  scheduling.
 - Vocabulary is master and slave.
-- A link definition is a type, not an instance. Links are
-  discriminated on protocol. TileLink parameters are spec 1.9.3
-  Table 4.
-- No derived value in the input. No value plus units pair.
-- Simulation control is not configuration.
-- The schema version lives in $id and schema_version, never in a
-  filename. $schema carries the JSON Schema draft, which is 7.
+- No derived value in the input. GENERALISED BY CLI-005: a
+  position derivable from another field is a derived value, which
+  is why bank_select_position was deleted rather than chosen
+  between.
+- Simulation control is not configuration. Tool paths included.
+- $schema carries the JSON Schema draft, which is 7.
+  schema_version carries the project's version and is in $id.
 
-### Generator conventions
+### Emission, from CLI-004 and CLI-005
 
-These live in an xxx_decisions.md file, not in the JSON, and that
-file does not exist yet. Any encoding works provided one generator
-emits all consumers from it.
+- The bank select position follows from
+  bank_interleave_granularity. line means consecutive lines
+  alternate banks, so the select is the bits immediately above
+  the offset. word remains unresolved and reports why.
+- Addressing is byte based, behind one named package parameter
+  per node, AddrUnitBytes.
+- Everything is a package localparam. No module has a parameter,
+  because a derived value that can be overridden at instantiation
+  is a second source that can disagree with the first.
+- Package member names carry the node name, to work around the
+  $unit collision of TD-22.
+- Emission is deterministic. Vars.mk is the one emitted file
+  whose contents may vary with the command line.
+- 17 further conventions are reported in prompts/CLI-004.md and
+  are not yet in a planning file. TD-21.
 
-- The tree PLRU bit encoding and the invalid-way tie break
-  direction.
-- Signal and port naming beyond clk and rstn.
-- The non-synthesizable reset clear loop.
-- Generated, not transcribed: the PLRU update and victim tables
-  and the address field decomposition are built once and emitted
-  to every consumer.
+### Field consumption
+
+- Presence is not a read. A check that asks whether a field
+  exists does not mark it consumed.
+- The record is made in the accessor, not where the value is
+  extracted.
 
 ---
 
 ## Method note
 
 The schema was derived by reacting to findings rather than by
-walking the RTL. That method produced six versions, several
-repairing regressions from their predecessor, and one silent
-deletion of a working field.
+walking the RTL. The derivation that was never performed: read a
+reference design module by module and classify every parameter,
+port and structural choice as a config field, a derived value or
+a project convention.
 
-The derivation that was never performed: read the 1mb_l1 RTL
-module by module and classify every parameter, port and structural
-choice as a config field, a derived value, or a project
-convention. Until it is done the field set is not known to be
-complete, only known to cover what has been reported so far.
+CLI-004 did that classification FROM THE OTHER END, starting from
+the schema and finding out what an emitter needs. The conventions
+it reported are the residue and are exactly the list that
+derivation was meant to produce. Whether the field set is
+COMPLETE is still unknown, and only a second configuration unlike
+pacino would show.
 
-That derivation and TD-01 are the same task. It is the one piece
-of preparatory work that pays for itself before emission, because
-it produces both the target dialect answer and the field list in
-one pass. Everything else in the Technical Debt table can wait.
+The recurring result across five tasks is narrower and more
+useful: every property this project assumed rather than measured
+was wrong by a large factor. Two uncovered diagnostic codes
+against a measured 21. Seven inert fields against a measured 74.
+A 29 of 30 baseline against a measured 11 of 30. In each case the
+fix was a mechanism, not a list.
 

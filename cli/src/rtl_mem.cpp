@@ -122,7 +122,7 @@ void RtlMem::slave(SvFile &f, const NodeCtx &c,
   f.ln("  assign " + d + "_denied  = denied_q;");
   f.ln("  assign " + d + "_corrupt = 1'b0;");
   f.ln("  assign " + d + "_data    =");
-  f.ln("      store.exists(key_of(addr_q, beat_i))");
+  f.ln("      (store.exists(key_of(addr_q, beat_i)) != 0)");
   f.ln("      ? store[key_of(addr_q, beat_i)] : '0;");
   f.ln();
 
@@ -192,7 +192,7 @@ void RtlMem::slave(SvFile &f, const NodeCtx &c,
   f.ln("            beat_i <= 16'd0;");
   f.ln("            sstate <= write_q ? S_ACK : S_READ;");
   f.ln("          end else begin");
-  f.ln("            lat_q <= LatBits'(lat_q - 1);");
+  f.ln("            lat_q <= lat_q - LatBits'(1);");
   f.ln("          end");
   f.ln("        end");
   f.ln();
@@ -230,6 +230,72 @@ void RtlMem::slave(SvFile &f, const NodeCtx &c,
     }
     f.ln();
   }
+
+  // ------------------------------------------------------------------
+  // R-9. THE MEMORY IMAGE, and the two accessors a testbench needs to
+  // check the store without reaching into it by hand.
+  //
+  // The format is an interface to the C++ functional model, which is
+  // CLI-006 and does not exist yet, so it is chosen for a reader on
+  // both sides: plain text, one location per line, address then data,
+  // ascending address order, and NOTHING THAT VARIES between two runs
+  // of one test. No timestamp, no cycle count, no path.
+  //
+  // A location is one BEAT, which is the granularity the store keys
+  // on. The header says the beat width so a reader never has to
+  // assume it.
+  //
+  // first() and next() return int by IEEE 1800, the same as exists(),
+  // so both are compared explicitly rather than used as conditions.
+  // ------------------------------------------------------------------
+  f.ln("  // R-9. Does the store hold the beat containing this "
+       "address?");
+  f.ln("  function automatic logic cg_has(input addr_t a);");
+  f.ln("    cg_has = (store.exists(key_of(a, 16'd0)) != 0);");
+  f.ln("  endfunction");
+  f.ln();
+  f.ln("  // R-9. The beat containing this address, zero when absent.");
+  f.ln("  function automatic beat_t cg_peek(input addr_t a);");
+  f.ln("    cg_peek = (store.exists(key_of(a, 16'd0)) != 0)");
+  f.ln("            ? store[key_of(a, 16'd0)] : '0;");
+  f.ln("  endfunction");
+  f.ln();
+  f.ln("  // R-9. Write the memory image. See the note above the");
+  f.ln("  // module for the format.");
+  f.ln("  task automatic cg_dump_image(input string path,");
+  f.ln("                               input string point);");
+  f.ln("    int              fd;");
+  f.ln("    longint unsigned k;");
+  f.ln("    addr_t           ia;");
+  f.ln("    beat_t           id;");
+  f.ln("    fd = $fopen(path, \"w\");");
+  f.ln("    if(fd == 0) begin");
+  f.ln("      $display(\"FAIL cannot open %s for a memory image\",");
+  f.ln("               path);");
+  f.ln("      return;");
+  f.ln("    end");
+  f.ln("    $fdisplay(fd, \"cgen-memimage 1\");");
+  f.ln("    $fdisplay(fd, \"system " + f.system_name() + "\");");
+  f.ln("    $fdisplay(fd, \"node " + c.name() + "\");");
+  f.ln("    $fdisplay(fd, \"point %s\", point);");
+  f.ln("    $fdisplay(fd, \"addr_bits %0d\", " +
+       i2s(i.sig.addr_bits()) + ");");
+  f.ln("    $fdisplay(fd, \"data_bits %0d\", " +
+       i2s(i.sig.data_bits()) + ");");
+  f.ln("    $fdisplay(fd, \"beat_bytes %0d\", " + i2s(dbytes) + ");");
+  f.ln("    $fdisplay(fd, \"line_bytes %0d\", " +
+       std::to_string(c.geom().line_bytes) + ");");
+  f.ln("    $fdisplay(fd, \"entries %0d\", store.num());");
+  f.ln("    if(store.first(k) != 0) begin");
+  f.ln("      do begin");
+  f.ln("        ia = addr_t'(k << BeatShift);");
+  f.ln("        id = store[k];");
+  f.ln("        $fdisplay(fd, \"%x %x\", ia, id);");
+  f.ln("      end while(store.next(k) != 0);");
+  f.ln("    end");
+  f.ln("    $fclose(fd);");
+  f.ln("  endtask");
+  f.ln();
 
   f.ln("  // request fields a flat memory does not consume");
   f.ln("  /* verilator lint_off UNUSEDSIGNAL */");

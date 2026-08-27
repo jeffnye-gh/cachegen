@@ -6,16 +6,72 @@
 // CONTACT: Jeff Nye
 // --------------------------------------------------------------------
 #include "rtl_tb.h"
+#include "feature_table.h"
 #include "rtl_agent.h"
 #include "rtl_cache.h"
 #include "rtl_pkg.h"
+#include <algorithm>
 
 namespace cgen
 {
 
 namespace {
 std::string i2s(int v) { return std::to_string(v); }
+
+// ------------------------------------------------------------------
+// R-8. One registration, from the emitter of a test to the feature
+// table. The test names the node it drives and the FIELD it
+// exercises, so a test that stops being emitted stops claiming the
+// field, in the same change.
+// ------------------------------------------------------------------
+void unit_covers(const NodeCtx &c, const std::string &rel,
+                 const std::string &test)
+{
+  cov_test(c.name(), rel, Features::Level::Unit,
+           c.mod("tb"), test);
 }
+
+void top_covers(const std::string &node, const std::string &rel,
+                const std::string &bench, const std::string &test)
+{
+  cov_test(node, rel, Features::Level::Top, bench, test);
+}
+
+// ------------------------------------------------------------------
+// The node one edge leads to, empty when the node has no downstream
+// edge. The whole chain from an agent to memory is walked this way,
+// so the tests are laid out by the topology and not by a guess about
+// what a cache hierarchy looks like.
+// ------------------------------------------------------------------
+std::string downstream(const Model &m, const std::string &from)
+{
+  for(const Model::Edge &e : m.edges) {
+    if(e.from == from) return e.to;
+  }
+  return "";
+}
+
+const NodeCtx *ctx_of(const std::map<std::string, NodeCtx> &nodes,
+                      const std::string &name)
+{
+  auto it = nodes.find(name);
+  return it == nodes.end() ? nullptr : &it->second;
+}
+
+// hex literal of an address, 32'h0001_0000 style
+std::string addr_lit(int bits, uint64_t v)
+{
+  static const char *dig = "0123456789abcdef";
+  const int n = (bits + 3) / 4;
+  std::string h;
+  for(int k = n - 1; k >= 0; --k) {
+    h += dig[(v >> (4 * k)) & 0xf];
+    if(k && (k % 4) == 0) h += '_';
+  }
+  return i2s(bits) + "'h" + h;
+}
+
+} // namespace
 
 // --------------------------------------------------------------------
 // The shared task set. Included inside a testbench module, so clk and
@@ -227,7 +283,7 @@ void RtlTb::tb_mem(SvFile &f, const NodeCtx &c,
   f.ln("  assign " + d + "_denied  = 1'b0;");
   f.ln("  assign " + d + "_corrupt = 1'b0;");
   f.ln("  assign " + d + "_data    =");
-  f.ln("      store.exists(key_of(addr_q, beat_i))");
+  f.ln("      (store.exists(key_of(addr_q, beat_i)) != 0)");
   f.ln("      ? store[key_of(addr_q, beat_i)]");
   f.ln("      : seed_of(key_of(addr_q, beat_i));");
   f.ln();
@@ -628,6 +684,21 @@ void RtlTb::unit_tests(SvFile &f, const NodeCtx &c)
   f.ln("             (line_base(a) | addr_t'(offset_of(a))) == a);");
   f.ln();
 
+  // R-8. What T1 covers. The decomposition is built from the whole
+  // geometry, so the round trip exercises every field of it.
+  unit_covers(c, "/geometry/capacity_bytes",
+              "line_addr rebuilds the line it came from");
+  unit_covers(c, "/geometry/line_bytes",
+              "the offset is what line_base took off");
+  unit_covers(c, "/geometry/associativity",
+              "line_addr rebuilds the line it came from");
+  if(bank) {
+    unit_covers(c, "/geometry/banks",
+                "line_addr rebuilds the line it came from");
+    unit_covers(c, "/geometry/bank_interleave_granularity",
+                "line_addr rebuilds the line it came from");
+  }
+
   if(cache) {
     f.ln("    // ---------------------------------------------------");
     f.ln("    // T2. The replacement encoding, checked against the");
@@ -641,6 +712,8 @@ void RtlTb::unit_tests(SvFile &f, const NodeCtx &c)
     f.ln("             repl_victim(repl_update(ReplReset, way_t'(0)))");
     f.ln("             != way_t'(0));");
     f.ln();
+    unit_covers(c, "/policies/replacement",
+                "touching a way moves the victim off it");
   }
 
   // ------------------------------------------------------------------
@@ -666,6 +739,11 @@ void RtlTb::unit_tests(SvFile &f, const NodeCtx &c)
   if(cache) {
     f.ln("    cg_check(\"the hit is quicker than the miss\",");
     f.ln("             (cg_cycle - t1) < (t1 - t0));");
+    unit_covers(c, "/policies/read_miss",
+                "the hit is quicker than the miss");
+  } else if(c.is_memory()) {
+    unit_covers(c, "/timing/read_latency_cycles",
+                "the second read agrees with the first");
   }
   f.ln();
 
@@ -690,6 +768,10 @@ void RtlTb::unit_tests(SvFile &f, const NodeCtx &c)
     f.ln("               (cg_cycle - t0) < 16);");
     f.ln("    end");
     f.ln();
+    unit_covers(c, "/geometry/associativity",
+                "every way of the set still hits");
+    unit_covers(c, "/policies/replacement",
+                "every way of the set still hits");
   }
 
   if(t5) {
@@ -703,6 +785,22 @@ void RtlTb::unit_tests(SvFile &f, const NodeCtx &c)
     f.ln("    cg_check(\"a read sees the write before it\",");
     f.ln("             r1 == wv);");
     f.ln();
+    // R-8. Only a CACHE's write path exercises these. A memory
+    // takes the same test and declares none of them, and claiming
+    // them there would put a test against a field the memory model
+    // never reads.
+    if(wr && cache) {
+      unit_covers(c, "/policies/write_miss",
+                  "a read sees the write before it");
+      unit_covers(c, "/policies/write_hit",
+                  "a read sees the write before it");
+      unit_covers(c, "/storage/data_array/byte_enables",
+                  "a read sees the write before it");
+      if(c.has_dirty()) {
+        unit_covers(c, "/storage/dirty_bits/kind",
+                    "a read sees the write before it");
+      }
+    }
   }
 
   f.ln("  endtask");
@@ -815,6 +913,63 @@ void RtlTb::sys_tb(SvFile &f, const Model &m,
     f.ln();
   }
 
+  // ------------------------------------------------------------------
+  // R-9. The memory model's own image and peek functions, reached
+  // hierarchically. The model owns the store, so it owns the dump:
+  // the testbench asking for the image cannot write a format the
+  // model disagrees with.
+  // ------------------------------------------------------------------
+  const Model::Node *memn = nullptr;
+  for(const Model::Node &n : m.nodes) {
+    const NodeCtx *c = ctx_of(nodes, n.name);
+    if(c != nullptr && c->is_memory()) { memn = &n; break; }
+  }
+
+  if(memn != nullptr) {
+    const NodeCtx *mc = ctx_of(nodes, memn->name);
+    const NodeCtx::Iface &mi = mc->ifaces().front();
+    const std::string path = "u_dut.u_" + memn->name + ".u_" +
+                             mi.name + "_slv";
+    const int beat = mi.sig.data_bits();
+    const int wbits = ag.empty() ? 32 : ag[0]->ifaces()[0].sig.data_bits();
+    const int abits = ag.empty() ? 32 : ag[0]->ifaces()[0].sig.addr_bits();
+    const int wsh   = Replacement::log2i(wbits / 8);
+    const int wsel  = Replacement::log2i(beat / wbits);
+
+    f.ln("  // ----------------------------------------------------");
+    f.ln("  // R-9. The memory image and the two ways of asking the");
+    f.ln("  // store a question. All three live in the memory model,");
+    f.ln("  // which owns the store, and are reached from here.");
+    f.ln("  //");
+    f.ln("  // The images go under IMAGES in the top level Makefile.");
+    f.ln("  // ----------------------------------------------------");
+    f.ln("  task automatic mem_image(input string point);");
+    f.ln("    " + path + ".cg_dump_image(");
+    f.ln("        {\"images/" + sys + "_\", point, \".mem\"}, point);");
+    f.ln("  endtask");
+    f.ln();
+    f.ln("  function automatic logic mem_has(input logic [" +
+         i2s(abits - 1) + ":0] a);");
+    f.ln("    mem_has = " + path + ".cg_has(a);");
+    f.ln("  endfunction");
+    f.ln();
+    f.ln("  // one word out of the beat the memory holds");
+    f.ln("  function automatic logic [" + i2s(wbits - 1) +
+         ":0] mem_word");
+    f.ln("      (input logic [" + i2s(abits - 1) + ":0] a);");
+    f.ln("    logic [" + i2s(beat - 1) + ":0] b;");
+    f.ln("    b = " + path + ".cg_peek(a);");
+    if(wsel > 0) {
+      f.ln("    mem_word = b[" + i2s(wbits) + " * int'(a[" +
+           i2s(wsh + wsel - 1) + ":" + i2s(wsh) + "]) +: " +
+           i2s(wbits) + "];");
+    } else {
+      f.ln("    mem_word = b[" + i2s(wbits - 1) + ":0];");
+    }
+    f.ln("  endfunction");
+    f.ln();
+  }
+
   f.ln("`include \"" + sys + "_tests.svh\"");
   f.ln();
   f.ln("  initial begin");
@@ -838,68 +993,439 @@ void RtlTb::sys_tb(SvFile &f, const Model &m,
 }
 
 // --------------------------------------------------------------------
+// R-8. THE TOP LEVEL TESTS.
+//
+// Seven checks proved the nodes connect. What belongs here is
+// behaviour visible ONLY WHEN NODES INTERACT, and the list of it is
+// derived from the configuration rather than from a general idea of
+// what a cache does:
+//
+//   the agent's link width against the cache's line, which is the
+//     multi-beat fill CLI-004 found a deadlock in
+//   write_hit write_back, which is invisible below the memory: the
+//     written line has to NOT be there, and then to be there after
+//     an eviction
+//   the associativity and the replacement policy, at system scale,
+//     which is what forces that eviction
+//   the memory's read_latency_cycles, which only a miss that reaches
+//     memory can measure
+//   range_check, which only the terminal node can refuse
+//   two upstream interfaces against one L2, which is the contention
+//     no interface can see on its own
+//
+// Every check registers the field it exercises, so the R-8 table is
+// generated from the tests that were actually emitted.
+// --------------------------------------------------------------------
 void RtlTb::sys_tests(SvFile &f, const Model &m,
                       const std::map<std::string, NodeCtx> &nodes,
                       const std::string &sys)
 {
-  std::vector<const NodeCtx *> ag;
+  const std::string bench = sys + "_tb";
+
+  // ------------------------------------------------------------------
+  // The chain, walked from each agent rather than assumed. An agent
+  // feeds one cache, that cache feeds the next, and the last node is
+  // the memory.
+  // ------------------------------------------------------------------
+  struct Path {
+    const NodeCtx *agent{nullptr};
+    std::string    l1;          // the cache the agent feeds
+    const NodeCtx *l1c{nullptr};
+  };
+
+  std::vector<Path> paths;
   for(const Model::Node &n : m.nodes) {
-    auto it = nodes.find(n.name);
-    if(it != nodes.end() && it->second.is_agent()) {
-      ag.push_back(&it->second);
+    const NodeCtx *c = ctx_of(nodes, n.name);
+    if(c == nullptr || !c->is_agent()) continue;
+    Path p;
+    p.agent = c;
+    p.l1    = downstream(m, n.name);
+    p.l1c   = ctx_of(nodes, p.l1);
+    paths.push_back(p);
+  }
+
+  // the cache the L1s share, and the memory behind it
+  std::string shared_name;
+  const NodeCtx *shared = nullptr;
+  const NodeCtx *memc   = nullptr;
+  std::string memn;
+
+  if(!paths.empty() && paths[0].l1c != nullptr) {
+    shared_name = downstream(m, paths[0].l1);
+    shared      = ctx_of(nodes, shared_name);
+  }
+  for(const Model::Node &n : m.nodes) {
+    const NodeCtx *c = ctx_of(nodes, n.name);
+    if(c != nullptr && c->is_memory()) { memc = c; memn = n.name; break; }
+  }
+
+  // the agent whose cache can take a write
+  const Path *wp = nullptr;
+  for(const Path &p : paths) {
+    if(p.l1c != nullptr && p.l1c->has_writes() && p.l1c->has_dirty()) {
+      wp = &p;
+      break;
     }
   }
 
-  f.note("Self checking tests for system '" + sys + "'.");
+  // ------------------------------------------------------------------
+  // Every address below is DERIVED. The stride that lands two lines
+  // in one set is the index span of the deepest cache on the path,
+  // and the number of lines that forces a line out of every level is
+  // twice the widest associativity plus one.
+  // ------------------------------------------------------------------
+  const int abits = paths.empty()
+                    ? 32 : paths[0].agent->ifaces()[0].sig.addr_bits();
+  const int wbits = paths.empty()
+                    ? 32 : paths[0].agent->ifaces()[0].sig.data_bits();
+
+  uint64_t stride = 0;
+  int      ways   = 1;
+  uint64_t line   = 64;
+  for(const Path &p : paths) {
+    if(p.l1c == nullptr || !p.l1c->geom().valid) continue;
+    const Model::Geom &g = p.l1c->geom();
+    stride = std::max(stride, uint64_t(1) << (g.index.msb + 1));
+    ways   = std::max(ways, g.associativity);
+    line   = g.line_bytes;
+  }
+  if(shared != nullptr && shared->geom().valid) {
+    const Model::Geom &g = shared->geom();
+    stride = std::max(stride, uint64_t(1) << (g.index.msb + 1));
+    ways   = std::max(ways, g.associativity);
+  }
+  if(stride == 0) stride = 4096;
+
+  const int      evictions = 2 * ways + 1;
+  const uint64_t base      = stride;   // one stride in, never zero
+  const uint64_t hot       = base + 4 * stride * uint64_t(evictions);
+
+  f.note("Self checking tests for system '" + sys + "', THE TOP");
+  f.note("LEVEL. See the note above RtlTb::sys_tests for what belongs");
+  f.note("here and what belongs in a unit testbench.");
   f.note("");
   f.note("`include this INSIDE the system testbench module.");
+  f.note("");
+  f.note("Every address is derived. The stride that lands two lines");
+  f.note("in one set is " + std::to_string(stride) + ", the index span of the deepest");
+  f.note("cache on the path, and " + std::to_string(evictions) +
+         " lines at that stride force a");
+  f.note("line out of every level of a " + std::to_string(ways) +
+         " way cache.");
   f.bar();
   f.ln();
   f.ln("  task automatic run_tests();");
-  for(const NodeCtx *a : ag) {
-    const int w = a->ifaces()[0].sig.data_bits();
-    f.ln("    logic [" + i2s(w - 1) + ":0] " + a->name() + "_r0;");
-    f.ln("    logic [" + i2s(w - 1) + ":0] " + a->name() + "_r1;");
+  for(const Path &p : paths) {
+    const std::string a = p.agent->name();
+    f.ln("    logic [" + i2s(wbits - 1) + ":0] " + a + "_r0;");
+    f.ln("    logic [" + i2s(wbits - 1) + ":0] " + a + "_r1;");
   }
+  f.ln("    logic [" + i2s(wbits - 1) + ":0] wv;");
+  f.ln("    logic [" + i2s(abits - 1) + ":0] ea;");
   f.ln("    int unsigned t0;");
   f.ln("    int unsigned t1;");
+  f.ln("    int unsigned k;");
   f.ln();
 
-  for(const NodeCtx *a : ag) {
-    const std::string p = a->name();
-    f.ln("    // ---------------------------------------------------");
-    f.ln("    // agent '" + p + "': a cold read reaches memory and "
-         "the");
-    f.ln("    // same address then hits in its L1.");
-    f.ln("    // ---------------------------------------------------");
-    f.ln("    t0 = cg_cycle;");
-    f.ln("    go_" + p + "(32'h0000_4000, 1'b0, '0, " + p + "_r0);");
-    f.ln("    t1 = cg_cycle;");
-    f.ln("    go_" + p + "(32'h0000_4000, 1'b0, '0, " + p + "_r1);");
-    f.ln("    cg_check_eq(\"" + p +
-         " hit returns what the miss filled\",");
-    f.ln("                {32'd0, " + p + "_r1}, {32'd0, " + p +
-         "_r0});");
-    f.ln("    cg_check(\"" + p + " hit is quicker than the miss\",");
-    f.ln("             (cg_cycle - t1) < (t1 - t0));");
-    f.ln("    cg_check(\"" + p +
-         " went idle after its last request\",");
-    f.ln("             !" + p + "_busy);");
+  const bool images = memc != nullptr;
+
+  if(images) {
+    f.ln("    // -----------------------------------------------------");
+    f.ln("    // R-9. The image before anything runs. Every later");
+    f.ln("    // image is a difference against this one.");
+    f.ln("    // -----------------------------------------------------");
+    f.ln("    mem_image(\"after_reset\");");
+    f.ln("    cg_check(\"the store is empty before any request\",");
+    f.ln("             !mem_has(" + addr_lit(abits, base) + "));");
+    f.ln("    cg_check(\"and it is empty everywhere, not just there\",");
+    f.ln("             !mem_has(" + addr_lit(abits, hot) + "));");
     f.ln();
   }
 
-  if(ag.size() >= 2) {
-    f.ln("    // ---------------------------------------------------");
+  // ------------------------------------------------------------------
+  // one cold read and one hit through every agent
+  //
+  // EVERY AGENT GETS ITS OWN ADDRESS. They share the cache below
+  // their L1s, so one agent's cold miss warms the line for the next
+  // one, and the second agent's "cold" miss would then never reach
+  // memory. The read latency check below would measure the shared
+  // cache instead of the memory and quietly pass on some
+  // configurations and fail on others.
+  // ------------------------------------------------------------------
+  for(size_t pi = 0; pi < paths.size(); ++pi) {
+    const Path       &p  = paths[pi];
+    const std::string a  = p.agent->name();
+    const uint64_t    ab = base + uint64_t(pi) * stride;
+
+    f.ln("    // -----------------------------------------------------");
+    f.ln("    // Agent '" + a + "': a cold read reaches memory and the");
+    f.ln("    // same address then hits in '" + p.l1 + "'. The address");
+    f.ln("    // is this agent's own, see the note above.");
+    f.ln("    // -----------------------------------------------------");
+    f.ln("    t0 = cg_cycle;");
+    f.ln("    go_" + a + "(" + addr_lit(abits, ab) + ", 1'b0, '0, " +
+         a + "_r0);");
+    f.ln("    t1 = cg_cycle;");
+    f.ln("    go_" + a + "(" + addr_lit(abits, ab) + ", 1'b0, '0, " +
+         a + "_r1);");
+    f.ln("    cg_check(\"" + a +
+         " hit returns what the miss filled\",");
+    f.ln("             " + a + "_r1 == " + a + "_r0);");
+    f.ln("    cg_check(\"" + a + " hit is quicker than the miss\",");
+    f.ln("             (cg_cycle - t1) < (t1 - t0));");
+    f.ln("    cg_check(\"" + a + " went idle after its last request\",");
+    f.ln("             !" + a + "_busy);");
+
+    if(p.l1c != nullptr) {
+      top_covers(p.l1, "/policies/read_miss", bench,
+                 a + " hit is quicker than the miss");
+      top_covers(p.l1, "/geometry/capacity_bytes", bench,
+                 a + " hit returns what the miss filled");
+    }
+
+    // the miss crossed the whole path, so it cannot be quicker than
+    // the memory's own declared read latency
+    if(memc != nullptr && memc->read_latency() > 0) {
+      f.ln("    cg_check(\"" + a +
+           " miss covers the memory read latency\",");
+      f.ln("             (t1 - t0) >= " +
+           std::to_string(memc->read_latency()) + ");");
+      top_covers(memn, "/timing/read_latency_cycles", bench,
+                 a + " miss covers the memory read latency");
+    }
+    f.ln();
+  }
+
+  // ------------------------------------------------------------------
+  // the write path, the beat structure, the write back and the
+  // eviction, all through the one agent whose cache takes writes
+  // ------------------------------------------------------------------
+  if(wp != nullptr) {
+    const std::string a = wp->agent->name();
+    const uint64_t    half = line / 2;
+
+    f.ln("    // -----------------------------------------------------");
+    f.ln("    // A write miss allocates in '" + wp->l1 +
+         "' and the read");
+    f.ln("    // after it sees the value. Nothing below the cache has");
+    f.ln("    // seen it yet, which is what write_back means.");
+    f.ln("    // -----------------------------------------------------");
+    f.ln("    wv = " + i2s(wbits) + "'hc0de_0001;");
+    f.ln("    go_" + a + "(" + addr_lit(abits, hot) + ", 1'b1, wv, " +
+         a + "_r0);");
+    f.ln("    go_" + a + "(" + addr_lit(abits, hot) + ", 1'b0, '0, " +
+         a + "_r1);");
+    f.ln("    cg_check(\"a write miss allocates and the read after "
+         "it sees it\",");
+    f.ln("             " + a + "_r1 == wv);");
+    top_covers(wp->l1, "/policies/write_miss", bench,
+               "a write miss allocates and the read after it sees it");
+    top_covers(wp->l1, "/policies/write_hit", bench,
+               "a write miss allocates and the read after it sees it");
+    f.ln();
+
+    if(half >= 4) {
+      f.ln("    // ---------------------------------------------------");
+      f.ln("    // The line is " + std::to_string(line) +
+           " bytes and the downstream beat is");
+      f.ln("    // narrower than that, so a fill is several beats. A");
+      f.ln("    // write into the second beat must leave the first");
+      f.ln("    // beat's word alone. CLI-004's deadlock lived here.");
+      f.ln("    // ---------------------------------------------------");
+      f.ln("    ea = " + addr_lit(abits, hot + half) + ";");
+      f.ln("    go_" + a + "(ea, 1'b1, " + i2s(wbits) +
+           "'hc0de_0002, " + a + "_r0);");
+      f.ln("    go_" + a + "(" + addr_lit(abits, hot) +
+           ", 1'b0, '0, " + a + "_r1);");
+      f.ln("    cg_check(\"a write in one beat leaves the other beat "
+           "alone\",");
+      f.ln("             " + a + "_r1 == wv);");
+      f.ln("    go_" + a + "(ea, 1'b0, '0, " + a + "_r1);");
+      f.ln("    cg_check(\"the word in the second beat reads back\",");
+      f.ln("             " + a + "_r1 == " + i2s(wbits) +
+           "'hc0de_0002);");
+      top_covers(wp->l1, "/geometry/line_bytes", bench,
+                 "a write in one beat leaves the other beat alone");
+      top_covers(wp->l1, "/storage/data_array/byte_enables", bench,
+                 "a write in one beat leaves the other beat alone");
+      if(shared != nullptr) {
+        top_covers(shared_name, "/geometry/line_bytes", bench,
+                   "the word in the second beat reads back");
+      }
+      f.ln();
+    }
+
+    if(images) {
+      f.ln("    // ---------------------------------------------------");
+      f.ln("    // write_back, the half no unit test can see. The");
+      f.ln("    // written line is dirty upstream and the memory has");
+      f.ln("    // never been told about it.");
+      f.ln("    // ---------------------------------------------------");
+      f.ln("    cg_check(\"the written line has not reached memory\",");
+      f.ln("             !mem_has(" + addr_lit(abits, hot) + "));");
+      f.ln("    mem_image(\"after_write\");");
+      top_covers(wp->l1, "/policies/write_hit", bench,
+                 "the written line has not reached memory");
+      f.ln();
+
+      f.ln("    // ---------------------------------------------------");
+      f.ln("    // and the other half. " + std::to_string(evictions) +
+           " lines at the set stride");
+      f.ln("    // push it out of every level, and the write back");
+      f.ln("    // carries it to memory with its data intact.");
+      f.ln("    // ---------------------------------------------------");
+      f.ln("    for(k = 0; k < " + std::to_string(evictions) +
+           "; k++) begin");
+      f.ln("      ea = " + addr_lit(abits, hot) + " +");
+      f.ln("           " + i2s(abits) + "'((k + 1) * " +
+           std::to_string(stride) + ");");
+      f.ln("      go_" + a + "(ea, 1'b1, " + i2s(wbits) +
+           "'hbeef_0000 + " + i2s(wbits) + "'(k), " + a + "_r0);");
+      f.ln("    end");
+      f.ln("    cg_check(\"the evicted dirty line reached memory\",");
+      f.ln("             mem_has(" + addr_lit(abits, hot) + "));");
+      f.ln("    cg_check(\"and it carries what was written to it\",");
+      f.ln("             mem_word(" + addr_lit(abits, hot) +
+           ") == wv);");
+      f.ln("    mem_image(\"after_evict\");");
+      top_covers(wp->l1, "/geometry/associativity", bench,
+                 "the evicted dirty line reached memory");
+      top_covers(wp->l1, "/policies/replacement", bench,
+                 "the evicted dirty line reached memory");
+      top_covers(wp->l1, "/storage/dirty_bits/kind", bench,
+                 "and it carries what was written to it");
+      if(shared != nullptr) {
+        top_covers(shared_name, "/geometry/associativity", bench,
+                   "the evicted dirty line reached memory");
+        top_covers(shared_name, "/policies/replacement", bench,
+                   "the evicted dirty line reached memory");
+        top_covers(shared_name, "/policies/write_hit", bench,
+                   "and it carries what was written to it");
+        top_covers(shared_name, "/storage/dirty_bits/kind", bench,
+                   "and it carries what was written to it");
+      }
+      f.ln();
+    }
+
+    // ----------------------------------------------------------------
+    // the bank select, R-7. Two lines that differ only in the bank
+    // bit land in different banks of the shared cache and both are
+    // served.
+    // ----------------------------------------------------------------
+    if(shared != nullptr && shared->geom().bank_resolved &&
+       shared->geom().banks > 1) {
+      const uint64_t bit = uint64_t(1) << shared->geom().bank.lsb;
+      f.ln("    // ---------------------------------------------------");
+      f.ln("    // R-7. '" + shared_name + "' interleaves by line, so "
+           "the bank");
+      f.ln("    // select is bit " +
+           std::to_string(shared->geom().bank.lsb) +
+           ", immediately above the offset.");
+      f.ln("    // These two addresses differ in that bit and nothing");
+      f.ln("    // else, so they sit in DIFFERENT BANKS of the SAME");
+      f.ln("    // set, and both have to be served.");
+      f.ln("    // ---------------------------------------------------");
+      f.ln("    ea = " + addr_lit(abits, base + 8 * stride) + ";");
+      f.ln("    go_" + a + "(ea, 1'b1, " + i2s(wbits) +
+           "'ha11c_0000, " + a + "_r0);");
+      f.ln("    go_" + a + "(ea + " + i2s(abits) + "'d" +
+           std::to_string(bit) + ", 1'b1, " + i2s(wbits) +
+           "'ha11c_0001, " + a + "_r0);");
+      f.ln("    go_" + a + "(ea, 1'b0, '0, " + a + "_r0);");
+      f.ln("    go_" + a + "(ea + " + i2s(abits) + "'d" +
+           std::to_string(bit) + ", 1'b0, '0, " + a + "_r1);");
+      f.ln("    cg_check(\"the line below the bank select reads "
+           "back\",");
+      f.ln("             " + a + "_r0 == " + i2s(wbits) +
+           "'ha11c_0000);");
+      f.ln("    cg_check(\"the line in the other bank reads back\",");
+      f.ln("             " + a + "_r1 == " + i2s(wbits) +
+           "'ha11c_0001);");
+      f.ln("    cg_check(\"and the two banks did not answer with one "
+           "line\",");
+      f.ln("             " + a + "_r0 != " + a + "_r1);");
+      top_covers(shared_name, "/geometry/banks", bench,
+                 "the line in the other bank reads back");
+      top_covers(shared_name, "/geometry/bank_interleave_granularity",
+                 bench, "and the two banks did not answer with one line");
+      f.ln();
+    }
+  }
+
+  // ------------------------------------------------------------------
+  // range_check, which only the terminal node can refuse
+  // ------------------------------------------------------------------
+  if(memc != nullptr && memc->range_check() && !paths.empty()) {
+    const uint64_t cap = memc->geom().capacity_bytes;
+    if(cap > 0 && abits < 64 &&
+       cap < (uint64_t(1) << (abits < 63 ? abits : 63))) {
+      const std::string a = wp != nullptr ? wp->agent->name()
+                                          : paths[0].agent->name();
+      f.ln("    // ---------------------------------------------------");
+      f.ln("    // range_check on '" + memn + "'. Its capacity is " +
+           std::to_string(cap));
+      f.ln("    // bytes and the address space is " + i2s(abits) +
+           " bits, so an address");
+      f.ln("    // at the capacity is outside it and is DENIED rather");
+      f.ln("    // than quietly wrapped. The request has to come back,");
+      f.ln("    // denied or not: a refusal that hangs is a deadlock.");
+      f.ln("    // ---------------------------------------------------");
+      f.ln("    go_" + a + "(" + addr_lit(abits, cap) + ", 1'b0, '0, " +
+           a + "_r0);");
+      f.ln("    cg_check(\"a read past the memory capacity still "
+           "completes\",");
+      f.ln("             !" + a + "_busy);");
+      top_covers(memn, "/range_check", bench,
+                 "a read past the memory capacity still completes");
+      top_covers(memn, "/geometry/capacity_bytes", bench,
+                 "a read past the memory capacity still completes");
+      f.ln();
+    }
+  }
+
+  // ------------------------------------------------------------------
+  // two upstream interfaces against one shared cache
+  // ------------------------------------------------------------------
+  if(paths.size() >= 2 && shared != nullptr) {
+    f.ln("    // -----------------------------------------------------");
     f.ln("    // Both agents against one address. They run through");
-    f.ln("    // different L1s into the same L2, which is where the");
-    f.ln("    // round robin between up_i and up_d gets exercised.");
-    f.ln("    // ---------------------------------------------------");
-    f.ln("    go_" + ag[0]->name() + "(32'h0000_5000, 1'b0, '0, " +
-         ag[0]->name() + "_r0);");
-    f.ln("    go_" + ag[1]->name() + "(32'h0000_5000, 1'b0, '0, " +
-         ag[1]->name() + "_r0);");
+    f.ln("    // different L1s into '" + shared_name + "', which is "
+         "where the");
+    f.ln("    // arbitration between its upstream interfaces is the");
+    f.ln("    // only thing that can go wrong. No interface can see");
+    f.ln("    // this on its own.");
+    f.ln("    // -----------------------------------------------------");
+    const uint64_t two = base + uint64_t(paths.size() + 1) * stride;
+    for(const Path &p : paths) {
+      f.ln("    go_" + p.agent->name() + "(" + addr_lit(abits, two) +
+           ", 1'b0, '0, " + p.agent->name() + "_r0);");
+    }
     f.ln("    cg_check(\"both agents completed against one line\",");
-    f.ln("             1'b1);");
+    f.ln("             " + [&]{
+           std::string e;
+           for(size_t k = 0; k < paths.size(); ++k) {
+             if(k) e += " && ";
+             e += "!" + paths[k].agent->name() + "_busy";
+           }
+           return e;
+         }() + ");");
+    f.ln("    cg_check(\"and they agree about what is at it\",");
+    f.ln("             " + paths[0].agent->name() + "_r0 == " +
+         paths[1].agent->name() + "_r0);");
+    for(const Path &p : paths) {
+      top_covers(p.l1, "/indexing", bench,
+                 "and they agree about what is at it");
+    }
+    top_covers(shared_name, "/indexing", bench,
+               "both agents completed against one line");
+    f.ln();
+  }
+
+  if(images) {
+    f.ln("    // -----------------------------------------------------");
+    f.ln("    // R-9. The final image.");
+    f.ln("    // -----------------------------------------------------");
+    f.ln("    mem_image(\"final\");");
     f.ln();
   }
 
@@ -967,8 +1493,8 @@ void RtlTb::tb_slv(SvFile &f, const NodeCtx &c,
   f.ln("        end else begin");
   f.ln("          " + LinkSig::wire(n, "rvalid") + " <= 1'b1;");
   f.ln("          " + LinkSig::wire(n, "rdata") + " <=");
-  f.ln("              store.exists(key_of(" +
-       LinkSig::wire(n, "addr") + "))");
+  f.ln("              (store.exists(key_of(" +
+       LinkSig::wire(n, "addr") + ")) != 0)");
   f.ln("              ? store[key_of(" + LinkSig::wire(n, "addr") +
        ")]");
   f.ln("              : " + LinkSig::wire(n, "addr") + ";");

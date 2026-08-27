@@ -69,6 +69,21 @@ std::set<std::string> codes_every_fixture_produces()
     for(const cgen::Diag &d : drv->diags().all()) seen.insert(d.code());
   }
 
+  // ----------------------------------------------------------------
+  // CLI-005. emit.vars needs neither another configuration nor
+  // another command, it needs a master Vars.mk that is not there.
+  // Every configuration in the sweep takes the default master copy
+  // and finds it, so the code is invisible to the sweep above. This
+  // is the same extension CLI-004 made for the emit codes, one input
+  // further out.
+  // ----------------------------------------------------------------
+  {
+    auto drv = Fixture::run_emit_vars(
+        Fixture::pacino(), Fixture::scratch("sweep_vars"),
+        Fixture::fixture_dir() + "/no_such_Vars.mk");
+    for(const cgen::Diag &d : drv->diags().all()) seen.insert(d.code());
+  }
+
   const std::string base = Fixture::fixture_dir() +
                            "/base/base_system.json";
   const std::string dirs[3] = {

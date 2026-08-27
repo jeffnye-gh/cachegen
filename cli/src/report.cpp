@@ -96,7 +96,7 @@ void Report::nodes(const Model &m) const
     msg->imsg("    " + field("index",  g.index,  m.pa_bits));
     msg->imsg("    " + field("tag",    g.tag,    m.pa_bits));
 
-    // R-6, CLI-004. Only worth a line when there is a bank to select.
+    // R-7, CLI-005. Only worth a line when there is a bank to select.
     if(g.banks > 1) {
       if(g.bank_resolved) {
         msg->imsg("    " + field("bank",  g.bank,      m.pa_bits));

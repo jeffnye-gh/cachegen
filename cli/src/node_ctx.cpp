@@ -6,6 +6,7 @@
 // CONTACT: Jeff Nye
 // --------------------------------------------------------------------
 #include "node_ctx.h"
+#include "field_use.h"
 #include <algorithm>
 
 using nlohmann::json;
@@ -46,9 +47,122 @@ std::string NodeCtx::mod(const char *suffix) const
 }
 
 // --------------------------------------------------------------------
+// R-6b. One read, recorded against the field it came from. See the
+// note on the accessor block in node_ctx.h for why the record is made
+// here rather than in build().
+// --------------------------------------------------------------------
+void NodeCtx::mark(const std::string &rel) const
+{
+  if(cfg_file_.empty()) return;
+  cfg_read(cfg_file_, cfg_path_ + rel);
+}
+
+// --------------------------------------------------------------------
+const std::string &NodeCtx::indexing() const
+{
+  mark("/indexing");
+  return indexing_;
+}
+
+// --------------------------------------------------------------------
+const std::string &NodeCtx::read_miss() const
+{
+  mark("/policies/read_miss");
+  return read_miss_;
+}
+
+// --------------------------------------------------------------------
+const std::string &NodeCtx::write_miss() const
+{
+  mark("/policies/write_miss");
+  return write_miss_;
+}
+
+// --------------------------------------------------------------------
+const std::string &NodeCtx::write_hit() const
+{
+  mark("/policies/write_hit");
+  return write_hit_;
+}
+
+// --------------------------------------------------------------------
+const std::string &NodeCtx::inclusion() const
+{
+  mark("/inclusion");
+  return inclusion_;
+}
+
+// --------------------------------------------------------------------
+const std::string &NodeCtx::beat_order() const
+{
+  mark("/fill/beat_order");
+  return beat_order_;
+}
+
+// --------------------------------------------------------------------
+bool NodeCtx::has_dirty() const
+{
+  mark("/policies/write_hit");
+  return write_hit_ == "write_back";
+}
+
+// --------------------------------------------------------------------
+bool NodeCtx::range_check() const
+{
+  mark("/range_check");
+  return range_check_;
+}
+
+// --------------------------------------------------------------------
+int NodeCtx::mshrs() const
+{
+  mark("/miss_handling/mshrs");
+  return mshrs_;
+}
+
+// --------------------------------------------------------------------
+int NodeCtx::read_latency() const
+{
+  mark("/timing/read_latency_cycles");
+  return read_latency_;
+}
+
+// --------------------------------------------------------------------
+const std::string &NodeCtx::tag_stage() const
+{
+  mark("/timing/tag_compare_stage");
+  return tag_stage_;
+}
+
+// --------------------------------------------------------------------
+const Replacement &NodeCtx::repl() const
+{
+  mark("/policies/replacement");
+  return *repl_;
+}
+
+// --------------------------------------------------------------------
+// The storage array a name selects, and the JSON key it came from.
+// One table, so a new array kind cannot be added to one of the four
+// accessors and forgotten in the others.
+// --------------------------------------------------------------------
+const char *NodeCtx::array_key(const char *which)
+{
+  const std::string w = which;
+  if(w == "tag")   return "tag_array";
+  if(w == "data")  return "data_array";
+  if(w == "valid") return "valid_bits";
+  if(w == "dirty") return "dirty_bits";
+  if(w == "repl")  return "replacement_bits";
+  return "";
+}
+
+// --------------------------------------------------------------------
 const std::string &NodeCtx::array_kind(const char *which) const
 {
   const std::string w = which;
+  const char *k = array_key(which);
+  if(*k) mark(std::string("/storage/") + k + "/kind");
   if(w == "tag")   return tag_.kind;
   if(w == "data")  return data_.kind;
   if(w == "valid") return valid_.kind;
@@ -61,6 +175,8 @@ const std::string &NodeCtx::array_kind(const char *which) const
 bool NodeCtx::cleared_on_reset(const char *which) const
 {
   const std::string w = which;
+  const char *k = array_key(which);
+  if(*k) mark(std::string("/storage/") + k + "/cleared_on_reset");
   if(w == "tag")   return tag_.cleared;
   if(w == "data")  return data_.cleared;
   if(w == "valid") return valid_.cleared;
@@ -73,6 +189,8 @@ bool NodeCtx::cleared_on_reset(const char *which) const
 bool NodeCtx::registered_read(const char *which) const
 {
   const std::string w = which;
+  const char *k = array_key(which);
+  if(*k) mark(std::string("/storage/") + k + "/read_port");
   if(w == "tag")   return tag_.registered;
   if(w == "data")  return data_.registered;
   if(w == "valid") return valid_.registered;
@@ -85,6 +203,8 @@ bool NodeCtx::registered_read(const char *which) const
 bool NodeCtx::byte_enables(const char *which) const
 {
   const std::string w = which;
+  const char *k = array_key(which);
+  if(*k) mark(std::string("/storage/") + k + "/byte_enables");
   if(w == "tag")   return tag_.byte_en;
   if(w == "data")  return data_.byte_en;
   if(w == "valid") return valid_.byte_en;
@@ -164,9 +284,11 @@ void NodeCtx::arrays(const json &st)
 // --------------------------------------------------------------------
 bool NodeCtx::build(const Model &m, const Model::Node &n,
                     const json *body,
-                    const std::vector<const json *> &link_defs,
+                    const std::map<std::string, LinkRef> &link_defs,
                     std::string &why)
 {
+  cfg_file_ = n.cache_file;
+  cfg_path_ = n.cache_path;
   name_    = n.name;
   type_    = n.node_type;
   indexing_ = n.indexing;
@@ -241,15 +363,14 @@ bool NodeCtx::build(const Model &m, const Model::Node &n,
     }
 
     // the master flag from the port ROLE, not from the name spelling
-    for(const json *ld : link_defs) {
-      if(ld == nullptr || !ld->contains(f.link)) continue;
-      const json &link = (*ld)[f.link];
+    auto ld = link_defs.find(f.link);
+    if(ld != link_defs.end() && ld->second.body != nullptr) {
+      const json &link = *ld->second.body;
       const std::string mt = link.value("master_port_type",
                                         std::string());
       const std::string pt = ports.begin().value().get<std::string>();
       f.master = pt == mt;
-      f.ok     = f.sig.build(link, f.why);
-      break;
+      f.ok     = f.sig.build(link, f.why, ld->second);
     }
 
     if(!f.ok && f.why.empty()) {

@@ -7,6 +7,7 @@
 // --------------------------------------------------------------------
 #include "resolver.h"
 #include "diag_codes.h"
+#include "field_use.h"
 #include "msg.h"
 
 using nlohmann::json;
@@ -68,6 +69,7 @@ void Resolver::bind_nodes(Model &m)
     if(e.body && e.body->is_object() && e.body->contains("cache") &&
        (*e.body)["cache"].is_string()) {
       n.cache = (*e.body)["cache"].get<std::string>();
+      cfg_read(n.file, n.path + "/cache");
     }
 
     if(n.cache.empty()) {
@@ -97,10 +99,12 @@ void Resolver::bind_nodes(Model &m)
       if(c->body->contains("node_type") &&
          (*c->body)["node_type"].is_string()) {
         n.node_type = (*c->body)["node_type"].get<std::string>();
+        cfg_read(n.cache_file, n.cache_path + "/node_type");
       }
       if(c->body->contains("indexing") &&
          (*c->body)["indexing"].is_string()) {
         n.indexing = (*c->body)["indexing"].get<std::string>();
+        cfg_read(n.cache_file, n.cache_path + "/indexing");
       }
     }
 
@@ -130,6 +134,7 @@ void Resolver::bind_interfaces()
       // the link the interface carries
       if(fi.value().contains("link") && fi.value()["link"].is_string()) {
         std::string ln = fi.value()["link"].get<std::string>();
+        cfg_read(c.file, site + "/link");
         if(syms_.find(Kind::Link, ln) == nullptr) {
           diags_.error(c.file, site + "/link", code::t1_iface_link,
                        "node " + msg->tq(c.name) + " interface " +
@@ -146,6 +151,7 @@ void Resolver::bind_interfaces()
       for(auto pi = ports.begin(); pi != ports.end(); ++pi) {
         if(!pi.value().is_string()) continue;
         std::string pt = pi.value().get<std::string>();
+        cfg_read(c.file, site + "/ports/" + pi.key());
         if(syms_.find(Kind::PortType, pt) != nullptr) continue;
 
         diags_.error(c.file, site + "/ports/" + pi.key(),
@@ -173,6 +179,7 @@ void Resolver::bind_link_ports()
     for(const char *end : ends) {
       if(!l.body->contains(end) || !(*l.body)[end].is_string()) continue;
       std::string pt = (*l.body)[end].get<std::string>();
+      cfg_read(l.file, l.path + "/" + end);
       if(syms_.find(Kind::PortType, pt) != nullptr) continue;
 
       diags_.error(l.file, l.path + "/" + end, code::t1_link_port_type,
@@ -213,6 +220,7 @@ void Resolver::collect_edges(const std::vector<Loader::File> &files,
       for(const Take &t : take) {
         if(j.contains(t.key) && j[t.key].is_string()) {
           e.*(t.field) = j[t.key].get<std::string>();
+          cfg_read(e.file, e.path + "/" + t.key);
         }
       }
 
@@ -310,28 +318,41 @@ void Resolver::bind_edge_link(Model &m, Model::Edge &e)
   e.link    = e.from_link;
   e.link_ok = true;
 
-  const json &b = *l->body;
-  if(b.contains("master_port_type") && b["master_port_type"].is_string())
+  const json &b   = *l->body;
+  const std::string lf = l->file;
+  const std::string lp = l->path;
+
+  if(b.contains("master_port_type") && b["master_port_type"].is_string()) {
     e.link_master_type = b["master_port_type"].get<std::string>();
-  if(b.contains("slave_port_type") && b["slave_port_type"].is_string())
+    cfg_read(lf, lp + "/master_port_type");
+  }
+  if(b.contains("slave_port_type") && b["slave_port_type"].is_string()) {
     e.link_slave_type = b["slave_port_type"].get<std::string>();
-  if(b.contains("protocol") && b["protocol"].is_string())
+    cfg_read(lf, lp + "/slave_port_type");
+  }
+  if(b.contains("protocol") && b["protocol"].is_string()) {
     e.protocol = b["protocol"].get<std::string>();
+    cfg_read(lf, lp + "/protocol");
+  }
 
   if(e.protocol == "tilelink" && b.contains("tilelink")) {
     const json &t = b["tilelink"];
-    if(t.contains("conformance") && t["conformance"].is_string())
+    if(t.contains("conformance") && t["conformance"].is_string()) {
       e.conformance = t["conformance"].get<std::string>();
+      cfg_read(lf, lp + "/tilelink/conformance");
+    }
     if(t.contains("data_bus_bytes") &&
        t["data_bus_bytes"].is_number_integer()) {
       e.width_bytes = t["data_bus_bytes"].get<int>();
       e.width_known = true;
+      cfg_read(lf, lp + "/tilelink/data_bus_bytes");
     }
   } else if(e.protocol == "custom" && b.contains("custom")) {
     const json &c = b["custom"];
     if(c.contains("read_width_bits") &&
        c["read_width_bits"].is_number_integer()) {
       int bits = c["read_width_bits"].get<int>();
+      cfg_read(lf, lp + "/custom/read_width_bits");
       if(bits % 8 == 0) {
         e.width_bytes = bits / 8;
         e.width_known = true;
@@ -362,6 +383,7 @@ void Resolver::resolve(const std::vector<Loader::File> &files, Model &m)
     if(f.declared == "system" && f.doc.contains("name") &&
        f.doc["name"].is_string()) {
       m.system_name = f.doc["name"].get<std::string>();
+      cfg_read(f.disp, "/name");
       break;
     }
   }

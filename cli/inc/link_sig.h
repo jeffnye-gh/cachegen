@@ -23,6 +23,17 @@
 namespace cgen
 {
 
+// --------------------------------------------------------------------
+// One link definition and where it sits, so a stage that reads a link
+// field can record the read against the file and the JSON pointer it
+// came from, R-6b.
+// --------------------------------------------------------------------
+struct LinkRef {
+  const nlohmann::json *body{nullptr};
+  std::string           file;   // the links file, as diagnostics name it
+  std::string           ptr;    // /links/<name>
+};
+
 class LinkSig
 {
 public:
@@ -36,7 +47,10 @@ public:
 
   // Build the bundle for one link definition. Returns false and
   // fills why when the definition names something not covered.
-  bool build(const nlohmann::json &link, std::string &why);
+  // site is where the definition sits. An empty file means no read
+  // is recorded, which is what a unit test of this class wants.
+  bool build(const nlohmann::json &link, std::string &why,
+             const LinkRef &site = LinkRef());
 
   const std::vector<Sig> &sigs() const { return sigs_; }
 
@@ -64,11 +78,12 @@ public:
   static std::string range(int bits);
 
 private:
-  void tl(const nlohmann::json &tl);
+  void tl(const nlohmann::json &tl, const LinkRef &site);
   void tl_channel(const char *ch, bool m_drives, bool mask,
                   bool address, bool sink, bool denied, bool data,
                   int z, int o, int i);
-  bool custom(const nlohmann::json &cu, std::string &why);
+  bool custom(const nlohmann::json &cu, std::string &why,
+              const LinkRef &site);
 
   void add(const std::string &local, int bits, bool m_drives,
            const std::string &comment);

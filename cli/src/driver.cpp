@@ -29,6 +29,13 @@ int Driver::run()
 {
   bool halted = false;
 
+  // ------------------------------------------------------------------
+  // R-6b. Every read of a configuration field is recorded against the
+  // file and pointer it came from, for the life of this run. What no
+  // stage read is the unconsumed field report.
+  // ------------------------------------------------------------------
+  FieldUse::Scope use_scope(use_);
+
   try {
     // ----------------------------------------------------------------
     // R-3 load, R-4 validate, R-5 enumerate, R-6 resolve
@@ -37,6 +44,8 @@ int Driver::run()
       if(!args_.quiet) diags_.print();
       return 1;
     }
+
+    use_.enumerate(loader_.files());
 
     if(schemas_.locate(loader_.root_dir())) {
       for(const Loader::File &f : loader_.files()) schemas_.validate(f);
@@ -83,6 +92,8 @@ int Driver::run()
   // ------------------------------------------------------------------
   if(args_.cmd == "emit" && !halted) {
     Emitter em(diags_, args_.output);
+    em.set_vars(args_.vars, args_.tool);
+    em.set_field_use(&use_);
     const bool wrote = em.run(model_, loader_);
 
     if(!args_.quiet) {
@@ -104,6 +115,7 @@ int Driver::run()
       }
     }
     emitted_ = em.written();
+    feats_   = em.features();
   } else if(args_.cmd == "emit" && !args_.quiet) {
     msg->emsg("nothing was emitted, the run stopped on the first "
               "error");

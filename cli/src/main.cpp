@@ -28,6 +28,8 @@ int main(int ac, char **av)
   args.cmd    = opts->cmd;
   args.config = opts->config;
   args.output = opts->output;
+  args.vars   = opts->vars;
+  args.tool   = opts->tool;
   args.eoe    = opts->eoe;
 
   cgen::Driver drv(args);

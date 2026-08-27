@@ -326,15 +326,17 @@ void RtlPkg::node(SvFile &f, const NodeCtx &c)
   f.ln();
 
   if(banked) {
-    f.ln("  // R-6. The bank select. The index already spans the "
+    f.ln("  // R-7. The bank select. The index already spans the "
          "whole set");
     f.ln("  // space, so the select is taken OUT of the index rather "
          "than");
-    f.ln("  // sitting beside it. " + g.bank_position +
-         ", so it is the");
-    f.ln("  // " + std::string(g.bank_position == "above_index"
-                               ? "top" : "bottom") +
-         " " + i(g.bank_bits) + " bits of the index field.");
+    f.ln("  // sitting beside it. bank_interleave_granularity is " +
+         g.bank_granularity + ",");
+    f.ln("  // so consecutive lines alternate banks and the select is "
+         "the");
+    f.ln("  // " + i(g.bank_bits) + " bits IMMEDIATELY ABOVE THE "
+         "OFFSET. The set index");
+    f.ln("  // is what is left of the index, above the select.");
     f.lines({
       lp("BankLsb",   i(g.bank.lsb)),
       lp("BankMsb",   i(g.bank.msb)),
@@ -343,7 +345,7 @@ void RtlPkg::node(SvFile &f, const NodeCtx &c)
     });
     f.ln();
   } else if(g.banks > 1) {
-    f.ln("  // R-6. THE BANK FIELD IS UNRESOLVED and no bounds are");
+    f.ln("  // R-7. THE BANK FIELD IS UNRESOLVED and no bounds are");
     f.ln("  // emitted for it. " + g.bank_note);
     f.ln();
   } else {

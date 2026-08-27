@@ -58,17 +58,21 @@ public:
     Field tag;
 
     // ----------------------------------------------------------------
-    // R-6, CLI-004. The bank select field and what is left of the
+    // R-7, CLI-005. The bank select field and what is left of the
     // index once it is taken out. offset + index + tag == pa_bits
     // leaves no bits outside the three, so a bank field is a subfield
     // of one of them, never a fourth field.
     //
-    // bank_resolved false means the two declared fields do not
-    // determine the bounds. bank_note then says what is missing, and
-    // the bounds are not to be used.
+    // bank_interleave_granularity alone determines the position:
+    // line means consecutive lines alternate banks, so the select is
+    // the bits immediately above the offset. bank_select_position is
+    // deleted, R-7.
+    //
+    // bank_resolved false means the granularity does not determine
+    // the bounds. bank_note then says why, and the bounds are not to
+    // be used.
     // ----------------------------------------------------------------
     std::string bank_granularity;   // word or line, empty at one bank
-    std::string bank_position;      // above_index or below_index
     bool        bank_resolved{false};
     Field       bank;               // the bank select
     Field       set_index;          // the index within one bank

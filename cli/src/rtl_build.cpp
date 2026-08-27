@@ -2,36 +2,67 @@
 // FILE:    rtl_build.cpp
 // SOURCE:  CLI-004
 // STATUS:  WORKING
-// UPDATED: 2026-08-26
+// UPDATED: 2026-08-27
 // CONTACT: Jeff Nye
 // --------------------------------------------------------------------
 #include "rtl_build.h"
+#include "tool_vars.h"
 
 namespace cgen
 {
 
 namespace {
 
-// The lint bar of R-8: every warning on, and nothing waived from the
-// command line. A waiver that is needed lives in the source, at the
-// lines that need it, where it can be read and counted.
-void lint_vars(SvFile &f)
+// ------------------------------------------------------------------
+// R-3 and R-4. Every tool comes from Vars.mk at the output root and
+// NO RECIPE CARRIES A BARE TOOL NAME. A Makefile that says
+// 'verilator' runs whatever is on PATH, which is not necessarily the
+// Verilator this tree was built and checked against.
+//
+// Everything below the include is simulation control: the lint
+// switches, the trace enable, the image directory. D-41 puts all of
+// it here and none of it in the configuration.
+//
+// The lint bar of R-8 stands: every warning on, and nothing waived
+// from the command line. A waiver that is needed lives in the source,
+// at the lines that need it, where it can be read and counted.
+// ------------------------------------------------------------------
+void tool_vars(SvFile &f)
 {
-  f.ln("VERILATOR ?= verilator");
+  f.note("R-3. The tool variable set, at the root of the output");
+  f.note("tree. Every tool below is invoked through a variable it");
+  f.note("defines and never by a bare name, R-4.");
+  f.ln(ToolVars::include_line());
+  f.ln();
   f.ln("WARN      = -Wall");
   f.ln("STD       = --timing -sv");
   f.ln("TRACE     ?=");
   f.ln("PLUSARGS  ?=");
+  f.ln("IMAGES    = images");
   f.ln();
   f.note("TRACE, PLUSARGS, the clock period and the cycle limit are");
   f.note("simulation control and live here, never in the "
          "configuration.");
-  f.note("D-41. make trace=1 turns waveforms on.");
+  f.note("D-41. make TRACE=1 turns waveforms on.");
   f.ln("ifneq ($(TRACE),)");
   f.ln("  TRACEOPT = --trace");
   f.ln("else");
   f.ln("  TRACEOPT =");
   f.ln("endif");
+  f.ln();
+}
+
+// ------------------------------------------------------------------
+// R-9. The memory image directory the run writes into. It is made
+// before the run rather than by the testbench, because $fopen on a
+// directory that does not exist fails silently in some simulators
+// and the images would go missing with nothing said.
+// ------------------------------------------------------------------
+void image_dir(SvFile &f)
+{
+  f.note("R-9. The memory images the run writes go here.");
+  f.ln("$(IMAGES):");
+  f.ln("\t$(MKDIR) -p $(IMAGES)");
   f.ln();
 }
 
@@ -82,7 +113,7 @@ void RtlBuild::node_make(SvFile &f, const NodeCtx &c)
   f.ln("FLIST = " + c.name() + ".f");
   f.ln("OBJ   = obj_dir");
   f.ln();
-  lint_vars(f);
+  tool_vars(f);
   f.ln("default: run");
   f.ln("all: lint build");
   f.ln();
@@ -99,11 +130,12 @@ void RtlBuild::node_make(SvFile &f, const NodeCtx &c)
   f.ln("\t  -f $(FLIST) --top-module $(TOP) --Mdir $(OBJ) \\");
   f.ln("\t  -o $(TOP)");
   f.ln();
-  f.ln("run: build");
+  image_dir(f);
+  f.ln("run: build $(IMAGES)");
   f.ln("\t./$(OBJ)/$(TOP) $(PLUSARGS)");
   f.ln();
   f.ln("clean:");
-  f.ln("\t-rm -rf $(OBJ)");
+  f.ln("\t-$(RM) -rf $(OBJ) $(IMAGES)");
 }
 
 // --------------------------------------------------------------------
@@ -120,17 +152,25 @@ void RtlBuild::sys_flist(SvFile &f, const std::string &sys,
 }
 
 // --------------------------------------------------------------------
+// R-8, CLI-005. The top level build. It sits at
+// <output>/<system>/Makefile, beside the top level testbench it
+// builds, and it drives the unit builds through the node Makefiles
+// rather than repeating their flags.
+// --------------------------------------------------------------------
 void RtlBuild::sys_make(SvFile &f, const std::string &sys,
                         const std::vector<std::string> &nodes)
 {
-  f.note("Build and run system '" + sys + "'.");
+  f.note("Build and run system '" + sys + "', THE TOP LEVEL.");
   f.note("");
   f.note("  make lint       every emitted file, system and units");
-  f.note("  make build      the system testbench");
-  f.note("  make run        the system testbench");
+  f.note("  make build      the top level testbench");
+  f.note("  make run        the top level testbench");
   f.note("  make units      every unit testbench, built and run");
-  f.note("  make all        lint, then the system, then the units");
+  f.note("  make all        lint, then the top level, then the units");
   f.note("  make clean");
+  f.note("");
+  f.note("R-9. The top level run writes its memory images into");
+  f.note("$(IMAGES) below this directory.");
   f.bar();
   f.ln(".PHONY: default all lint build run units unit-lint clean");
   f.ln();
@@ -146,7 +186,7 @@ void RtlBuild::sys_make(SvFile &f, const std::string &sys,
     return s;
   }());
   f.ln();
-  lint_vars(f);
+  tool_vars(f);
   f.ln("default: run");
   f.ln("all: lint build units");
   f.ln();
@@ -156,7 +196,7 @@ void RtlBuild::sys_make(SvFile &f, const std::string &sys,
   f.ln();
   f.ln("unit-lint:");
   f.ln("\t@for n in $(NODES); do \\");
-  f.ln("\t  echo \"lint $$n\"; \\");
+  f.ln("\t  $(ECHO) \"lint $$n\"; \\");
   f.ln("\t  $(MAKE) -s -C ../$$n lint || exit 1; \\");
   f.ln("\tdone");
   f.ln();
@@ -165,17 +205,18 @@ void RtlBuild::sys_make(SvFile &f, const std::string &sys,
   f.ln("\t  -f $(FLIST) --top-module $(TOP) --Mdir $(OBJ) \\");
   f.ln("\t  -o $(TOP)");
   f.ln();
-  f.ln("run: build");
+  image_dir(f);
+  f.ln("run: build $(IMAGES)");
   f.ln("\t./$(OBJ)/$(TOP) $(PLUSARGS)");
   f.ln();
   f.ln("units:");
   f.ln("\t@for n in $(NODES); do \\");
-  f.ln("\t  echo \"=== $$n ===\"; \\");
+  f.ln("\t  $(ECHO) \"=== $$n ===\"; \\");
   f.ln("\t  $(MAKE) -s -C ../$$n run || exit 1; \\");
   f.ln("\tdone");
   f.ln();
   f.ln("clean:");
-  f.ln("\t-rm -rf $(OBJ)");
+  f.ln("\t-$(RM) -rf $(OBJ) $(IMAGES)");
   f.ln("\t@for n in $(NODES); do $(MAKE) -s -C ../$$n clean; done");
 }
 

@@ -46,6 +46,7 @@ public:
   void note(const std::string &s);
 
   const std::string &name() const { return name_; }
+  const std::string &system_name() const { return system_; }
   const std::string &text() const { return body_; }
 
   // header plus body, the exact bytes that reach the disk

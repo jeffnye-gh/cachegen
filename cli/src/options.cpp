@@ -8,6 +8,7 @@
 #include "options.h"
 #include "msg.h"
 #include <iostream>
+#include <vector>
 
 using namespace std;
 
@@ -72,6 +73,15 @@ void Opt::build_options(po::options_description &stdOpts,
     ("output", po::value<string>(&output)->default_value("./output"),
      "output directory, used by emit")
 
+    ("vars", po::value<string>(&vars),
+     "path to the master Vars.mk the emitted build includes, used by "
+     "emit. Default $CGEN_ROOT/planning/tools/Vars.mk")
+
+    ("tool", po::value<vector<string>>(&tool)->composing(),
+     "VAR=PATH, a tool path written into the emitted Vars.mk, "
+     "repeatable, used by emit. A path inside $CGEN_ROOT is written "
+     "in the $(CGEN_ROOT)/... form")
+
     ("eoe", po::bool_switch(&eoe),
      "exit on first error, default off")
   ;
@@ -114,6 +124,13 @@ bool Opt::check_options(po::variables_map &vm,
     return false;
   }
 
+  if(!tool.empty() && cmd != "emit") {
+    msg->wmsg("--tool is used by emit only and is ignored by check");
+  }
+  if(!vars.empty() && cmd != "emit") {
+    msg->wmsg("--vars is used by emit only and is ignored by check");
+  }
+
   if(_query_options) query_options();
 
   return true;
@@ -141,6 +158,8 @@ void Opt::query_options()
   msg->imsg("cmd    : " + cmd);
   msg->imsg("config : " + config);
   msg->imsg("output : " + output);
+  msg->imsg("vars   : " + (vars.empty() ? string("<default>") : vars));
+  for(const string &t : tool) msg->imsg("tool   : " + t);
   msg->imsg("eoe    : " + string(eoe ? "True" : "False"));
   msg->imsg("END Opt::query_options()");
 }

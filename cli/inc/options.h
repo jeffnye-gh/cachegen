@@ -13,6 +13,7 @@
 #include <boost/program_options.hpp>
 #include <memory>
 #include <string>
+#include <vector>
 
 namespace po = boost::program_options;
 
@@ -52,6 +53,10 @@ public:
   std::string cmd;          // check or emit
   std::string config;       // path to the system file
   std::string output;       // output directory, emit only
+  // R-3, CLI-005. The master Vars.mk the emitted build includes, and
+  // the tool paths that override what it names. Both are emit only.
+  std::string vars;
+  std::vector<std::string> tool;
   bool        eoe{false};   // exit on first error
   bool        _query_options{false};
   // ------------------------------------------------------------------

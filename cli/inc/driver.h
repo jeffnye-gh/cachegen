@@ -12,6 +12,8 @@
 #pragma once
 #include "checker.h"
 #include "diag_list.h"
+#include "feature_table.h"
+#include "field_use.h"
 #include "geometry.h"
 #include "loader.h"
 #include "model.h"
@@ -31,6 +33,10 @@ public:
     std::string cmd{"check"};
     std::string config;
     std::string output{"./output"};
+    // R-3, CLI-005. Empty means ToolVars::default_source(), which is
+    // planning/tools/Vars.mk relative to CGEN_ROOT.
+    std::string vars;
+    std::vector<std::string> tool;   // VAR=PATH, repeatable
     bool        eoe{false};
     bool        quiet{false};    // suppress the report, used by tests
   };
@@ -45,6 +51,12 @@ public:
   const Model    &model() const { return model_; }
   const SchemaSet &schemas() const { return schemas_; }
 
+  // R-6b. What the run recorded reading, and what it did not.
+  const FieldUse &field_use() const { return use_; }
+
+  // R-8. The feature table --cmd=emit built.
+  const Features &features() const { return feats_; }
+
   // every path --cmd=emit wrote, relative to the output directory
   const std::vector<std::string> &emitted() const { return emitted_; }
 
@@ -55,6 +67,8 @@ private:
   SchemaSet   schemas_;
   SymbolTable syms_;
   Model       model_;
+  FieldUse    use_;
+  Features    feats_;
   std::vector<std::string> emitted_;
 };
 

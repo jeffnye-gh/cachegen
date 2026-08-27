@@ -217,8 +217,7 @@
         "line_bytes": 64,
         "associativity": 8,
         "banks": 2,
-        "bank_interleave_granularity": "line",
-        "bank_select_position": "above_index"
+        "bank_interleave_granularity": "line"
       },
       "indexing": "PIPT",
       "policies": {
@@ -300,8 +299,7 @@
         "line_bytes": 64,
         "associativity": 1,
         "banks": 8,
-        "bank_interleave_granularity": "line",
-        "bank_select_position": "above_index"
+        "bank_interleave_granularity": "line"
       },
       "timing": {
         "read_latency_cycles": 40,

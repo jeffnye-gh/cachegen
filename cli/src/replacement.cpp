@@ -343,7 +343,7 @@ void Replacement::lru(std::vector<std::string> &o) const
   o.push_back("        repl_update[i*RankBits +: RankBits] = '0;");
   o.push_back("      end else if(r < hit_rank) begin");
   o.push_back("        repl_update[i*RankBits +: RankBits] = "
-              "RankBits'(r + 1);");
+              "r + RankBits'(1);");
   o.push_back("      end");
   o.push_back("    end");
   o.push_back("  endfunction");

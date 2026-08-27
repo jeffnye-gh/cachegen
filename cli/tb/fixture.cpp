@@ -6,6 +6,7 @@
 // CONTACT: Jeff Nye
 // --------------------------------------------------------------------
 #include "fixture.h"
+#include "tool_vars.h"
 #include <algorithm>
 #include <cstdlib>
 #include <filesystem>
@@ -153,6 +154,32 @@ std::unique_ptr<Driver> Fixture::run_emit(const std::string &system_file,
   auto d = std::make_unique<Driver>(a);
   d->run();
   return d;
+}
+
+// --------------------------------------------------------------------
+std::unique_ptr<Driver> Fixture::run_emit_vars(
+    const std::string &system_file,
+    const std::string &out_dir,
+    const std::string &vars,
+    const std::vector<std::string> &tools)
+{
+  Driver::Args a;
+  a.cmd    = "emit";
+  a.config = system_file;
+  a.output = out_dir;
+  a.vars   = vars;
+  a.tool   = tools;
+  a.quiet  = true;
+
+  auto d = std::make_unique<Driver>(a);
+  d->run();
+  return d;
+}
+
+// --------------------------------------------------------------------
+std::string Fixture::vars_master()
+{
+  return ToolVars::default_source();
 }
 
 // --------------------------------------------------------------------

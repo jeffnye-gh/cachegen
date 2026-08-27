@@ -7,6 +7,7 @@
 // --------------------------------------------------------------------
 #include "checker.h"
 #include "diag_codes.h"
+#include "field_use.h"
 #include "msg.h"
 #include <algorithm>
 
@@ -54,6 +55,7 @@ std::string Checker::role_of(const std::string &port_type) const
   if(e == nullptr || e->body == nullptr)             return "";
   if(!e->body->is_object() || !e->body->contains("role")) return "";
   if(!(*e->body)["role"].is_string())                return "";
+  cfg_read(e->file, e->path + "/role");
   return (*e->body)["role"].get<std::string>();
 }
 
@@ -268,11 +270,17 @@ void Checker::groups()
     } else {
       sto = { "data_array_organization", "way_access", "tag_array",
               "data_array", "valid_bits", "replacement_bits" };
+      // the VALUE of write_hit, not its presence: it decides
+      // whether the storage group has to carry dirty_bits
       bool wb = b.contains("policies") && b["policies"].is_object() &&
                 b["policies"].contains("write_hit") &&
                 b["policies"]["write_hit"].is_string() &&
                 b["policies"]["write_hit"].get<std::string>() ==
                   "write_back";
+      if(b.contains("policies") && b["policies"].is_object() &&
+         b["policies"].contains("write_hit")) {
+        cfg_read(c.file, c.path + "/policies/write_hit");
+      }
       if(wb) sto.push_back("dirty_bits");
     }
     group_of(c, "storage", sto);

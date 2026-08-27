@@ -193,8 +193,7 @@
         "line_bytes": 64,
         "associativity": 16,
         "banks": 8,
-        "bank_interleave_granularity": "line",
-        "bank_select_position": "above_index"
+        "bank_interleave_granularity": "line"
       },
       "indexing": "PIPT",
       "policies": {

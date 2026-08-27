@@ -140,3 +140,10 @@ Not script enforced.
   - Before raising a topic the user did not ask about, check whether it
     is already closed. If it is, drop it. If you think a closed item is
     wrong, say so in one sentence and wait.
+
+---
+# Coding rules
+
+- a header under cli/inc may not share a name with a system header.
+
+

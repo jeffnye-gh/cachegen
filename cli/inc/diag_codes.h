@@ -102,7 +102,8 @@ namespace cgen
     "something a fixture can carry into the tree")                    \
   X(emit_write,          "emit.write",          Env,                  \
     "an output file that cannot be opened for writing, for the "      \
-    "same reason emit.mkdir cannot be fixtured")
+    "same reason emit.mkdir cannot be fixtured")                      \
+  X(emit_vars,           "emit.vars",           Fixture, "")
 
 class DiagCodes
 {
