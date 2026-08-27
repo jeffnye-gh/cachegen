@@ -6,6 +6,7 @@
 // CONTACT: Jeff Nye
 // --------------------------------------------------------------------
 #include "loader.h"
+#include "diag_codes.h"
 #include "msg.h"
 #include <algorithm>
 #include <filesystem>
@@ -71,7 +72,7 @@ void Loader::load_one(const std::string &path,
       chain += display_path(*it) + " -> ";
     }
     chain += disp;
-    diags_.error(from_file, from_ptr, "load.include_cycle",
+    diags_.error(from_file, from_ptr, code::load_include_cycle,
                  "include cycle: " + chain);
     return;
   }
@@ -83,7 +84,7 @@ void Loader::load_one(const std::string &path,
   std::ifstream in(key);
   if(!in.is_open()) {
     diags_.error(from_file.empty() ? disp : from_file, from_ptr,
-                 "load.open", "cannot open " + msg->tq(disp));
+                 code::load_open, "cannot open " + msg->tq(disp));
     return;
   }
 
@@ -95,14 +96,14 @@ void Loader::load_one(const std::string &path,
   try {
     in >> f.doc;
   } catch(const json::parse_error &e) {
-    diags_.error(disp, "", "load.parse",
+    diags_.error(disp, "", code::load_parse,
                  "JSON parse failed: " + std::string(e.what()));
     return;
   }
 
   if(!f.doc.is_object() || !f.doc.contains("file_type") ||
      !f.doc["file_type"].is_string()) {
-    diags_.error(disp, "/file_type", "load.type",
+    diags_.error(disp, "/file_type", code::load_type,
                  "file_type is missing or is not a string");
     files_.push_back(f);
     return;
@@ -113,7 +114,7 @@ void Loader::load_one(const std::string &path,
   if(f.declared != claimed) {
     diags_.error(from_file.empty() ? disp : from_file,
                  from_ptr.empty() ? "/file_type" : from_ptr,
-                 "load.include_type",
+                 code::load_include_type,
                  "include of " + msg->tq(disp) + " claims type " +
                  msg->tq(claimed) + " but the file declares file_type " +
                  msg->tq(f.declared));
@@ -142,7 +143,7 @@ void Loader::follow_includes(const File &f, std::vector<std::string> &stack)
 
     if(!e.is_object() || !e.contains("file") || !e["file"].is_string() ||
        !e.contains("type") || !e["type"].is_string()) {
-      diags_.error(parent_disp, ptr, "load.include_shape",
+      diags_.error(parent_disp, ptr, code::load_include_shape,
                    "include entry needs a string file and a string type");
       continue;
     }

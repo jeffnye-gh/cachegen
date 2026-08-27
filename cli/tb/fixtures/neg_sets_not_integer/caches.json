@@ -1,0 +1,133 @@
+{
+  "schema_version": "0.13.0",
+  "file_type": "caches",
+  "include": [
+    {
+      "file": "../base/base_ports.json",
+      "type": "ports"
+    }
+  ],
+  "caches": {
+    "cpu": {
+      "node_type": "agent",
+      "interfaces": {
+        "mem": {
+          "link": "l_core",
+          "ports": {
+            "req": "p_init"
+          }
+        }
+      }
+    },
+    "l1": {
+      "node_type": "icache",
+      "interfaces": {
+        "core": {
+          "link": "l_core",
+          "ports": {
+            "req": "p_targ"
+          }
+        },
+        "mem": {
+          "link": "l_mem",
+          "ports": {
+            "req": "p_init"
+          }
+        }
+      },
+      "geometry": {
+        "capacity_bytes": 4096,
+        "line_bytes": 64,
+        "associativity": 3,
+        "banks": 1
+      },
+      "indexing": "PIPT",
+      "policies": {
+        "read_miss": "allocate",
+        "replacement": "lru"
+      },
+      "miss_handling": {
+        "mshrs": 0,
+        "victim_buffer_entries": 0,
+        "fill_buffer_entries": 0
+      },
+      "fill": {
+        "beat_order": "linear",
+        "bypass_to_upstream": false
+      },
+      "timing": {
+        "read_latency_cycles": 1,
+        "tag_compare_stage": "same_cycle",
+        "emit_parameters": true
+      },
+      "storage": {
+        "data_array_organization": "array_per_way",
+        "way_access": "parallel",
+        "tag_array": {
+          "kind": "inferred_sram",
+          "read_port": "registered",
+          "byte_enables": false,
+          "cleared_on_reset": false
+        },
+        "data_array": {
+          "kind": "inferred_sram",
+          "read_port": "registered",
+          "byte_enables": false,
+          "cleared_on_reset": false
+        },
+        "valid_bits": {
+          "kind": "flop_file",
+          "read_port": "combinational",
+          "byte_enables": false,
+          "cleared_on_reset": true
+        },
+        "replacement_bits": {
+          "kind": "flop_file",
+          "read_port": "combinational",
+          "byte_enables": false,
+          "cleared_on_reset": true
+        }
+      },
+      "maintenance": {
+        "invalidate_line": true,
+        "invalidate_all": true,
+        "flush_line": false,
+        "flush_all": false
+      }
+    },
+    "mem": {
+      "node_type": "memory",
+      "interfaces": {
+        "up": {
+          "link": "l_mem",
+          "ports": {
+            "req": "p_targ"
+          }
+        }
+      },
+      "geometry": {
+        "capacity_bytes": 65536,
+        "line_bytes": 64,
+        "associativity": 1,
+        "banks": 1
+      },
+      "timing": {
+        "read_latency_cycles": 10,
+        "write_throughput_cycles": 1,
+        "emit_parameters": true
+      },
+      "storage": {
+        "data_array": {
+          "kind": "behavioral",
+          "read_port": "registered",
+          "byte_enables": true,
+          "cleared_on_reset": false
+        }
+      },
+      "init": {
+        "format": "none"
+      },
+      "range_check": false
+    }
+  }
+}

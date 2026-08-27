@@ -6,6 +6,7 @@
 // CONTACT: Jeff Nye
 // --------------------------------------------------------------------
 #include "resolver.h"
+#include "diag_codes.h"
 #include "msg.h"
 
 using nlohmann::json;
@@ -70,7 +71,7 @@ void Resolver::bind_nodes(Model &m)
     }
 
     if(n.cache.empty()) {
-      diags_.error(n.file, n.path + "/cache", "T-1.node_cache",
+      diags_.error(n.file, n.path + "/cache", code::t1_node_cache,
                    "node " + msg->tq(n.name) +
                    " does not name a cache definition");
       m.nodes.push_back(n);
@@ -79,7 +80,7 @@ void Resolver::bind_nodes(Model &m)
 
     const SymbolTable::Entry *c = syms_.find(Kind::Cache, n.cache);
     if(c == nullptr) {
-      diags_.error(n.file, n.path + "/cache", "T-1.node_cache",
+      diags_.error(n.file, n.path + "/cache", code::t1_node_cache,
                    "node " + msg->tq(n.name) +
                    " names cache definition " + msg->tq(n.cache) +
                    " which is not defined");
@@ -130,7 +131,7 @@ void Resolver::bind_interfaces()
       if(fi.value().contains("link") && fi.value()["link"].is_string()) {
         std::string ln = fi.value()["link"].get<std::string>();
         if(syms_.find(Kind::Link, ln) == nullptr) {
-          diags_.error(c.file, site + "/link", "T-1.iface_link",
+          diags_.error(c.file, site + "/link", code::t1_iface_link,
                        "node " + msg->tq(c.name) + " interface " +
                        msg->tq(fi.key()) + " names link " +
                        msg->tq(ln) + " which is not defined");
@@ -148,7 +149,7 @@ void Resolver::bind_interfaces()
         if(syms_.find(Kind::PortType, pt) != nullptr) continue;
 
         diags_.error(c.file, site + "/ports/" + pi.key(),
-                     "T-1.port_type",
+                     code::t1_port_type,
                      "node " + msg->tq(c.name) + " interface " +
                      msg->tq(fi.key()) + " port " + msg->tq(pi.key()) +
                      " names port type " + msg->tq(pt) +
@@ -174,7 +175,7 @@ void Resolver::bind_link_ports()
       std::string pt = (*l.body)[end].get<std::string>();
       if(syms_.find(Kind::PortType, pt) != nullptr) continue;
 
-      diags_.error(l.file, l.path + "/" + end, "T-1.link_port_type",
+      diags_.error(l.file, l.path + "/" + end, code::t1_link_port_type,
                    "link " + msg->tq(l.name) + " " + end + " names " +
                    msg->tq(pt) + " which is not defined");
     }
@@ -237,13 +238,13 @@ void Resolver::bind_edge_end(Model &m, Model::Edge &e, bool from_end)
   ok = false;
 
   if(node.empty()) {
-    diags_.error(e.file, e.path + "/" + key, "T-1.edge_endpoint",
+    diags_.error(e.file, e.path + "/" + key, code::t1_edge_endpoint,
                  "edge " + msg->tq(m.label(e)) + " has no " + key +
                  " endpoint");
     return;
   }
   if(syms_.find(Kind::Node, node) == nullptr) {
-    diags_.error(e.file, e.path + "/" + key, "T-1.edge_endpoint",
+    diags_.error(e.file, e.path + "/" + key, code::t1_edge_endpoint,
                  "edge " + msg->tq(m.label(e)) + " " + key +
                  " endpoint " + msg->tq(node) +
                  " is not a topology node");
@@ -256,14 +257,14 @@ void Resolver::bind_edge_end(Model &m, Model::Edge &e, bool from_end)
 
   const std::string ikey = std::string(key) + "_interface";
   if(iface.empty()) {
-    diags_.error(e.file, e.path + "/" + ikey, "T-1.edge_interface",
+    diags_.error(e.file, e.path + "/" + ikey, code::t1_edge_interface,
                  "edge " + msg->tq(m.label(e)) +
                  " does not name a " + ikey + " on node " +
                  msg->tq(node));
     return;
   }
   if(iface_of(n->body, iface) == nullptr) {
-    diags_.error(e.file, e.path + "/" + ikey, "T-1.edge_interface",
+    diags_.error(e.file, e.path + "/" + ikey, code::t1_edge_interface,
                  "edge " + msg->tq(m.label(e)) + " names interface " +
                  msg->tq(iface) + " which node " + msg->tq(node) +
                  " does not have, its definition is " +
@@ -275,7 +276,7 @@ void Resolver::bind_edge_end(Model &m, Model::Edge &e, bool from_end)
 
   const std::string pkey = std::string(key) + "_port";
   if(port.empty()) {
-    diags_.error(e.file, e.path + "/" + pkey, "T-1.edge_port",
+    diags_.error(e.file, e.path + "/" + pkey, code::t1_edge_port,
                  "edge " + msg->tq(m.label(e)) + " does not name a " +
                  pkey + " on node " + msg->tq(node));
     return;
@@ -283,7 +284,7 @@ void Resolver::bind_edge_end(Model &m, Model::Edge &e, bool from_end)
 
   std::string pt = port_type_of(n->body, iface, port);
   if(pt.empty()) {
-    diags_.error(e.file, e.path + "/" + pkey, "T-1.edge_port",
+    diags_.error(e.file, e.path + "/" + pkey, code::t1_edge_port,
                  "edge " + msg->tq(m.label(e)) + " names port " +
                  msg->tq(port) + " which interface " + msg->tq(iface) +
                  " on node " + msg->tq(node) + " does not have");

@@ -1,0 +1,23 @@
+{
+  "schema_version": "0.10.0",
+  "file_type": "system",
+  "name": "neg_include_no_type",
+  "include": [
+    {
+      "file": "../base/base_caches.json",
+      "type": "caches"
+    },
+    {
+      "file": "../base/base_links.json",
+      "type": "links"
+    },
+    {
+      "file": "../base/base_topology.json",
+      "type": "topology"
+    },
+    {
+      "file": "notype_ports.json",
+      "type": "ports"
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "schema_version": "0.10.0",
+  "file_type": "system",
+  "name": "neg_link_port_type",
+  "include": [
+    {
+      "file": "../base/base_caches.json",
+      "type": "caches"
+    },
+    {
+      "file": "links.json",
+      "type": "links"
+    },
+    {
+      "file": "../base/base_topology.json",
+      "type": "topology"
+    }
+  ]
+}

@@ -76,6 +76,26 @@ TEST(Negative, UnknownPortType)
   expect_one("neg_unknown_port_type", "T-1.port_type", "nosuch");
 }
 
+// The edge names an interface the node definition does not carry.
+TEST(Negative, DanglingEdgeInterface)
+{
+  expect_one("neg_edge_interface", "T-1.edge_interface", "nosuch");
+}
+
+// The interface resolves, the port inside it does not.
+TEST(Negative, DanglingEdgePort)
+{
+  expect_one("neg_edge_port", "T-1.edge_port", "nosuch");
+}
+
+// A link end names a port type nothing defines. The link is attached
+// to no interface, so this is the resolver reaching a definition that
+// no edge would have taken it to.
+TEST(Negative, DanglingLinkPortType)
+{
+  expect_one("neg_link_port_type", "T-1.link_port_type", "nosuch");
+}
+
 // --------------------------------------------------------------------
 // T-2, duplicates
 // --------------------------------------------------------------------
@@ -128,6 +148,15 @@ TEST(Negative, PartlyPopulatedFieldGroup)
 }
 
 // --------------------------------------------------------------------
+// the addressing block, taken from the first topology file seen
+// --------------------------------------------------------------------
+TEST(Negative, TwoTopologyFilesDisagreeOnAddressing)
+{
+  expect_one("neg_addressing_disagree", "topology.addressing",
+             "addressing disagrees");
+}
+
+// --------------------------------------------------------------------
 // the loader
 // --------------------------------------------------------------------
 TEST(Negative, IncludeCycle)
@@ -141,6 +170,23 @@ TEST(Negative, IncludeTypeMismatch)
              "mm_ports.json");
 }
 
+TEST(Negative, IncludeNamesAFileThatIsNotThere)
+{
+  expect_one("neg_include_missing", "load.open", "missing_ports.json");
+}
+
+// The file is named by the diagnostic rather than by the message, so
+// the message is matched on what the parser said.
+TEST(Negative, IncludedFileIsNotJson)
+{
+  expect_one("neg_include_parse", "load.parse", "parse error");
+}
+
+TEST(Negative, IncludedFileDeclaresNoFileType)
+{
+  expect_one("neg_include_no_type", "load.type", "file_type");
+}
+
 // --------------------------------------------------------------------
 // the schemas
 // --------------------------------------------------------------------
@@ -150,11 +196,77 @@ TEST(Negative, SchemaViolation)
 }
 
 // --------------------------------------------------------------------
+// the schema directory, which is the tool's environment and not the
+// configuration. CGEN_SCHEMA_DIR is moved for the run and put back.
+// --------------------------------------------------------------------
+namespace {
+
+void expect_one_with_schema_dir(const std::string &schema_dir,
+                                const std::string &code,
+                                const std::string &names)
+{
+  const std::string base = Fixture::fixture_dir() +
+                           "/base/base_system.json";
+  auto drv = Fixture::run_with_schema_dir(base, schema_dir);
+  const cgen::DiagList &d = drv->diags();
+
+  ASSERT_EQ(size_t(1), d.size()) << schema_dir << " produced "
+                                 << Fixture::codes(d);
+  EXPECT_EQ(code, d.all()[0].code()) << d.all()[0].format();
+  EXPECT_NE(std::string::npos, d.all()[0].message().find(names))
+    << d.all()[0].format();
+}
+
+} // namespace
+
+// A directory holding no schemas is ignored with a warning, and the
+// search falls back to walking up for planning/schema.
+TEST(Negative, SchemaDirWithoutTheFiveSchemasIsIgnored)
+{
+  expect_one_with_schema_dir(Fixture::fixture_dir(), "schema.dir",
+                             "does not hold the five schemas");
+}
+
+TEST(Negative, SchemaFileIsNotJson)
+{
+  expect_one_with_schema_dir(Fixture::fixture_dir() +
+                             "/schemas_bad_parse",
+                             "schema.parse", "parse error");
+}
+
+TEST(Negative, SchemaFileIsNotUsable)
+{
+  expect_one_with_schema_dir(Fixture::fixture_dir() +
+                             "/schemas_bad_build",
+                             "schema.build", "undefined references");
+}
+
+// --------------------------------------------------------------------
 // T-8, the arithmetic
 // --------------------------------------------------------------------
 TEST(Negative, NonPowerOfTwoCapacity)
 {
   expect_one("neg_capacity_not_pow2", "T-8.capacity_pow2", "12288");
+}
+
+// capacity / (line * ways) leaves a remainder, so there is no set
+// count to derive at all.
+TEST(Negative, SetCountIsNotAnInteger)
+{
+  expect_one("neg_sets_not_integer", "T-8.sets_integer", "ways 3");
+}
+
+// An integer set count that no index field can address.
+TEST(Negative, SetCountIsNotAPowerOfTwo)
+{
+  expect_one("neg_sets_not_pow2", "T-8.sets_pow2", "192");
+}
+
+// offset plus index consumes the whole physical address, so there is
+// nothing left to compare a tag against.
+TEST(Negative, TagFieldIsEmpty)
+{
+  expect_one("neg_tag_bits", "T-8.tag_bits", "tag_bits 0");
 }
 
 TEST(Negative, BanksDoesNotDivideTheSetCount)

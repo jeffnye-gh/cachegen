@@ -6,6 +6,7 @@
 // CONTACT: Jeff Nye
 // --------------------------------------------------------------------
 #include "geometry.h"
+#include "diag_codes.h"
 #include "msg.h"
 
 using nlohmann::json;
@@ -78,7 +79,7 @@ void Geometry::one(Model &m, Model::Node &n)
 
   if(!g.contains("capacity_bytes") || !g.contains("line_bytes") ||
      !g.contains("associativity")  || !g.contains("banks")) {
-    diags_.error(n.cache_file, site, "T-8.geometry_fields",
+    diags_.error(n.cache_file, site, code::t8_geometry_fields,
                  "cache " + msg->tq(n.cache) +
                  " geometry is missing a required field");
     return;
@@ -91,7 +92,7 @@ void Geometry::one(Model &m, Model::Node &n)
   q.banks          = g["banks"].get<int>();
 
   if(!m.has_addressing) {
-    diags_.error(n.cache_file, site, "T-8.no_addressing",
+    diags_.error(n.cache_file, site, code::t8_no_addressing,
                  "cache " + msg->tq(n.cache) +
                  " needs pa_bits, no topology addressing block was read");
     return;
@@ -103,7 +104,7 @@ void Geometry::one(Model &m, Model::Node &n)
   uint64_t per_set = q.line_bytes * uint64_t(q.associativity);
   if(per_set == 0 || q.capacity_bytes % per_set != 0 ||
      q.capacity_bytes / per_set < 1) {
-    diags_.error(n.cache_file, site, "T-8.sets_integer",
+    diags_.error(n.cache_file, site, code::t8_sets_integer,
                  "cache " + msg->tq(n.cache) + " capacity " +
                  u64(q.capacity_bytes) + " / (line " +
                  u64(q.line_bytes) + " * ways " +
@@ -117,7 +118,7 @@ void Geometry::one(Model &m, Model::Node &n)
   // that set count is a power of two
   // ------------------------------------------------------------------
   if(!is_pow2(q.sets)) {
-    diags_.error(n.cache_file, site, "T-8.sets_pow2",
+    diags_.error(n.cache_file, site, code::t8_sets_pow2,
                  "cache " + msg->tq(n.cache) + " set count " +
                  u64(q.sets) + " is not a power of two");
     return;
@@ -127,7 +128,7 @@ void Geometry::one(Model &m, Model::Node &n)
   // capacity_bytes is a power of two
   // ------------------------------------------------------------------
   if(!is_pow2(q.capacity_bytes)) {
-    diags_.error(n.cache_file, site, "T-8.capacity_pow2",
+    diags_.error(n.cache_file, site, code::t8_capacity_pow2,
                  "cache " + msg->tq(n.cache) + " capacity_bytes " +
                  u64(q.capacity_bytes) + " is not a power of two");
   }
@@ -138,7 +139,7 @@ void Geometry::one(Model &m, Model::Node &n)
   q.bank_bits     = log2_exact(uint64_t(q.banks));
 
   if(q.offset_bits < 0) {
-    diags_.error(n.cache_file, site, "T-8.line_pow2",
+    diags_.error(n.cache_file, site, code::t8_line_pow2,
                  "cache " + msg->tq(n.cache) + " line_bytes " +
                  u64(q.line_bytes) + " is not a power of two");
     return;
@@ -149,7 +150,7 @@ void Geometry::one(Model &m, Model::Node &n)
   // ------------------------------------------------------------------
   q.tag_bits = m.pa_bits - q.offset_bits - q.index_bits;
   if(q.tag_bits < 1) {
-    diags_.error(n.cache_file, site, "T-8.tag_bits",
+    diags_.error(n.cache_file, site, code::t8_tag_bits,
                  "cache " + msg->tq(n.cache) + " leaves tag_bits " +
                  std::to_string(q.tag_bits) + ", offset " +
                  std::to_string(q.offset_bits) + " + index " +
@@ -159,7 +160,7 @@ void Geometry::one(Model &m, Model::Node &n)
   }
 
   if(q.offset_bits + q.index_bits + q.tag_bits != m.pa_bits) {
-    diags_.error(n.cache_file, site, "T-8.field_sum",
+    diags_.error(n.cache_file, site, code::t8_field_sum,
                  "cache " + msg->tq(n.cache) +
                  " address fields do not sum to pa_bits");
     return;
@@ -174,12 +175,12 @@ void Geometry::one(Model &m, Model::Node &n)
   // ------------------------------------------------------------------
   if(n.indexing == "VIPT") {
     if(!m.has_page_bytes) {
-      diags_.error(n.cache_file, site, "T-8.vipt_no_page",
+      diags_.error(n.cache_file, site, code::t8_vipt_no_page,
                    "cache " + msg->tq(n.cache) +
                    " is VIPT but the addressing block carries no "
                    "page_bytes, the index budget cannot be checked");
     } else if(q.bytes_per_way > uint64_t(m.page_bytes)) {
-      diags_.error(n.cache_file, site, "T-8.vipt_index",
+      diags_.error(n.cache_file, site, code::t8_vipt_index,
                    "VIPT cache " + msg->tq(n.cache) + " has " +
                    u64(q.bytes_per_way) +
                    " bytes per way against a page of " +
@@ -194,7 +195,7 @@ void Geometry::one(Model &m, Model::Node &n)
   // ------------------------------------------------------------------
   if(q.banks > 1) {
     if(q.sets % uint64_t(q.banks) != 0) {
-      diags_.error(n.cache_file, site, "T-8.bank_divide",
+      diags_.error(n.cache_file, site, code::t8_bank_divide,
                    "cache " + msg->tq(n.cache) + " has " +
                    std::to_string(q.banks) +
                    " banks which does not divide the set count " +

@@ -6,6 +6,7 @@
 // CONTACT: Jeff Nye
 // --------------------------------------------------------------------
 #include "fixture.h"
+#include <algorithm>
 #include <cstdlib>
 #include <filesystem>
 
@@ -15,6 +16,18 @@ namespace cgen
 {
 
 namespace {
+
+const char *SCHEMA_DIR_ENV = "CGEN_SCHEMA_DIR";
+
+// ------------------------------------------------------------------
+// True when name ends with tail.
+// ------------------------------------------------------------------
+bool ends_with(const std::string &name, const std::string &tail)
+{
+  if(name.size() < tail.size()) return false;
+  return name.compare(name.size() - tail.size(), tail.size(), tail) == 0;
+}
+
 
 // ------------------------------------------------------------------
 // Walk up from the working directory looking for a known path, so
@@ -58,6 +71,38 @@ std::string Fixture::pacino()
 }
 
 // --------------------------------------------------------------------
+// One system file per fixture directory that carries one. base/ names
+// its file base_system.json and the neg_* directories name theirs
+// system.json, so the tail is what is matched, not the whole name.
+// --------------------------------------------------------------------
+std::vector<std::string> Fixture::configs()
+{
+  std::vector<std::string> out;
+  std::error_code ec;
+
+  for(const fs::directory_entry &d :
+      fs::directory_iterator(fixture_dir(), ec)) {
+    if(!d.is_directory()) continue;
+
+    for(const fs::directory_entry &f :
+        fs::directory_iterator(d.path(), ec)) {
+      if(!f.is_regular_file()) continue;
+      if(!ends_with(f.path().filename().generic_string(), "system.json")) {
+        continue;
+      }
+      out.push_back(f.path().generic_string());
+    }
+  }
+
+  std::sort(out.begin(), out.end());
+
+  std::string p = pacino();
+  if(!p.empty()) out.push_back(p);
+
+  return out;
+}
+
+// --------------------------------------------------------------------
 std::unique_ptr<Driver> Fixture::run(const std::string &system_file)
 {
   Driver::Args a;
@@ -74,6 +119,24 @@ std::unique_ptr<Driver> Fixture::run(const std::string &system_file)
 std::unique_ptr<Driver> Fixture::run_neg(const std::string &name)
 {
   return run(fixture_dir() + "/" + name + "/system.json");
+}
+
+// --------------------------------------------------------------------
+std::unique_ptr<Driver> Fixture::run_with_schema_dir(
+    const std::string &system_file,
+    const std::string &schema_dir)
+{
+  const char *prev  = std::getenv(SCHEMA_DIR_ENV);
+  const bool  had   = prev != nullptr;
+  const std::string saved = had ? prev : "";
+
+  setenv(SCHEMA_DIR_ENV, schema_dir.c_str(), 1);
+  std::unique_ptr<Driver> d = run(system_file);
+
+  if(had) setenv(SCHEMA_DIR_ENV, saved.c_str(), 1);
+  else    unsetenv(SCHEMA_DIR_ENV);
+
+  return d;
 }
 
 // --------------------------------------------------------------------

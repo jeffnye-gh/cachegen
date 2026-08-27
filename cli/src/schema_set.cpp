@@ -6,6 +6,7 @@
 // CONTACT: Jeff Nye
 // --------------------------------------------------------------------
 #include "schema_set.h"
+#include "diag_codes.h"
 #include "msg.h"
 #include <nlohmann/json-schema.hpp>
 #include <cstdlib>
@@ -36,7 +37,7 @@ public:
   {
     std::string p = ptr.to_string();
     if(p.empty()) p = "/";
-    diags_.error(file_, p, "schema.violation", message);
+    diags_.error(file_, p, code::schema_violation, message);
   }
 
 private:
@@ -78,7 +79,7 @@ bool SchemaSet::locate(const std::string &config_dir)
     return read_schemas();
   }
   if(env) {
-    diags_.warn("", "", "schema.dir",
+    diags_.warn("", "", code::schema_dir,
                 "CGEN_SCHEMA_DIR " + msg->tq(env) +
                 " does not hold the five schemas, ignoring it");
   }
@@ -103,7 +104,7 @@ bool SchemaSet::locate(const std::string &config_dir)
     }
   }
 
-  diags_.error("", "", "schema.dir",
+  diags_.error("", "", code::schema_dir,
                "cannot locate the schema directory, set CGEN_SCHEMA_DIR "
                "or run from a tree holding planning/schema");
   return false;
@@ -119,7 +120,7 @@ bool SchemaSet::read_schemas()
     std::ifstream in(p);
     if(!in.is_open()) {
       diags_.error(Loader::display_path(p.generic_string()), "",
-                   "schema.open", "cannot open schema");
+                   code::schema_open, "cannot open schema");
       ok = false;
       continue;
     }
@@ -129,7 +130,7 @@ bool SchemaSet::read_schemas()
       in >> s;
     } catch(const json::parse_error &e) {
       diags_.error(Loader::display_path(p.generic_string()), "",
-                   "schema.parse",
+                   code::schema_parse,
                    "schema parse failed: " + std::string(e.what()));
       ok = false;
       continue;
@@ -140,7 +141,7 @@ bool SchemaSet::read_schemas()
       v->set_root_schema(s);
     } catch(const std::exception &e) {
       diags_.error(Loader::display_path(p.generic_string()), "",
-                   "schema.build",
+                   code::schema_build,
                    "schema is not usable: " + std::string(e.what()));
       ok = false;
       continue;
@@ -159,7 +160,7 @@ void SchemaSet::validate(const Loader::File &f)
 
   auto it = val_.find(f.declared);
   if(it == val_.end()) {
-    diags_.error(f.disp, "/file_type", "schema.unknown_type",
+    diags_.error(f.disp, "/file_type", code::schema_unknown_type,
                  "no schema for file_type " + msg->tq(f.declared));
     return;
   }

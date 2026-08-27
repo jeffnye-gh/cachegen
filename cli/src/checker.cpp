@@ -6,6 +6,7 @@
 // CONTACT: Jeff Nye
 // --------------------------------------------------------------------
 #include "checker.h"
+#include "diag_codes.h"
 #include "msg.h"
 #include <algorithm>
 
@@ -82,7 +83,7 @@ void Checker::port_types(Model &m)
       if(syms_.find(Kind::PortType, *en.want) == nullptr) continue;
       if(*en.have == *en.want)                            continue;
 
-      diags_.error(e.file, e.path + "/" + en.key, "T-3.port_type",
+      diags_.error(e.file, e.path + "/" + en.key, code::t3_port_type,
                    "edge " + msg->tq(m.label(e)) + " " + en.key +
                    " on node " + msg->tq(*en.node) + " is port type " +
                    msg->tq(*en.have) + " but link " + msg->tq(e.link) +
@@ -116,7 +117,7 @@ void Checker::port_roles(Model &m)
       if(role.empty())     continue;    // undefined type, T-1 has it
       if(role == en.want)  continue;
 
-      diags_.error(e.file, e.path + "/" + en.key, "T-4.port_role",
+      diags_.error(e.file, e.path + "/" + en.key, code::t4_port_role,
                    "edge " + msg->tq(m.label(e)) + " " + en.key +
                    " on node " + msg->tq(*en.node) + " is port type " +
                    msg->tq(*en.type) + " whose role is " + role +
@@ -154,7 +155,7 @@ void Checker::visit(Model &m,
                                                       key.end()), ",");
       if(!reported.count(tag)) {
         reported.insert(tag);
-        diags_.error(e.file, e.path, "T-5.cycle",
+        diags_.error(e.file, e.path, code::t5_cycle,
                      "graph does not terminate, cycle " +
                      join(loop, " -> "));
       }
@@ -222,7 +223,7 @@ void Checker::group_of(const SymbolTable::Entry &c,
   }
   if(missing.empty()) return;
 
-  diags_.error(c.file, c.path + "/" + group, "T-6.group",
+  diags_.error(c.file, c.path + "/" + group, code::t6_group,
                "cache " + msg->tq(c.name) + " group " +
                msg->tq(group) + " is partly populated, missing " +
                join(missing, ", "));
@@ -313,7 +314,7 @@ void Checker::link_agree(Model &m)
     if(syms_.find(Kind::Link, e.from_link) == nullptr)    continue;
     if(syms_.find(Kind::Link, e.to_link)   == nullptr)    continue;
 
-    diags_.error(e.file, e.path, "T-9.link_agree",
+    diags_.error(e.file, e.path, code::t9_link_agree,
                  "edge " + msg->tq(m.label(e)) + " interface " +
                  msg->tq(e.from_iface) + " on node " +
                  msg->tq(e.from) + " carries link " +

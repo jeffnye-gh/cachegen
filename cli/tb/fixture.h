@@ -13,6 +13,7 @@
 #include "driver.h"
 #include <memory>
 #include <string>
+#include <vector>
 
 namespace cgen
 {
@@ -26,11 +27,24 @@ public:
   // the pacino system file
   static std::string pacino();
 
+  // Every configuration the suite can run, sorted: the system file
+  // of each fixture directory that has one, plus pacino. Enumerated
+  // rather than listed, so a new fixture directory is picked up
+  // without an edit here.
+  static std::vector<std::string> configs();
+
   // run a negative fixture, tb/fixtures/<name>/system.json
   static std::unique_ptr<Driver> run_neg(const std::string &name);
 
   // run any system file
   static std::unique_ptr<Driver> run(const std::string &system_file);
+
+  // Run with CGEN_SCHEMA_DIR pointed somewhere else, then put the
+  // variable back. This is the only way to reach the diagnostics
+  // that are about the schema directory rather than the input.
+  static std::unique_ptr<Driver> run_with_schema_dir(
+      const std::string &system_file,
+      const std::string &schema_dir);
 
   // the codes of every diagnostic, in order, joined by a comma
   static std::string codes(const DiagList &d);

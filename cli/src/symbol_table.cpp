@@ -6,6 +6,7 @@
 // CONTACT: Jeff Nye
 // --------------------------------------------------------------------
 #include "symbol_table.h"
+#include "diag_codes.h"
 #include "msg.h"
 
 using nlohmann::json;
@@ -71,7 +72,7 @@ void SymbolTable::add(Kind k, const std::string &name,
 
   auto it = m.find(name);
   if(it != m.end()) {
-    diags_.error(file, path, "T-2.duplicate",
+    diags_.error(file, path, code::t2_duplicate,
                  "duplicate " + kind_text(k) + " " + msg->tq(name) +
                  ", first defined at " + it->second.file +
                  it->second.path);
@@ -126,7 +127,7 @@ void SymbolTable::scan_addressing(const Loader::File &f)
 
   if(pa != pa_bits_ || hv != have_va_ || va != va_bits_ ||
      hp != have_page_ || page != page_bytes_) {
-    diags_.error(f.disp, "/addressing", "topology.addressing",
+    diags_.error(f.disp, "/addressing", code::topology_addressing,
                  "addressing disagrees with the block in " + addr_file_);
   }
 }

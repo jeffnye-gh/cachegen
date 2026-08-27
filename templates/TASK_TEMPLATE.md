@@ -60,6 +60,9 @@ CG-000
 Comments are not allowed in the Context Loaded section, put
 comments about the context here.
 
+Directories are not allowed in the context loaded section
+only here.
+
 ## Hypothesis
 
 What this task file is testing or exercising, extended version
