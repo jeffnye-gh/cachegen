@@ -15,5 +15,9 @@ versions/*
 context-report.md
 .claude/tmp/current-prompt.md
 
-cli/bin/
-cli/obj/
+cli/bin/*
+cli/obj/*
+
+tools/bin
+tools/share
+
