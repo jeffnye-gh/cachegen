@@ -53,3 +53,18 @@ Plugs for my public repos, so far:
 - jeffnye-gh/testbench 
 - jeffnye-gh/performance-modeling
 
+# Installing tools
+
+## Verilator
+
+From $CGEN\_ROOT
+
+```
+cd tools/verilator
+unset VERILATOR_ROOT
+autoconf
+./configure --prefix="$PWD/.."
+make -j4
+make install
+```
+

@@ -6,7 +6,9 @@
 // CONTACT: Jeff Nye
 // --------------------------------------------------------------------
 #include "driver.h"
+#include "emitter.h"
 #include "report.h"
+#include "diag_codes.h"
 #include "msg.h"
 
 namespace cgen
@@ -73,10 +75,38 @@ int Driver::run()
     }
   }
 
-  if(args_.cmd == "emit" && !args_.quiet) {
-    msg->imsg("");
-    msg->wmsg("--cmd emit is not implemented, the configuration was "
-              "parsed and checked only");
+  // ------------------------------------------------------------------
+  // R-3, CLI-004. emit runs the whole check path first and writes
+  // NOTHING when any diagnostic was an error. A warning does not stop
+  // it. The check path above has already run, so the decision is just
+  // whether an error reached the list.
+  // ------------------------------------------------------------------
+  if(args_.cmd == "emit" && !halted) {
+    Emitter em(diags_, args_.output);
+    const bool wrote = em.run(model_, loader_);
+
+    if(!args_.quiet) {
+      msg->imsg("");
+      if(wrote) {
+        msg->imsg("emitted " + std::to_string(em.written().size()) +
+                  " files under " + args_.output);
+        for(const std::string &w : em.written()) {
+          msg->imsg("  " + w);
+        }
+      } else {
+        msg->emsg("nothing was emitted");
+      }
+      for(const Diag &d : diags_.all()) {
+        if(d.code() == std::string(code::emit_refused) ||
+           d.code() == std::string(code::emit_unsupported)) {
+          msg->emsg("  " + d.message());
+        }
+      }
+    }
+    emitted_ = em.written();
+  } else if(args_.cmd == "emit" && !args_.quiet) {
+    msg->emsg("nothing was emitted, the run stopped on the first "
+              "error");
   }
 
   return diags_.has_error() ? 1 : 0;

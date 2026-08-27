@@ -46,6 +46,24 @@ public:
       const std::string &system_file,
       const std::string &schema_dir);
 
+  // ------------------------------------------------------------------
+  // CLI-004. The emit path.
+  // ------------------------------------------------------------------
+
+  // run one configuration with --cmd=emit into out_dir
+  static std::unique_ptr<Driver> run_emit(const std::string &system_file,
+                                          const std::string &out_dir);
+
+  // a scratch directory under the system temp area, emptied first so
+  // one run cannot see what an earlier one left
+  static std::string scratch(const std::string &leaf);
+
+  // every regular file under dir, relative to it, sorted
+  static std::vector<std::string> tree(const std::string &dir);
+
+  // the whole of one file, empty when it cannot be read
+  static std::string slurp(const std::string &path);
+
   // the codes of every diagnostic, in order, joined by a comma
   static std::string codes(const DiagList &d);
 };

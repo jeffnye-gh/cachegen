@@ -207,7 +207,136 @@ void Geometry::one(Model &m, Model::Node &n)
     q.sets_per_bank = q.sets;
   }
 
+  bank_field(n, g);
+
   q.valid = true;
+}
+
+// --------------------------------------------------------------------
+// R-6, CLI-004. The bank select field.
+//
+// The index already spans the WHOLE set space, because the rule
+// offset + index + tag == pa_bits forces it and leaves no bits over.
+// A bank select is therefore a subfield of one of the three fields,
+// never a fourth field beside them. bank_select_position says which
+// end of the index it is taken from, and bank_interleave_granularity
+// says whether it is taken from the index at all.
+//
+//   line, above_index   the top bank_bits of the index
+//   line, below_index   the bottom bank_bits of the index
+//   word                the select lies inside the line, below the
+//                       line boundary, and the index is untouched
+//
+// The line cases are checked against sets_per_bank, which is derived
+// independently above. A disagreement means the reading is wrong.
+// --------------------------------------------------------------------
+void Geometry::bank_field(Model::Node &n, const json &g)
+{
+  Model::Geom &q = n.geom;
+
+  q.set_index      = q.index;
+  q.bank           = make_field(0, 0);
+  q.bank_resolved  = false;
+
+  if(g.contains("bank_interleave_granularity")) {
+    q.bank_granularity =
+        g["bank_interleave_granularity"].get<std::string>();
+  }
+  if(g.contains("bank_select_position")) {
+    q.bank_position = g["bank_select_position"].get<std::string>();
+  }
+
+  // one bank, there is no select and nothing is taken from the index
+  if(q.banks <= 1) {
+    q.bank_resolved = true;
+    q.bank_note     = "one bank, no bank select field";
+    return;
+  }
+
+  if(q.bank_bits <= 0) {
+    q.bank_note = "bank count " + std::to_string(q.banks) +
+                  " is not a power of two, the select has no width";
+    return;
+  }
+
+  if(q.sets % uint64_t(q.banks) != 0) {
+    q.bank_note = "the bank count does not divide the set count, "
+                  "see T-8.bank_divide";
+    return;
+  }
+
+  // ------------------------------------------------------------------
+  // word interleaving puts the select below the line boundary, so it
+  // is inside the offset and bank_select_position has no bearing on
+  // it. sets_per_bank, derived as sets / banks above, is then wrong
+  // as well: every bank holds every set and a fraction of each line.
+  // That is a derivation this task is not permitted to change, so the
+  // field is reported unresolved rather than guessed.
+  // ------------------------------------------------------------------
+  if(q.bank_granularity == "word") {
+    q.bank_note = "bank_interleave_granularity is word, which puts "
+                  "the select inside the line offset where "
+                  "bank_select_position does not reach, and leaves "
+                  "sets_per_bank derived as sets / banks disagreeing "
+                  "with every bank holding every set";
+    return;
+  }
+
+  if(q.bank_granularity != "line") {
+    q.bank_note = "bank_interleave_granularity " +
+                  (q.bank_granularity.empty()
+                       ? std::string("is absent")
+                       : msg->tq(q.bank_granularity)) +
+                  " is not one this derivation covers";
+    return;
+  }
+
+  if(q.bank_bits > q.index_bits) {
+    q.bank_note = "the bank select needs " +
+                  std::to_string(q.bank_bits) +
+                  " bits and the index carries only " +
+                  std::to_string(q.index_bits);
+    return;
+  }
+
+  if(q.bank_position == "above_index") {
+    q.bank      = make_field(q.index.msb - q.bank_bits + 1, q.bank_bits);
+    q.set_index = make_field(q.index.lsb, q.index_bits - q.bank_bits);
+  } else if(q.bank_position == "below_index") {
+    q.bank      = make_field(q.index.lsb, q.bank_bits);
+    q.set_index = make_field(q.index.lsb + q.bank_bits,
+                             q.index_bits - q.bank_bits);
+  } else {
+    q.bank_note = "bank_select_position " +
+                  (q.bank_position.empty()
+                       ? std::string("is absent")
+                       : msg->tq(q.bank_position)) +
+                  ", neither above_index nor below_index";
+    return;
+  }
+
+  // ------------------------------------------------------------------
+  // the corroboration. sets_per_bank came from sets / banks and the
+  // set index width came from the field arithmetic. They are two
+  // routes to one number and they have to agree.
+  // ------------------------------------------------------------------
+  const int want = log2_exact(q.sets_per_bank);
+  if(want != q.set_index.bits) {
+    q.bank_note = "the set index the field arithmetic leaves is " +
+                  std::to_string(q.set_index.bits) +
+                  " bits and sets_per_bank " + u64(q.sets_per_bank) +
+                  " wants " + std::to_string(want);
+    q.set_index = q.index;
+    q.bank      = make_field(0, 0);
+    return;
+  }
+
+  q.bank_resolved = true;
+  q.bank_note     = "the index spans the whole set space, so the " +
+                    q.bank_position +
+                    " select is taken out of it, leaving " +
+                    u64(q.sets_per_bank) + " sets in each of the " +
+                    std::to_string(q.banks) + " banks";
 }
 
 // --------------------------------------------------------------------

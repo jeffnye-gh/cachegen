@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <cstdlib>
 #include <filesystem>
+#include <fstream>
 
 namespace fs = std::filesystem;
 
@@ -137,6 +138,58 @@ std::unique_ptr<Driver> Fixture::run_with_schema_dir(
   else    unsetenv(SCHEMA_DIR_ENV);
 
   return d;
+}
+
+// --------------------------------------------------------------------
+std::unique_ptr<Driver> Fixture::run_emit(const std::string &system_file,
+                                          const std::string &out_dir)
+{
+  Driver::Args a;
+  a.cmd    = "emit";
+  a.config = system_file;
+  a.output = out_dir;
+  a.quiet  = true;
+
+  auto d = std::make_unique<Driver>(a);
+  d->run();
+  return d;
+}
+
+// --------------------------------------------------------------------
+std::string Fixture::scratch(const std::string &leaf)
+{
+  std::error_code ec;
+  const fs::path p = fs::temp_directory_path(ec) / ("cgen_tb_" + leaf);
+  fs::remove_all(p, ec);
+  fs::create_directories(p, ec);
+  return p.generic_string();
+}
+
+// --------------------------------------------------------------------
+std::vector<std::string> Fixture::tree(const std::string &dir)
+{
+  std::vector<std::string> out;
+  std::error_code ec;
+
+  const fs::path root(dir);
+  for(fs::recursive_directory_iterator it(root, ec), end;
+      it != end; it.increment(ec)) {
+    if(ec) break;
+    if(!it->is_regular_file()) continue;
+    out.push_back(fs::relative(it->path(), root, ec).generic_string());
+  }
+
+  std::sort(out.begin(), out.end());
+  return out;
+}
+
+// --------------------------------------------------------------------
+std::string Fixture::slurp(const std::string &path)
+{
+  std::ifstream is(path, std::ios::binary);
+  if(!is) return "";
+  return std::string(std::istreambuf_iterator<char>(is),
+                     std::istreambuf_iterator<char>());
 }
 
 // --------------------------------------------------------------------

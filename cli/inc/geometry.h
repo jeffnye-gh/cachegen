@@ -31,6 +31,7 @@ public:
 private:
   void one(Model &m, Model::Node &n);
   void refill(Model &m, Model::Node &n);
+  void bank_field(Model::Node &n, const nlohmann::json &g);
 
   DiagList &diags_;
 };

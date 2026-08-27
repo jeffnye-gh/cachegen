@@ -19,6 +19,7 @@
 #include "schema_set.h"
 #include "symbol_table.h"
 #include <string>
+#include <vector>
 
 namespace cgen
 {
@@ -44,6 +45,9 @@ public:
   const Model    &model() const { return model_; }
   const SchemaSet &schemas() const { return schemas_; }
 
+  // every path --cmd=emit wrote, relative to the output directory
+  const std::vector<std::string> &emitted() const { return emitted_; }
+
 private:
   Args        args_;
   DiagList    diags_;
@@ -51,6 +55,7 @@ private:
   SchemaSet   schemas_;
   SymbolTable syms_;
   Model       model_;
+  std::vector<std::string> emitted_;
 };
 
 } // namespace cgen

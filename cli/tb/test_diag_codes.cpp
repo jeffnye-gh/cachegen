@@ -24,6 +24,10 @@
 //   tb/fixtures/schemas_bad_parse  one schema is not JSON -> schema.parse
 //   tb/fixtures/schemas_bad_build  one schema has an
 //                                  unresolvable $ref      -> schema.build
+//
+// The emit codes need the other command rather than another
+// configuration, so every configuration is swept twice, once through
+// check and once through emit. See codes_every_fixture_produces.
 // --------------------------------------------------------------------
 #include "diag_codes.h"
 #include "fixture.h"
@@ -46,6 +50,22 @@ std::set<std::string> codes_every_fixture_produces()
 
   for(const std::string &cfg : Fixture::configs()) {
     auto drv = Fixture::run(cfg);
+    for(const cgen::Diag &d : drv->diags().all()) seen.insert(d.code());
+  }
+
+  // ----------------------------------------------------------------
+  // CLI-004. The emit codes are reached by running the same
+  // configurations through --cmd=emit. A code the emitter can
+  // produce is invisible to a sweep that only ever runs the check
+  // path, which is the CLI-003 defect one command down.
+  //
+  // The output goes to a scratch directory. A clean configuration
+  // does write a tree there and it is thrown away; an erroring one
+  // writes nothing, which is R-3.
+  // ----------------------------------------------------------------
+  const std::string out = Fixture::scratch("sweep");
+  for(const std::string &cfg : Fixture::configs()) {
+    auto drv = Fixture::run_emit(cfg, out);
     for(const cgen::Diag &d : drv->diags().all()) seen.insert(d.code());
   }
 

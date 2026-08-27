@@ -93,7 +93,16 @@ namespace cgen
     "tag_bits is assigned pa_bits minus the other two fields one "    \
     "line above the test, so the sum holds by construction")          \
   X(t8_vipt_no_page,     "T-8.vipt_no_page",    Guard,                \
-    "topology.schema.json requires page_bytes inside addressing")
+    "topology.schema.json requires page_bytes inside addressing")     \
+  X(emit_refused,        "emit.refused",        Fixture, "")          \
+  X(emit_unsupported,    "emit.unsupported",    Fixture, "")          \
+  X(emit_mkdir,          "emit.mkdir",          Env,                  \
+    "a directory under the output tree that cannot be created. "      \
+    "That is a permission or a full filesystem, and neither is "      \
+    "something a fixture can carry into the tree")                    \
+  X(emit_write,          "emit.write",          Env,                  \
+    "an output file that cannot be opened for writing, for the "      \
+    "same reason emit.mkdir cannot be fixtured")
 
 class DiagCodes
 {

@@ -57,6 +57,23 @@ public:
     Field index;
     Field tag;
 
+    // ----------------------------------------------------------------
+    // R-6, CLI-004. The bank select field and what is left of the
+    // index once it is taken out. offset + index + tag == pa_bits
+    // leaves no bits outside the three, so a bank field is a subfield
+    // of one of them, never a fourth field.
+    //
+    // bank_resolved false means the two declared fields do not
+    // determine the bounds. bank_note then says what is missing, and
+    // the bounds are not to be used.
+    // ----------------------------------------------------------------
+    std::string bank_granularity;   // word or line, empty at one bank
+    std::string bank_position;      // above_index or below_index
+    bool        bank_resolved{false};
+    Field       bank;               // the bank select
+    Field       set_index;          // the index within one bank
+    std::string bank_note;
+
     int         refill_beats{-1};   // -1 means not applicable
     std::string refill_note;
   };
