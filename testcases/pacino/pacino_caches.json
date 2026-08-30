@@ -7,7 +7,7 @@
       "node_type": "agent",
       "interfaces": {
         "mem": {
-          "link": "pe_port",
+          "link": "pe_port_i",
           "ports": {
             "req": "pe_mstr"
           }
@@ -29,7 +29,7 @@
       "node_type": "icache",
       "interfaces": {
         "core": {
-          "link": "pe_port",
+          "link": "pe_port_i",
           "ports": {
             "req": "pe_slv"
           }
@@ -42,20 +42,21 @@
         }
       },
       "geometry": {
-        "capacity_bytes": 32768,
+        "capacity_bytes": 65536,
         "line_bytes": 64,
         "associativity": 8,
-        "banks": 1
+        "banks": 2,
+        "bank_interleave_granularity": "line"
       },
-      "indexing": "VIPT",
+      "indexing": "PIPT",
       "policies": {
         "read_miss": "allocate",
         "replacement": "tree_plru"
       },
       "inclusion": "nine",
       "miss_handling": {
-        "mshrs": 4,
-        "mshr_targets": 2,
+        "mshrs": 16,
+        "mshr_targets": 4,
         "victim_buffer_entries": 0,
         "fill_buffer_entries": 0
       },

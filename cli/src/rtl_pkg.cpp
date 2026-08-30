@@ -6,6 +6,7 @@
 // CONTACT: Jeff Nye
 // --------------------------------------------------------------------
 #include "rtl_pkg.h"
+#include "rtl_cache.h"
 
 namespace cgen
 {
@@ -22,6 +23,10 @@ std::string lp(const std::string &name, const std::string &val,
                const char *type = "int unsigned")
 {
   std::string s = "  localparam " + std::string(type) + " " + name;
+  // The node prefix is added at write time, so a name that reaches
+  // the column here is longer than it looks. One space is the
+  // minimum, otherwise a long name runs into the '='.
+  s += ' ';
   while(s.size() < 40) s += ' ';
 
   const std::string one = s + "= " + val + ";";
@@ -370,17 +375,42 @@ void RtlPkg::node(SvFile &f, const NodeCtx &c)
        "-----------");
   f.ln(lp("AddrUnitBytes", "1"));
   f.ln();
+  // --------------------------------------------------------------
+  // R-7, THE DEGENERATE WORD INDEX. When the core port carries a
+  // whole line, WordsPerLine is 1 and $clog2 of it is 0. A zero
+  // width word index is not a narrower field, it is NO FIELD: the
+  // declaration [WordIdxBits-1:0] becomes [-1:0], which Verilator
+  // rejects as a size changing cast to zero or negative size. The
+  // count is known here, so the degenerate shape is emitted rather
+  // than computed in the package and found at elaboration.
+  // --------------------------------------------------------------
+  const int words_per_line =
+      c.core_data_bits() > 0
+      ? int(g.line_bytes) / (c.core_data_bits() / 8) : 1;
+  const bool one_word = words_per_line <= 1;
+
   f.lines({
     lp("WordBytes",    i(c.core_data_bits() / 8)),
     lp("WordBits",     "WordBytes * 8"),
-    lp("WordsPerLine", "LineBytes / WordBytes"),
-    lp("WordIdxBits",  "$clog2(WordsPerLine)")
+    lp("WordsPerLine", "LineBytes / WordBytes")
   });
+  if(one_word) {
+    f.ln("  // one word IS one whole line, so there is no word index");
+    f.ln(lp("WordIdxBits", "0"));
+  } else {
+    f.ln(lp("WordIdxBits", "$clog2(WordsPerLine)"));
+  }
   // wrapped where they are written, because the node prefix is added
   // at write time and lp() cannot see the length these end up at
   f.ln("  localparam int unsigned WordIdxLsb =");
   f.ln("      $clog2(WordBytes / AddrUnitBytes);");
-  f.ln(lp("WordIdxMsb", "WordIdxLsb + WordIdxBits - 1"));
+  if(one_word) {
+    // WordIdxLsb + 0 - 1 underflows an unsigned int, so the msb is
+    // written as the lsb and the field it names is empty
+    f.ln(lp("WordIdxMsb", "WordIdxLsb"));
+  } else {
+    f.ln(lp("WordIdxMsb", "WordIdxLsb + WordIdxBits - 1"));
+  }
   f.ln();
   f.lines({
     lp("BeatBits",  i(c.mem_data_bits() > 0 ? c.mem_data_bits()
@@ -392,6 +422,47 @@ void RtlPkg::node(SvFile &f, const NodeCtx &c)
   f.ln("  localparam int unsigned BeatIdxBits =");
   f.ln("      $clog2(Beats) > 0 ? $clog2(Beats) : 1;");
   f.ln();
+
+  // ------------------------------------------------------------------
+  // The miss handling file, on a node whose core link is not
+  // blocking. The identifier width and the outstanding count come
+  // from the LINK and the register and target counts come from the
+  // NODE, so the two have to agree here or nowhere: the file is
+  // indexed by the register count and addressed by the identifier.
+  // ------------------------------------------------------------------
+  const bool nb = c.nonblocking();
+  if(nb) {
+    const NodeCtx::Iface *ci = c.core_iface();
+    const int mshrs = c.mshrs() > 0 ? c.mshrs() : 1;
+    const int tgts  = c.mshr_targets() > 0 ? c.mshr_targets() : 1;
+    f.ln("  // -----------------------------------------------------"
+         "-----------");
+    f.ln("  // Miss handling. The core link declares " +
+         std::to_string(ci->sig.outstanding()) + " outstanding");
+    f.ln("  // requests against " + std::to_string(mshrs) +
+         " registers, so one register can be");
+    f.ln("  // held by every request that could be in flight and none");
+    f.ln("  // of them is unreachable.");
+    f.ln("  // -----------------------------------------------------"
+         "-----------");
+    f.lines({
+      lp("Mshrs",          i(mshrs)),
+      lp("MshrTargets",    i(tgts)),
+      lp("MshrIdxBits",    i(RtlCache::idx_bits(mshrs))),
+      lp("MshrTgtBits",    i(RtlCache::idx_bits(tgts))),
+      lp("MshrCntBits",    i(RtlCache::idx_bits(mshrs + 1))),
+      lp("ReqIdBits",      i(ci->sig.id_bits())),
+      lp("MaxOutstanding", i(ci->sig.outstanding()))
+    });
+    if(c.prefetch_reserve() > 0) {
+      f.ln("  // the registers a request carrying the '" +
+           c.reserve_qual() + "' qualifier");
+      f.ln("  // must leave free. It is the only place the bit is "
+           "read.");
+      f.ln(lp("QualReserve", i(c.prefetch_reserve())));
+    }
+    f.ln();
+  }
 
   f.ln("  // -----------------------------------------------------"
        "-----------");
@@ -406,6 +477,11 @@ void RtlPkg::node(SvFile &f, const NodeCtx &c)
   f.ln("  typedef logic [WordBits-1:0]   word_t;");
   f.ln("  typedef logic [BeatBits-1:0]   beat_t;");
   if(banked) f.ln("  typedef logic [BankBits-1:0]   bank_t;");
+  if(nb) {
+    f.ln("  typedef logic [MshrIdxBits-1:0] mshr_t;");
+    f.ln("  typedef logic [ReqIdBits-1:0]   req_id_t;");
+    f.ln("  typedef logic [MshrTargets-1:0] tgt_vec_t;");
+  }
   f.ln();
 
   f.ln("  // -----------------------------------------------------"
@@ -439,11 +515,22 @@ void RtlPkg::node(SvFile &f, const NodeCtx &c)
        "OffsetLsb);");
   f.ln("  endfunction");
   f.ln();
-  f.ln("  function automatic logic [WordIdxBits-1:0]");
-  f.ln("      word_of(input addr_t a);");
-  f.ln("    word_of = WordIdxBits'((a & {PaBits{1'b1}}) >> "
-       "WordIdxLsb);");
-  f.ln("  endfunction");
+  if(one_word) {
+    f.ln("  // The word index is zero bits wide, so every address");
+    f.ln("  // selects word 0. The function is kept so that a");
+    f.ln("  // consumer does not branch on the geometry, and the");
+    f.ln("  // argument is read so the linter does not report the");
+    f.ln("  // other bits unread.");
+    f.ln("  function automatic logic word_of(input addr_t a);");
+    f.ln("    word_of = 1'b0 & (|(a & {PaBits{1'b1}}));");
+    f.ln("  endfunction");
+  } else {
+    f.ln("  function automatic logic [WordIdxBits-1:0]");
+    f.ln("      word_of(input addr_t a);");
+    f.ln("    word_of = WordIdxBits'((a & {PaBits{1'b1}}) >> "
+         "WordIdxLsb);");
+    f.ln("  endfunction");
+  }
   f.ln();
   f.ln("  // the line this address falls in, offset cleared");
   f.ln("  function automatic addr_t line_base(input addr_t a);");

@@ -126,6 +126,12 @@ void RtlCache::slave(SvFile &f, const NodeCtx &c,
   const std::string mod = c.mod((i.name + "_slv").c_str());
   const bool tl   = i.sig.is_tl();
   const int  dbit = c.core_data_bits();
+  // the miss handling file behind this adapter, rather than a single
+  // busy flag, whenever the LINK says the port is not blocking
+  const bool nb   = !tl && !i.master && c.nonblocking() &&
+                    c.core_iface() == &i;
+  const int  idb  = i.sig.id_bits();
+  const std::string qual = c.reserve_qual();
 
   f.note("Interface '" + i.name + "' of node '" + c.name() +
          "', the slave end of");
@@ -135,6 +141,17 @@ void RtlCache::slave(SvFile &f, const NodeCtx &c,
   f.note("Turns a request on the link into internal requests and the");
   f.note("internal answers back into a link response. The control");
   f.note("behind it never sees which protocol this was.");
+  if(nb) {
+    f.note("");
+    f.note("THIS LINK IS NOT BLOCKING. It declares " +
+           std::to_string(i.sig.outstanding()) + " outstanding");
+    f.note("requests and a response keyed by an identifier, so the");
+    f.note("adapter holds no busy flag: every request is handed to");
+    f.note("the miss handling file with its identifier, and the");
+    f.note("response comes back carrying the identifier it answers.");
+    f.note("Ordering is the file's business and correlation is the");
+    f.note("identifier's, so nothing here has to remember either.");
+  }
   if(tl) {
     f.note("");
     f.note("A request may be wider than one internal word, so this");
@@ -158,6 +175,13 @@ void RtlCache::slave(SvFile &f, const NodeCtx &c,
   f.ln("  output logic                 req_valid,");
   f.ln("  input  logic                 req_ready,");
   f.ln("  output addr_t                req_addr,");
+  if(nb) {
+    f.ln("  output logic [" + pad(i2s(idb - 1) + ":0]", 14) +
+         "req_id,");
+    if(!qual.empty()) {
+      f.ln("  output logic                 req_" + qual + ",");
+    }
+  }
   if(c.has_writes()) {
     f.ln("  output logic                 req_write,");
     f.ln("  output logic [" + pad(i2s(dbit - 1) + ":0]", 14) +
@@ -168,11 +192,68 @@ void RtlCache::slave(SvFile &f, const NodeCtx &c,
   f.ln();
   f.ln("  // the internal response");
   f.ln("  input  logic                 rsp_valid,");
+  if(nb) {
+    f.ln("  input  logic [" + pad(i2s(idb - 1) + ":0]", 14) +
+         "rsp_id,");
+  }
   f.ln("  input  logic [" + pad(i2s(dbit - 1) + ":0]", 14) +
        "rsp_data,");
   f.ln("  input  logic                 rsp_err");
   f.ln(");");
   f.ln();
+
+  // ------------------------------------------------------------------
+  // The non blocking processor port. Every wire crosses; the state is
+  // in the miss handling file behind it.
+  // ------------------------------------------------------------------
+  if(nb) {
+    const std::string n = i.name;
+    f.ln("  // NOTHING IS REGISTERED HERE. A holding register would");
+    f.ln("  // be a second place a request could sit, and the free");
+    f.ln("  // list of identifiers is already the flow control.");
+    f.ln("  assign " + pad("req_valid", 22) + "= " +
+         LinkSig::wire(n, "valid") + ";");
+    f.ln("  assign " + pad("req_addr", 22) + "= addr_t'(" +
+         LinkSig::wire(n, "addr") + ");");
+    f.ln("  assign " + pad("req_id", 22) + "= " +
+         LinkSig::wire(n, "id") + ";");
+    if(!qual.empty()) {
+      f.ln("  assign " + pad("req_" + qual, 22) + "= " +
+           LinkSig::wire(n, qual) + ";");
+    }
+    f.ln("  assign " + pad(LinkSig::wire(n, "ready"), 22) +
+         "= req_ready;");
+    f.ln();
+    f.ln("  assign " + pad(LinkSig::wire(n, "rvalid"), 22) +
+         "= rsp_valid;");
+    f.ln("  assign " + pad(LinkSig::wire(n, "rid"), 22) +
+         "= rsp_id;");
+    f.ln("  assign " + pad(LinkSig::wire(n, "rdata"), 22) +
+         "= rsp_data;");
+    if(i.sig.err_ret()) {
+      f.ln("  assign " + pad(LinkSig::wire(n, "rerr"), 22) +
+           "= rsp_err;");
+    } else {
+      f.ln("  // the link declares no error return, so a slave error");
+      f.ln("  // is dropped here");
+      f.ln("  /* verilator lint_off UNUSEDSIGNAL */");
+      f.ln("  wire unused_err = |{rsp_err};");
+      f.ln("  /* verilator lint_on UNUSEDSIGNAL */");
+    }
+    f.ln();
+    f.ln("  // this link declares no response ready, so the requester");
+    f.ln("  // takes every response in the cycle it is presented and");
+    f.ln("  // there is nothing to hold one in");
+    f.ln();
+    f.ln("  // the clock and reset reach the file behind this adapter");
+    f.ln("  // rather than any state of its own");
+    f.ln("  /* verilator lint_off UNUSEDSIGNAL */");
+    f.ln("  wire unused_ck = |{clk, rstn};");
+    f.ln("  /* verilator lint_on UNUSEDSIGNAL */");
+    f.ln();
+    f.ln("endmodule");
+    return;
+  }
 
   // ------------------------------------------------------------------
   // the ad hoc processor port: one word, one answer, no beats
@@ -192,7 +273,7 @@ void RtlCache::slave(SvFile &f, const NodeCtx &c,
          LinkSig::wire(n, "valid") + " && !busy;");
     f.ln("  assign " + pad("req_addr", 22) + "= addr_t'(" +
          LinkSig::wire(n, "addr") + ");");
-    if(c.has_writes()) {
+    if(c.has_writes() && !i.sig.read_only()) {
       f.ln("  assign " + pad("req_write", 22) + "= " +
            LinkSig::wire(n, "rw") + ";");
       f.ln("  assign " + pad("req_wdata", 22) + "= " +
@@ -208,7 +289,7 @@ void RtlCache::slave(SvFile &f, const NodeCtx &c,
     f.ln("    end else begin");
     f.ln("      if(accept) begin");
     f.ln("        busy      <= 1'b1;");
-    if(c.has_writes()) {
+    if(c.has_writes() && !i.sig.read_only()) {
       f.ln("        pend_read <= !" + LinkSig::wire(n, "rw") + ";");
     } else {
       f.ln("        pend_read <= 1'b1;");
@@ -225,14 +306,20 @@ void RtlCache::slave(SvFile &f, const NodeCtx &c,
     f.ln("  assign " + pad(LinkSig::wire(n, "rdata"), 22) +
          "= rsp_data;");
     f.ln();
-    f.ln("  // the link declares no error return, so a slave error is");
-    f.ln("  // dropped here. It reaches a testbench through the "
-         "node's");
-    f.ln("  // own checking, not through this link.");
-    f.ln("  /* verilator lint_off UNUSEDSIGNAL */");
-    f.ln("  wire unused_err = |{rsp_err};");
-    f.ln("  /* verilator lint_on UNUSEDSIGNAL */");
-    if(!c.has_writes()) {
+    if(i.sig.err_ret()) {
+      f.ln("  assign " + pad(LinkSig::wire(n, "rerr"), 22) +
+           "= rsp_err && pend_read;");
+    } else {
+      f.ln("  // the link declares no error return, so a slave error "
+           "is");
+      f.ln("  // dropped here. It reaches a testbench through the "
+           "node's");
+      f.ln("  // own checking, not through this link.");
+      f.ln("  /* verilator lint_off UNUSEDSIGNAL */");
+      f.ln("  wire unused_err = |{rsp_err};");
+      f.ln("  /* verilator lint_on UNUSEDSIGNAL */");
+    }
+    if(!c.has_writes() && !i.sig.read_only()) {
       f.ln("  /* verilator lint_off UNUSEDSIGNAL */");
       f.ln("  wire unused_wr = |{" +
            LinkSig::wire(n, "rw") + ", " +
@@ -484,6 +571,13 @@ void RtlCache::master(SvFile &f, const NodeCtx &c,
   const bool wr   = c.has_dirty() || c.write_hit() == "write_through" ||
                     c.write_miss() == "no_allocate";
   const int  size = Replacement::log2i(int(c.geom().line_bytes));
+  // the miss handling register the fill belongs to, so channel A can
+  // name the requester rather than tie the field to zero
+  const bool src  = c.nonblocking() && tl;
+  int src_bits = 0;
+  for(const LinkSig::Sig &g : i.sig.sigs()) {
+    if(g.local == "a_source") src_bits = g.bits;
+  }
 
   f.note("Interface '" + i.name + "' of node '" + c.name() +
          "', the master end of");
@@ -509,6 +603,9 @@ void RtlCache::master(SvFile &f, const NodeCtx &c,
   f.ln("  input  logic                 mreq_valid,");
   f.ln("  output logic                 mreq_ready,");
   f.ln("  input  addr_t                mreq_addr,");
+  if(src) {
+    f.ln("  input  mshr_t                mreq_src,");
+  }
   if(wr) {
     f.ln("  input  logic                 mreq_write,");
     f.ln("  input  line_t                mreq_wdata,");
@@ -534,6 +631,7 @@ void RtlCache::master(SvFile &f, const NodeCtx &c,
   f.ln("  addr_t addr_q;");
   f.ln("  line_t fill_q;");
   f.ln("  logic  err_q;");
+  if(src) f.ln("  mshr_t src_q;");
   if(wr) {
     f.ln("  logic  write_q;");
     f.ln("  line_t wdata_q;");
@@ -568,7 +666,12 @@ void RtlCache::master(SvFile &f, const NodeCtx &c,
   f.ln("    " + a + "_opcode  = TlAGet;");
   f.ln("    " + a + "_param   = TlParamZero;");
   f.ln("    " + a + "_size    = LineSize;");
-  f.ln("    " + a + "_source  = '0;");
+  if(src && src_bits > 0) {
+    f.ln("    " + a + "_source  = " + i2s(src_bits) +
+         "'(src_q);   // the register this fill belongs to");
+  } else {
+    f.ln("    " + a + "_source  = '0;");
+  }
   f.ln("    " + a + "_address = addr_q;");
   f.ln("    " + a + "_mask    = '0;");
   f.ln("    " + a + "_data    = '0;");
@@ -595,6 +698,7 @@ void RtlCache::master(SvFile &f, const NodeCtx &c,
   f.ln("      mrsp_valid <= 1'b0;");
   f.ln("      mrsp_data  <= '0;");
   f.ln("      mrsp_err   <= 1'b0;");
+  if(src) f.ln("      src_q      <= '0;");
   if(wr) {
     f.ln("      write_q    <= 1'b0;");
     f.ln("      wdata_q    <= '0;");
@@ -606,6 +710,7 @@ void RtlCache::master(SvFile &f, const NodeCtx &c,
   f.ln("        M_IDLE: begin");
   f.ln("          if(mreq_valid) begin");
   f.ln("            addr_q  <= line_base(mreq_addr);");
+  if(src) f.ln("            src_q   <= mreq_src;");
   if(wr) f.ln("            abeat   <= '0;");
   f.ln("            dbeat   <= '0;");
   f.ln("            err_q   <= 1'b0;");
@@ -700,13 +805,33 @@ void RtlCache::master(SvFile &f, const NodeCtx &c,
     f.ln();
   }
 
+  if(src && src_bits > 0) {
+    f.ln("  // The response has to be the one that was asked for. One");
+    f.ln("  // fill is in flight at a time here, so the check is an");
+    f.ln("  // assertion rather than a lookup: a D beat naming a");
+    f.ln("  // different register means the two ends disagree about");
+    f.ln("  // which fill this is, and the line would land in the");
+    f.ln("  // wrong miss handling register.");
+    f.ln("  // d_fire already carries the reset state, through the");
+    f.ln("  // state machine, so this does not read rstn");
+    f.ln("  always_ff @(posedge clk) begin");
+    f.ln("    if(d_fire && (" + d + "_source != " +
+         i2s(src_bits) + "'(src_q))) begin");
+    f.ln("      $error(\"" + mod + ": D source %0d answers request "
+         "%0d\",");
+    f.ln("             " + d + "_source, src_q);");
+    f.ln("    end");
+    f.ln("  end");
+    f.ln();
+  }
+
   f.ln("  // channel D fields a whole line master does not consume");
   f.ln("  /* verilator lint_off UNUSEDSIGNAL */");
   f.ln("  wire unused_d = |{");
   f.ln("      " + d + "_opcode,");
   f.ln("      " + d + "_param,");
   f.ln("      " + d + "_size,");
-  f.ln("      " + d + "_source,");
+  if(!(src && src_bits > 0)) f.ln("      " + d + "_source,");
   f.ln("      " + d + "_sink");
   f.ln("  };");
   f.ln("  /* verilator lint_on UNUSEDSIGNAL */");
@@ -1684,6 +1809,422 @@ void RtlCache::bank(SvFile &f, const NodeCtx &c)
 }
 
 // --------------------------------------------------------------------
+// THE MISS HANDLING FILE. Emitted only where the core link declares
+// more than one outstanding request and a response keyed by an
+// identifier; a blocking link gets the busy flag in the adapter and
+// none of this.
+//
+// IT IS NOT THE BLOCKING CONTROL WITH MORE STATE. The blocking
+// control asserts req_ready in one state and holds one address, so
+// there is nothing in it to widen. What is here instead:
+//
+//   the file      one register per outstanding request, each holding
+//                 a LINE ADDRESS and up to MshrTargets requesters
+//   accept        every cycle ready stands. The register is allocated
+//                 or, when the line is already in flight, a target
+//                 slot on the register that has it
+//   ready         CONSERVATIVE. Low when no register is free and low
+//                 whenever ANY register holds every target, whatever
+//                 address the request names. No address compare is in
+//                 the ready path, so a full register refuses requests
+//                 to unrelated lines as well
+//   issue         one lookup per bank at a time, because the bank
+//                 control behind it is blocking. Two banks therefore
+//                 have two lookups running, which is where an
+//                 out of order answer comes from
+//   retire        one target per cycle, carrying the identifier that
+//                 target arrived with. Merged requests are answered
+//                 separately and the requester sees nothing of the
+//                 merge
+//
+// THE IDENTIFIER IS THE ONLY CORRELATION between a request and its
+// answer. Nothing here preserves order and nothing downstream may
+// infer it.
+// --------------------------------------------------------------------
+void RtlCache::mshr(SvFile &f, const NodeCtx &c)
+{
+  const std::string mod = c.mod("mshr");
+  const bool banked = c.geom().banks > 1 && c.geom().bank_resolved;
+  const int  nbk    = banked ? c.geom().banks : 1;
+  const std::string qual = c.reserve_qual();
+  const int  reserve = c.prefetch_reserve();
+  const NodeCtx::Iface *ci = c.core_iface();
+
+  f.note("The miss handling file of node '" + c.name() + "'. " +
+         std::to_string(c.mshrs()) + " registers");
+  f.note("of " + std::to_string(c.mshr_targets()) +
+         " targets each, against a core link declaring " +
+         std::to_string(ci->sig.outstanding()));
+  f.note("outstanding requests. See the note above RtlCache::mshr for");
+  f.note("what this structure is and what the blocking control it");
+  f.note("replaces could not do.");
+  f.note("");
+  f.note("A RESPONSE CARRIES NO READY. The requester reserved room "
+         "for");
+  f.note("the answer when it allocated the identifier, so a ready it");
+  f.note("could deassert is a ready it never deasserts, and a second");
+  f.note("flow control beside the identifier free list is a second");
+  f.note("thing that can disagree with it.");
+  if(!qual.empty()) {
+    f.note("");
+    f.note("THE '" + qual + "' QUALIFIER IS READ IN ONE PLACE, in "
+           "ready:");
+    f.note("a request carrying it is refused unless " +
+           std::to_string(reserve) + " registers are");
+    f.note("free. Everything else about such a request is identical "
+           "to");
+    f.note("any other, including its identifier space and its answer.");
+  }
+  f.bar();
+  RtlPkg::import_of(f, { c.pkg() });
+  f.ln("module " + mod + " (");
+  f.ln("  input  logic    clk,");
+  f.ln("  input  logic    rstn,");
+  f.ln();
+  f.ln("  // the core side");
+  f.ln("  input  logic    req_valid,");
+  f.ln("  output logic    req_ready,");
+  f.ln("  input  addr_t   req_addr,");
+  f.ln("  input  req_id_t req_id,");
+  if(!qual.empty()) {
+    f.ln("  input  logic    req_" + qual + ",");
+  }
+  f.ln();
+  f.ln("  output logic    rsp_valid,");
+  f.ln("  output req_id_t rsp_id,");
+  f.ln("  output word_t   rsp_data,");
+  f.ln("  output logic    rsp_err,");
+  f.ln();
+  f.ln("  // the bank side, one lookup port per bank");
+  f.ln("  output logic    b_req_valid [" + i2s(nbk) + "],");
+  f.ln("  input  logic    b_req_ready [" + i2s(nbk) + "],");
+  f.ln("  output addr_t   b_req_addr  [" + i2s(nbk) + "],");
+  f.ln("  input  logic    b_rsp_valid [" + i2s(nbk) + "],");
+  f.ln("  input  word_t   b_rsp_data  [" + i2s(nbk) + "],");
+  f.ln("  input  logic    b_rsp_err   [" + i2s(nbk) + "],");
+  f.ln();
+  f.ln("  // which register each bank is working for, so the memory");
+  f.ln("  // side can name the requester instead of tying it to zero");
+  f.ln("  output mshr_t   b_src       [" + i2s(nbk) + "]");
+  f.ln(");");
+  f.ln();
+
+  f.ln("  localparam int unsigned NBnk = " + i2s(nbk) + ";");
+  f.ln();
+  f.ln("  // ---------------------------------------------------------");
+  f.ln("  // The file. e_val is the allocation, e_iss says the lookup");
+  f.ln("  // has been handed to a bank, and e_got says the line has");
+  f.ln("  // come back and the targets can be answered.");
+  f.ln("  // ---------------------------------------------------------");
+  f.ln("  logic     e_val  [Mshrs];");
+  f.ln("  logic     e_iss  [Mshrs];");
+  f.ln("  logic     e_got  [Mshrs];");
+  f.ln("  addr_t    e_line [Mshrs];");
+  f.ln("  word_t    e_data [Mshrs];");
+  f.ln("  logic     e_err  [Mshrs];");
+  f.ln("  tgt_vec_t t_val  [Mshrs];");
+  f.ln("  req_id_t  t_id   [Mshrs][MshrTargets];");
+  f.ln();
+  f.ln("  logic  bk_busy [NBnk];");
+  f.ln("  mshr_t bk_own  [NBnk];");
+  f.ln();
+
+  // ------------------------------------------------------------------
+  // occupancy
+  // ------------------------------------------------------------------
+  f.ln("  // ---------------------------------------------------------");
+  f.ln("  // How many registers are free, and whether ANY of them is");
+  f.ln("  // full of targets. Both are address independent, which is");
+  f.ln("  // what keeps the compare out of the ready path.");
+  f.ln("  // ---------------------------------------------------------");
+  f.ln("  logic [MshrCntBits-1:0] free_n;");
+  f.ln("  logic                   any_full;");
+  f.ln();
+  f.ln("  always_comb begin");
+  f.ln("    free_n   = '0;");
+  f.ln("    any_full = 1'b0;");
+  f.ln("    for(int unsigned m = 0; m < Mshrs; m++) begin");
+  f.ln("      if(!e_val[m]) free_n = free_n + MshrCntBits'(1);");
+  f.ln("      if(e_val[m] && (&t_val[m])) any_full = 1'b1;");
+  f.ln("    end");
+  f.ln("  end");
+  f.ln();
+
+  // ------------------------------------------------------------------
+  // allocation and merging
+  // ------------------------------------------------------------------
+  f.ln("  // ---------------------------------------------------------");
+  f.ln("  // Which register a request lands on. A LINE ALREADY IN");
+  f.ln("  // FLIGHT takes a target slot on the register that has it;");
+  f.ln("  // anything else takes a free register. A register whose");
+  f.ln("  // line has already come back is NOT merged onto: it is");
+  f.ln("  // retiring, and a second fill of one line is two writes to");
+  f.ln("  // one set and a replacement decision taken twice.");
+  f.ln("  //");
+  f.ln("  // Every walk counts DOWN so the LOWEST numbered match");
+  f.ln("  // wins, which is what makes the choice predictable.");
+  f.ln("  // ---------------------------------------------------------");
+  f.ln("  logic                  mrg_hit;");
+  f.ln("  mshr_t                 mrg_way;");
+  f.ln("  logic                  fre_any;");
+  f.ln("  mshr_t                 fre_way;");
+  f.ln("  logic [MshrTgtBits-1:0] tgt_sel;");
+  f.ln();
+  f.ln("  always_comb begin");
+  f.ln("    mrg_hit = 1'b0;");
+  f.ln("    mrg_way = '0;");
+  f.ln("    fre_any = 1'b0;");
+  f.ln("    fre_way = '0;");
+  f.ln("    for(int unsigned m = Mshrs; m > 0; m--) begin");
+  f.ln("      if(e_val[m-1] && !e_got[m-1] &&");
+  f.ln("         (e_line[m-1] == line_base(req_addr))) begin");
+  f.ln("        mrg_hit = 1'b1;");
+  f.ln("        mrg_way = mshr_t'(m-1);");
+  f.ln("      end");
+  f.ln("      if(!e_val[m-1]) begin");
+  f.ln("        fre_any = 1'b1;");
+  f.ln("        fre_way = mshr_t'(m-1);");
+  f.ln("      end");
+  f.ln("    end");
+  f.ln();
+  f.ln("    tgt_sel = '0;");
+  f.ln("    for(int unsigned t = MshrTargets; t > 0; t--) begin");
+  f.ln("      if(!t_val[mrg_way][t-1]) tgt_sel = MshrTgtBits'(t-1);");
+  f.ln("    end");
+  f.ln("  end");
+  f.ln();
+
+  // ------------------------------------------------------------------
+  // ready
+  // ------------------------------------------------------------------
+  f.ln("  // ---------------------------------------------------------");
+  f.ln("  // READY. It reads the occupancy and never the address, so");
+  f.ln("  // a register holding every target refuses requests to");
+  f.ln("  // unrelated lines for as long as it stays full. That costs");
+  f.ln("  // throughput and it keeps a wide compare out of this path.");
+  f.ln("  //");
+  f.ln("  // It does not read req_valid either, so a requester cannot");
+  f.ln("  // create the acceptance it is asking about.");
+  f.ln("  // ---------------------------------------------------------");
+  if(qual.empty()) {
+    f.ln("  assign req_ready = rstn && fre_any && !any_full;");
+  } else {
+    f.ln("  // the reserve, and the ONE place the qualifier is read");
+    f.ln("  wire qual_ok = !req_" + qual + " ||");
+    f.ln("                 (free_n >= MshrCntBits'(QualReserve));");
+    f.ln();
+    f.ln("  assign req_ready = rstn && fre_any && !any_full && "
+         "qual_ok;");
+  }
+  f.ln();
+  f.ln("  wire accept = req_valid && req_ready;");
+  f.ln();
+
+  // ------------------------------------------------------------------
+  // bank issue
+  // ------------------------------------------------------------------
+  f.ln("  // ---------------------------------------------------------");
+  f.ln("  // The lookup into the banks. One at a time per bank, since");
+  f.ln("  // the control behind each bank is blocking, and one bank");
+  f.ln("  // does not wait for another. TWO BANKS ARE TWO LOOKUPS");
+  f.ln("  // RUNNING, so a short one behind a long one answers first.");
+  f.ln("  // ---------------------------------------------------------");
+  f.ln("  logic  iss_any [NBnk];");
+  f.ln("  mshr_t iss_sel [NBnk];");
+  f.ln();
+  f.ln("  always_comb begin");
+  f.ln("    for(int unsigned b = 0; b < NBnk; b++) begin");
+  f.ln("      iss_any[b] = 1'b0;");
+  f.ln("      iss_sel[b] = '0;");
+  f.ln("      for(int unsigned m = Mshrs; m > 0; m--) begin");
+  f.ln("        if(e_val[m-1] && !e_iss[m-1] && !bk_busy[b]");
+  if(banked) {
+    f.ln("           && (bank_of(e_line[m-1]) == bank_t'(b))");
+  }
+  f.ln("           ) begin");
+  f.ln("          iss_any[b] = 1'b1;");
+  f.ln("          iss_sel[b] = mshr_t'(m-1);");
+  f.ln("        end");
+  f.ln("      end");
+  f.ln();
+  f.ln("      b_req_valid[b] = iss_any[b];");
+  f.ln("      b_req_addr[b]  = e_line[iss_sel[b]];");
+  f.ln("      // while a bank is working the register it works for is");
+  f.ln("      // the one it took, not the one it would take next");
+  f.ln("      b_src[b]       = bk_busy[b] ? bk_own[b] : iss_sel[b];");
+  f.ln("    end");
+  f.ln("  end");
+  f.ln();
+
+  // ------------------------------------------------------------------
+  // retire
+  // ------------------------------------------------------------------
+  f.ln("  // ---------------------------------------------------------");
+  f.ln("  // Retirement. ONE TARGET PER CYCLE across the whole file,");
+  f.ln("  // carrying the identifier that target arrived with. Two");
+  f.ln("  // requests merged onto one register leave over two cycles");
+  f.ln("  // with two identifiers and the same line.");
+  f.ln("  // ---------------------------------------------------------");
+  f.ln("  logic                   ret_any;");
+  f.ln("  mshr_t                  ret_sel;");
+  f.ln("  logic [MshrTgtBits-1:0] ret_tgt;");
+  f.ln();
+  f.ln("  always_comb begin");
+  f.ln("    ret_any = 1'b0;");
+  f.ln("    ret_sel = '0;");
+  f.ln("    for(int unsigned m = Mshrs; m > 0; m--) begin");
+  f.ln("      if(e_val[m-1] && e_got[m-1] && (|t_val[m-1])) begin");
+  f.ln("        ret_any = 1'b1;");
+  f.ln("        ret_sel = mshr_t'(m-1);");
+  f.ln("      end");
+  f.ln("    end");
+  f.ln();
+  f.ln("    ret_tgt = '0;");
+  f.ln("    for(int unsigned t = MshrTargets; t > 0; t--) begin");
+  f.ln("      if(t_val[ret_sel][t-1]) ret_tgt = MshrTgtBits'(t-1);");
+  f.ln("    end");
+  f.ln("  end");
+  f.ln();
+  f.ln("  assign rsp_valid = ret_any;");
+  f.ln("  assign rsp_id    = t_id[ret_sel][ret_tgt];");
+  f.ln("  assign rsp_data  = e_data[ret_sel];");
+  f.ln("  assign rsp_err   = e_err[ret_sel];");
+  f.ln();
+  f.ln("  // the register is freed by the LAST target leaving it");
+  f.ln("  wire ret_last = ret_any &&");
+  f.ln("      !(|(t_val[ret_sel] & ~(tgt_vec_t'(1) << ret_tgt)));");
+  f.ln();
+
+  // ------------------------------------------------------------------
+  // the state
+  // ------------------------------------------------------------------
+  f.ln("  always_ff @(posedge clk or negedge rstn) begin");
+  f.ln("    if(!rstn) begin");
+  f.ln("      // the whole file is free out of reset, so ready may");
+  f.ln("      // stand in the first cycle after rstn rises");
+  f.ln("      for(int unsigned m = 0; m < Mshrs; m++) begin");
+  f.ln("        e_val[m]  <= 1'b0;");
+  f.ln("        e_iss[m]  <= 1'b0;");
+  f.ln("        e_got[m]  <= 1'b0;");
+  f.ln("        e_line[m] <= '0;");
+  f.ln("        e_data[m] <= '0;");
+  f.ln("        e_err[m]  <= 1'b0;");
+  f.ln("        t_val[m]  <= '0;");
+  f.ln("        for(int unsigned t = 0; t < MshrTargets; t++) begin");
+  f.ln("          t_id[m][t] <= '0;");
+  f.ln("        end");
+  f.ln("      end");
+  f.ln("      for(int unsigned b = 0; b < NBnk; b++) begin");
+  f.ln("        bk_busy[b] <= 1'b0;");
+  f.ln("        bk_own[b]  <= '0;");
+  f.ln("      end");
+  f.ln("    end else begin");
+  f.ln("      for(int unsigned b = 0; b < NBnk; b++) begin");
+  f.ln("        if(b_req_valid[b] && b_req_ready[b]) begin");
+  f.ln("          e_iss[iss_sel[b]] <= 1'b1;");
+  f.ln("          bk_busy[b]        <= 1'b1;");
+  f.ln("          bk_own[b]         <= iss_sel[b];");
+  f.ln("        end");
+  f.ln("        if(bk_busy[b] && b_rsp_valid[b]) begin");
+  f.ln("          e_got [bk_own[b]] <= 1'b1;");
+  f.ln("          e_data[bk_own[b]] <= b_rsp_data[b];");
+  f.ln("          e_err [bk_own[b]] <= b_rsp_err[b];");
+  f.ln("          bk_busy[b]        <= 1'b0;");
+  f.ln("        end");
+  f.ln("      end");
+  f.ln();
+  f.ln("      if(ret_any) begin");
+  f.ln("        t_val[ret_sel][ret_tgt] <= 1'b0;");
+  f.ln("        if(ret_last) begin");
+  f.ln("          e_val[ret_sel] <= 1'b0;");
+  f.ln("          e_iss[ret_sel] <= 1'b0;");
+  f.ln("          e_got[ret_sel] <= 1'b0;");
+  f.ln("        end");
+  f.ln("      end");
+  f.ln();
+  f.ln("      // A retiring register cannot be the one an accept");
+  f.ln("      // lands on: a merge needs !e_got and a free register");
+  f.ln("      // needs !e_val, and retirement holds both the other");
+  f.ln("      // way round. The two writes below cannot collide.");
+  f.ln("      if(accept) begin");
+  f.ln("        if(mrg_hit) begin");
+  f.ln("          t_val[mrg_way][tgt_sel] <= 1'b1;");
+  f.ln("          t_id [mrg_way][tgt_sel] <= req_id;");
+  f.ln("        end else begin");
+  f.ln("          e_val [fre_way]    <= 1'b1;");
+  f.ln("          e_iss [fre_way]    <= 1'b0;");
+  f.ln("          e_got [fre_way]    <= 1'b0;");
+  f.ln("          e_line[fre_way]    <= line_base(req_addr);");
+  f.ln("          e_err [fre_way]    <= 1'b0;");
+  f.ln("          t_val [fre_way]    <= tgt_vec_t'(1);");
+  f.ln("          t_id  [fre_way][0] <= req_id;");
+  f.ln("        end");
+  f.ln("      end");
+  f.ln("    end");
+  f.ln("  end");
+  f.ln();
+
+  // ------------------------------------------------------------------
+  // the assertions the interface asks for
+  // ------------------------------------------------------------------
+  f.ln("  // ---------------------------------------------------------");
+  f.ln("  // NO IDENTIFIER IS IN FLIGHT TWICE. The requester owns the");
+  f.ln("  // free list, so this is the whole of the node's handling");
+  f.ln("  // of a request beyond the last one: it has no counter and");
+  f.ln("  // no recovery path, it says the requester broke the rule.");
+  f.ln("  // ---------------------------------------------------------");
+  f.ln("  // accept already carries the reset state, through ready, so");
+  f.ln("  // neither check reads rstn and neither flops it");
+  f.ln("  always_ff @(posedge clk) begin");
+  f.ln("    if(accept) begin");
+  f.ln("      for(int unsigned m = 0; m < Mshrs; m++) begin");
+  f.ln("        for(int unsigned t = 0; t < MshrTargets; t++) begin");
+  f.ln("          if(e_val[m] && t_val[m][t] &&");
+  f.ln("             (t_id[m][t] == req_id)) begin");
+  f.ln("            $error(\"" + mod +
+       ": identifier %0d is already in flight\",");
+  f.ln("                   req_id);");
+  f.ln("          end");
+  f.ln("        end");
+  f.ln("      end");
+  f.ln("    end");
+  f.ln("  end");
+  f.ln();
+  f.ln("  // ---------------------------------------------------------");
+  f.ln("  // NO ANSWER IN THE CYCLE ITS REQUEST WAS ACCEPTED. The");
+  f.ln("  // minimum separation is one cycle, so the requester never");
+  f.ln("  // has to allocate an identifier and retire it in the same");
+  f.ln("  // cycle. The lookup behind this takes longer than that at");
+  f.ln("  // every geometry the tool emits, so the check is here to");
+  f.ln("  // say so rather than to leave it resting on the pipeline");
+  f.ln("  // depth being what it is today.");
+  f.ln("  // ---------------------------------------------------------");
+  f.ln("  always_ff @(posedge clk) begin");
+  f.ln("    if(accept && rsp_valid && (rsp_id == req_id)) begin");
+  f.ln("      $error(\"" + mod +
+       ": identifier %0d answered as it was accepted\",");
+  f.ln("             req_id);");
+  f.ln("    end");
+  f.ln("  end");
+  f.ln();
+  f.ln("  // ---------------------------------------------------------");
+  f.ln("  // EVERY ACCEPTED REQUEST IS LINE ALIGNED. The check is on");
+  f.ln("  // this side of the boundary on purpose, so a requester");
+  f.ln("  // defect is caught where it crosses rather than where it");
+  f.ln("  // eventually shows.");
+  f.ln("  // ---------------------------------------------------------");
+  f.ln("  always_ff @(posedge clk) begin");
+  f.ln("    if(accept && (|offset_of(req_addr))) begin");
+  f.ln("      $error(\"" + mod +
+       ": request address %0h is not line aligned\",");
+  f.ln("             req_addr);");
+  f.ln("    end");
+  f.ln("  end");
+  f.ln();
+  f.ln("endmodule");
+}
+
+// --------------------------------------------------------------------
 // The node. The slave adapters, the banks, the master adapter, and
 // the arbitration that joins them.
 //
@@ -1710,10 +2251,17 @@ void RtlCache::top(SvFile &f, const NodeCtx &c)
 
   const int  nsl   = int(sl.size());
   const int  nbk   = banked ? c.geom().banks : 1;
+  // THE MISS HANDLING FILE REPLACES THE SLAVE TO BANK ARBITRATION.
+  // It is the only thing presenting requests to the banks, so there
+  // is nothing left for a round robin pointer to choose between. It
+  // is built for one core interface; a second slave interface would
+  // contend with it and the emitter says so rather than guessing.
+  const bool nb    = c.nonblocking() && nsl == 1;
   const bool marb  = nsl > 1;
   const bool barb  = nbk > 1;
   const int  sbits = idx_bits(nsl);
   const int  bbits = idx_bits(nbk);
+  const std::string qual = c.reserve_qual();
 
   f.note("Node '" + c.name() + "', a " + c.type() + ".");
   f.note("");
@@ -1722,6 +2270,15 @@ void RtlCache::top(SvFile &f, const NodeCtx &c)
          " bank" + (nbk == 1 ? "" : "s") + ", " +
          std::to_string(ms.size()) + " master interface" +
          (ms.size() == 1 ? "" : "s") + ".");
+  if(nb) {
+    f.note("");
+    f.note("THE CORE LINK IS NOT BLOCKING, so the miss handling file");
+    f.note("of " + c.mod("mshr") + " sits between the core adapter "
+           "and the");
+    f.note("banks. It, and not an arbitration pointer, decides which");
+    f.note("bank sees what: a request whose line is already in flight");
+    f.note("never reaches a bank at all.");
+  }
   if(marb) {
     f.note("");
     f.note("The slave interfaces contend for the banks. Nothing in "
@@ -1773,7 +2330,14 @@ void RtlCache::top(SvFile &f, const NodeCtx &c)
     f.ln("  word_t s_req_wdata [NSlv];");
     f.ln("  logic [WordBytes-1:0] s_req_wstrb [NSlv];");
   }
+  if(nb) {
+    f.ln("  req_id_t s_req_id  [NSlv];");
+    if(!qual.empty()) {
+      f.ln("  logic  s_req_" + qual + " [NSlv];");
+    }
+  }
   f.ln("  logic  s_rsp_valid [NSlv];");
+  if(nb) f.ln("  req_id_t s_rsp_id  [NSlv];");
   f.ln("  word_t s_rsp_data  [NSlv];");
   f.ln("  logic  s_rsp_err   [NSlv];");
   f.ln();
@@ -1789,8 +2353,12 @@ void RtlCache::top(SvFile &f, const NodeCtx &c)
   f.ln("  logic  b_rsp_valid [NBnk];");
   f.ln("  word_t b_rsp_data  [NBnk];");
   f.ln("  logic  b_rsp_err   [NBnk];");
-  f.ln("  src_t  b_sel       [NBnk];");
-  f.ln("  src_t  b_owner     [NBnk];");
+  if(nb) {
+    f.ln("  mshr_t b_src       [NBnk];");
+  } else {
+    f.ln("  src_t  b_sel       [NBnk];");
+    f.ln("  src_t  b_owner     [NBnk];");
+  }
   f.ln();
   f.ln("  // the memory side of each bank");
   f.ln("  logic  b_mreq_valid [NBnk];");
@@ -1818,6 +2386,7 @@ void RtlCache::top(SvFile &f, const NodeCtx &c)
   f.ln("  bsel_t m_sel;");
   f.ln("  bsel_t m_owner;");
   f.ln("  logic  m_grant;");
+  if(nb) f.ln("  mshr_t m_req_src;");
   f.ln();
   if(marb) f.ln("  src_t  rr_slv [NBnk];");
   if(barb) f.ln("  bsel_t rr_bnk;");
@@ -1839,12 +2408,20 @@ void RtlCache::top(SvFile &f, const NodeCtx &c)
     f.ln("    .req_valid (s_req_valid[" + i2s(k) + "]),");
     f.ln("    .req_ready (s_req_ready[" + i2s(k) + "]),");
     f.ln("    .req_addr  (s_req_addr[" + i2s(k) + "]),");
+    if(nb) {
+      f.ln("    .req_id    (s_req_id[" + i2s(k) + "]),");
+      if(!qual.empty()) {
+        f.ln("    .req_" + pad(qual, 6) + "(s_req_" + qual + "[" +
+             i2s(k) + "]),");
+      }
+    }
     if(wr) {
       f.ln("    .req_write (s_req_write[" + i2s(k) + "]),");
       f.ln("    .req_wdata (s_req_wdata[" + i2s(k) + "]),");
       f.ln("    .req_wstrb (s_req_wstrb[" + i2s(k) + "]),");
     }
     f.ln("    .rsp_valid (s_rsp_valid[" + i2s(k) + "]),");
+    if(nb) f.ln("    .rsp_id    (s_rsp_id[" + i2s(k) + "]),");
     f.ln("    .rsp_data  (s_rsp_data[" + i2s(k) + "]),");
     f.ln("    .rsp_err   (s_rsp_err[" + i2s(k) + "])");
     f.ln("  );");
@@ -1852,8 +2429,46 @@ void RtlCache::top(SvFile &f, const NodeCtx &c)
   }
 
   // ------------------------------------------------------------------
+  // THE MISS HANDLING FILE, in place of the slave to bank
+  // arbitration. Everything the arbitration decided is decided here
+  // instead, and by a structure that can also merge and can hold a
+  // line in flight.
+  // ------------------------------------------------------------------
+  if(nb) {
+    f.ln("  " + c.mod("mshr") + " u_mshr (");
+    f.ln("    .clk         (clk),");
+    f.ln("    .rstn        (rstn),");
+    f.ln("    .req_valid   (s_req_valid[0]),");
+    f.ln("    .req_ready   (s_req_ready[0]),");
+    f.ln("    .req_addr    (s_req_addr[0]),");
+    f.ln("    .req_id      (s_req_id[0]),");
+    if(!qual.empty()) {
+      f.ln("    .req_" + pad(qual, 8) + "(s_req_" + qual + "[0]),");
+    }
+    f.ln("    .rsp_valid   (s_rsp_valid[0]),");
+    f.ln("    .rsp_id      (s_rsp_id[0]),");
+    f.ln("    .rsp_data    (s_rsp_data[0]),");
+    f.ln("    .rsp_err     (s_rsp_err[0]),");
+    f.ln("    .b_req_valid (b_req_valid),");
+    f.ln("    .b_req_ready (b_req_ready),");
+    f.ln("    .b_req_addr  (b_req_addr),");
+    f.ln("    .b_rsp_valid (b_rsp_valid),");
+    f.ln("    .b_rsp_data  (b_rsp_data),");
+    f.ln("    .b_rsp_err   (b_rsp_err),");
+    f.ln("    .b_src       (b_src)");
+    f.ln("  );");
+    f.ln();
+    f.ln("  // the register the fill being issued downstream belongs");
+    f.ln("  // to. It rides channel A as the source, so the response");
+    f.ln("  // names the request that asked for it.");
+    f.ln("  assign m_req_src = b_src[m_sel];");
+    f.ln();
+  }
+
+  // ------------------------------------------------------------------
   // slave to bank arbitration
   // ------------------------------------------------------------------
+  if(!nb) {
   f.ln("  // ---------------------------------------------------------");
   f.ln("  // Which slave each bank takes this cycle.");
   f.ln("  // ---------------------------------------------------------");
@@ -1952,6 +2567,7 @@ void RtlCache::top(SvFile &f, const NodeCtx &c)
   f.ln("    end");
   f.ln("  end");
   f.ln();
+  }   // !nb, the miss handling file replaced all of the above
 
   // ------------------------------------------------------------------
   // the banks
@@ -2058,6 +2674,7 @@ void RtlCache::top(SvFile &f, const NodeCtx &c)
     f.ln("    .mreq_valid (m_req_valid),");
     f.ln("    .mreq_ready (m_req_ready),");
     f.ln("    .mreq_addr  (m_req_addr),");
+    if(nb && i.sig.is_tl()) f.ln("    .mreq_src   (m_req_src),");
     if(memwr) {
       f.ln("    .mreq_write (m_req_write),");
       f.ln("    .mreq_wdata (m_req_wdata),");

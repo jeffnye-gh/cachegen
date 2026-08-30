@@ -10,7 +10,7 @@
         "handshake": {
           "request_strobes": "single_valid_with_rw",
           "accept": "ready",
-          "read_data_return": "valid_flag"
+          "read_data_return": "valid_with_id"
         },
         "channels": {
           "address": "shared",
@@ -19,7 +19,8 @@
         "address_granularity": "byte",
         "address_width_bits": 32,
         "read_width_bits": 32,
-        "write_width_bits": 32
+        "write_width_bits": 32,
+        "id_width_bits": 0
       }
     },
     "l_mem": {
@@ -40,26 +41,6 @@
         "address_width_bits": 32,
         "read_width_bits": 64,
         "write_width_bits": 64
-      }
-    },
-    "l_spare": {
-      "protocol": "custom",
-      "master_port_type": "nosuch",
-      "slave_port_type": "p_targ",
-      "custom": {
-        "handshake": {
-          "request_strobes": "single_valid_with_rw",
-          "accept": "ready",
-          "read_data_return": "valid_flag"
-        },
-        "channels": {
-          "address": "shared",
-          "data": "split_read_write"
-        },
-        "address_granularity": "byte",
-        "address_width_bits": 32,
-        "read_width_bits": 32,
-        "write_width_bits": 32
       }
     }
   }

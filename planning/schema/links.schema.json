@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://uarchlabs.com/schemas/cachegen/links-0.12.0.json",
+  "$id": "https://uarchlabs.com/schemas/cachegen/links-0.13.0.json",
   "title": "cachegen link definitions",
   "type": "object",
   "required": [
@@ -11,7 +11,7 @@
   "additionalProperties": false,
   "properties": {
     "schema_version": {
-      "const": "0.12.0"
+      "const": "0.13.0"
     },
     "file_type": {
       "const": "links"
@@ -143,8 +143,7 @@
             "channels",
             "address_granularity",
             "address_width_bits",
-            "read_width_bits",
-            "write_width_bits"
+            "read_width_bits"
           ],
           "additionalProperties": false,
           "properties": {
@@ -175,6 +174,12 @@
                     "same_cycle",
                     "valid_flag",
                     "valid_with_id"
+                  ]
+                },
+                "response_accept": {
+                  "enum": [
+                    "none",
+                    "ready"
                   ]
                 }
               }
@@ -231,7 +236,7 @@
             },
             "write_width_bits": {
               "type": "integer",
-              "minimum": 8,
+              "minimum": 0,
               "maximum": 4096
             },
             "write_granularity_bytes": {
@@ -260,6 +265,57 @@
               "type": "integer",
               "minimum": 0,
               "maximum": 64
+            },
+            "error_response": {
+              "type": "boolean"
+            },
+            "request_qualifiers": {
+              "type": "array",
+              "maxItems": 8,
+              "items": {
+                "type": "object",
+                "required": [
+                  "name",
+                  "policy"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9_]*$",
+                    "maxLength": 24
+                  },
+                  "policy": {
+                    "enum": [
+                      "mshr_reserve"
+                    ]
+                  },
+                  "reserve": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 64
+                  }
+                },
+                "allOf": [
+                  {
+                    "if": {
+                      "required": [
+                        "policy"
+                      ],
+                      "properties": {
+                        "policy": {
+                          "const": "mshr_reserve"
+                        }
+                      }
+                    },
+                    "then": {
+                      "required": [
+                        "reserve"
+                      ]
+                    }
+                  }
+                ]
+              }
             }
           }
         },
@@ -316,6 +372,46 @@
               "required": [
                 "tilelink"
               ]
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "custom"
+            ],
+            "properties": {
+              "custom": {
+                "required": [
+                  "handshake"
+                ],
+                "properties": {
+                  "handshake": {
+                    "required": [
+                      "read_data_return"
+                    ],
+                    "properties": {
+                      "read_data_return": {
+                        "const": "valid_with_id"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "custom": {
+                "required": [
+                  "id_width_bits"
+                ],
+                "properties": {
+                  "id_width_bits": {
+                    "minimum": 1
+                  }
+                }
+              }
             }
           }
         }

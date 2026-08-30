@@ -100,6 +100,7 @@ const std::vector<std::string> &SvFile::members()
     // types and functions, snake
     "addr_t", "tag_t", "set_t", "way_t", "line_t", "word_t",
     "beat_t", "bank_t", "repl_state_t",
+    "mshr_t", "req_id_t", "tgt_vec_t",
     "tag_of", "set_of", "bank_of", "offset_of", "word_of",
     "line_base", "line_addr",
     "repl_victim", "repl_update", "repl_rank",
@@ -113,7 +114,9 @@ const std::vector<std::string> &SvFile::members()
     "WordsPerLine", "WordIdxBits", "WordIdxLsb", "WordIdxMsb",
     "BeatBits", "BeatBytes", "Beats", "BeatIdxBits",
     "ReplBits", "ReplReset", "ReplStates", "ReplVictimTable",
-    "ReplUpdateTable", "RankBits", "AddrBits"
+    "ReplUpdateTable", "RankBits", "AddrBits",
+    "Mshrs", "MshrTargets", "MshrIdxBits", "MshrTgtBits",
+    "MshrCntBits", "ReqIdBits", "MaxOutstanding", "QualReserve"
   };
   return m;
 }

@@ -45,6 +45,22 @@ public:
     std::string comment;
   };
 
+  // ------------------------------------------------------------------
+  // A REQUESTER SUPPLIED QUALIFIER, one bit the master presents with
+  // a request. The bundle carries the wire and the policy says what
+  // reading it means, so the rule is emitted rather than reimplemented
+  // per node.
+  //
+  //   mshr_reserve   the request is refused unless `reserve` miss
+  //                  handling registers are free. It is the ONLY
+  //                  place the bit is read.
+  // ------------------------------------------------------------------
+  struct Qual {
+    std::string name;
+    std::string policy;
+    int         reserve{0};
+  };
+
   // Build the bundle for one link definition. Returns false and
   // fills why when the definition names something not covered.
   // site is where the definition sits. An empty file means no read
@@ -61,6 +77,25 @@ public:
   int  addr_bits()  const { return addr_bits_; }
   bool is_tl()      const { return protocol_ == "tilelink"; }
   bool has_bce()    const { return bce_; }
+
+  // ------------------------------------------------------------------
+  // The custom link's declared shape, for the emitters that have to
+  // build different hardware from it. Every one of these is zero or
+  // empty on a TileLink link.
+  // ------------------------------------------------------------------
+  int  read_bits()  const { return read_bits_; }
+  int  write_bits() const { return write_bits_; }
+  bool read_only()  const { return protocol_ == "custom" &&
+                                   write_bits_ == 0; }
+  int  id_bits()    const { return id_bits_; }
+  int  outstanding() const { return outstanding_; }
+  bool err_ret()    const { return err_ret_; }
+  bool rsp_ready()  const { return rsp_ready_; }
+  const std::string &ret_kind() const { return ret_; }
+  const std::vector<Qual> &quals() const { return quals_; }
+
+  // the qualifier carrying one policy, null when the link has none
+  const Qual *qual_of(const std::string &policy) const;
 
   // TL-C carries B, C and E, and this design exercises none of them.
   // The signalling is emitted and tied off, R-5, and this is the
@@ -90,11 +125,19 @@ private:
 
   std::vector<Sig>         sigs_;
   std::vector<std::string> tied_;
+  std::vector<Qual>        quals_;
   std::string              protocol_;
   std::string              conformance_;
+  std::string              ret_;
   int  data_bits_{0};
   int  data_bytes_{0};
   int  addr_bits_{0};
+  int  read_bits_{0};
+  int  write_bits_{0};
+  int  id_bits_{0};
+  int  outstanding_{1};
+  bool err_ret_{false};
+  bool rsp_ready_{false};
   bool bce_{false};
 };
 

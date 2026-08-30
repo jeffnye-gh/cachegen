@@ -56,13 +56,21 @@ TEST(GeometryMath, FieldDecomposition)
 }
 
 // --------------------------------------------------------------------
-// 32KB, 8 way, 64 byte line, against pa_bits 36 and a 4KB page. Eight
-// ways puts 4096 bytes in a way, exactly one page, so the index stops
-// at bit 11 and no index bit is translated.
+// 64KB, 8 way, 64 byte line, 2 banks line interleaved, against pa_bits
+// 36 and a 4KB page. Eight ways puts 8192 bytes in a way, which is TWO
+// pages, so the index reaches bit 12 and bit 12 is translated. THAT IS
+// WHY THIS NODE IS PIPT: the same geometry indexed virtually carries
+// one alias bit, and test_pacino asserts the pair rather than leaving
+// the capacity and the indexing to agree by accident.
 //
 // The tag is what pa_bits moves. Offset and index come from the
-// geometry alone, so 36 bit addressing widens the tag to 24 and
-// leaves everything below bit 12 where it was.
+// geometry alone, so 36 bit addressing leaves the tag at 23 and
+// everything below bit 13 where the geometry put it.
+//
+// The bank select is the BOTTOM bit of the index, R-7, so it is bit 6
+// and the set index is [12:7]. offset + index + tag still sums to
+// pa_bits, because the select is taken out of the index rather than
+// added beside it.
 // --------------------------------------------------------------------
 TEST(GeometryPacino, L1iDerivation)
 {
@@ -72,26 +80,36 @@ TEST(GeometryPacino, L1iDerivation)
 
   const Model::Geom &g = n->geom;
   ASSERT_TRUE(g.valid);
+  ASSERT_TRUE(g.bank_resolved) << g.bank_note;
 
-  EXPECT_EQ(uint64_t(64),   g.sets);
+  EXPECT_EQ(uint64_t(128),  g.sets);
   EXPECT_EQ(uint64_t(64),   g.sets_per_bank);
-  EXPECT_EQ(uint64_t(4096), g.bytes_per_way);
+  EXPECT_EQ(uint64_t(8192), g.bytes_per_way);
   EXPECT_EQ(6,  g.offset_bits);
-  EXPECT_EQ(6,  g.index_bits);
-  EXPECT_EQ(24, g.tag_bits);
-  EXPECT_EQ(0,  g.bank_bits);
+  EXPECT_EQ(7,  g.index_bits);
+  EXPECT_EQ(23, g.tag_bits);
+  EXPECT_EQ(1,  g.bank_bits);
   EXPECT_EQ(36, g.offset_bits + g.index_bits + g.tag_bits);
 
   EXPECT_EQ(uint64_t(0x00000003f), g.offset.mask);
-  EXPECT_EQ(uint64_t(0x000000fc0), g.index.mask);
-  EXPECT_EQ(uint64_t(0xffffff000), g.tag.mask);
+  EXPECT_EQ(uint64_t(0x000001fc0), g.index.mask);
+  EXPECT_EQ(uint64_t(0xfffffe000), g.tag.mask);
   EXPECT_EQ(0,  g.offset.shift);
   EXPECT_EQ(6,  g.index.shift);
-  EXPECT_EQ(12, g.tag.shift);
+  EXPECT_EQ(13, g.tag.shift);
   EXPECT_EQ(35, g.tag.msb);
 
-  // the index stops one bit below the 4096 byte page offset
-  EXPECT_EQ(11, g.index.msb);
+  // the index reaches ONE BIT ABOVE the 4096 byte page offset, which
+  // is the whole reason the node cannot be VIPT
+  EXPECT_EQ(12, g.index.msb);
+  EXPECT_LT(uint64_t(drv->model().page_bytes), g.bytes_per_way);
+
+  // the select is the bottom of the index and the set index is what
+  // is left above it
+  EXPECT_EQ(1, g.bank.bits);      EXPECT_EQ(6,  g.bank.lsb);
+  EXPECT_EQ(6, g.bank.msb);
+  EXPECT_EQ(6, g.set_index.bits); EXPECT_EQ(7,  g.set_index.lsb);
+  EXPECT_EQ(12, g.set_index.msb);
 
   // 64 byte line over a 32 byte TileLink bus
   EXPECT_EQ(2, g.refill_beats);

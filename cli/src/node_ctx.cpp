@@ -121,6 +121,55 @@ int NodeCtx::mshrs() const
 }
 
 // --------------------------------------------------------------------
+int NodeCtx::mshr_targets() const
+{
+  mark("/miss_handling/mshr_targets");
+  return mshr_targets_;
+}
+
+// --------------------------------------------------------------------
+const NodeCtx::Iface *NodeCtx::core_iface() const
+{
+  for(const Iface &i : ifaces_) {
+    if(!i.master && i.ok) return &i;
+  }
+  return nullptr;
+}
+
+// --------------------------------------------------------------------
+// The core link has to declare BOTH halves. Reading only one of them
+// would build a miss handling file for a link that cannot address it
+// or an identifier path with nothing to keep in flight.
+// --------------------------------------------------------------------
+bool NodeCtx::nonblocking() const
+{
+  if(!is_cache()) return false;
+  const Iface *i = core_iface();
+  if(i == nullptr || i->sig.is_tl()) return false;
+  return i->sig.outstanding() > 1 &&
+         i->sig.ret_kind() == "valid_with_id" &&
+         i->sig.id_bits() > 0;
+}
+
+// --------------------------------------------------------------------
+int NodeCtx::prefetch_reserve() const
+{
+  const Iface *i = core_iface();
+  if(i == nullptr) return 0;
+  const LinkSig::Qual *q = i->sig.qual_of("mshr_reserve");
+  return q == nullptr ? 0 : q->reserve;
+}
+
+// --------------------------------------------------------------------
+std::string NodeCtx::reserve_qual() const
+{
+  const Iface *i = core_iface();
+  if(i == nullptr) return std::string();
+  const LinkSig::Qual *q = i->sig.qual_of("mshr_reserve");
+  return q == nullptr ? std::string() : q->name;
+}
+
+// --------------------------------------------------------------------
 int NodeCtx::read_latency() const
 {
   mark("/timing/read_latency_cycles");
@@ -320,7 +369,8 @@ bool NodeCtx::build(const Model &m, const Model::Node &n,
                             std::string("same_cycle"));
   }
   if(body->contains("miss_handling")) {
-    mshrs_ = (*body)["miss_handling"].value("mshrs", 0);
+    mshrs_        = (*body)["miss_handling"].value("mshrs", 0);
+    mshr_targets_ = (*body)["miss_handling"].value("mshr_targets", 0);
   }
   if(body->contains("storage")) arrays((*body)["storage"]);
   range_check_ = body->value("range_check", false);

@@ -208,11 +208,18 @@ void RtlTb::tb_mem(SvFile &f, const NodeCtx &c,
   f.note("under test has somewhere to go. Beats come back with the");
   f.note("address baked into them, so a test can predict what a fill");
   f.note("should contain without keeping its own model.");
+  f.note("");
+  f.note("tb_hold STOPS IT TAKING REQUESTS. A test that has to show");
+  f.note("what the node does while a fill is outstanding needs the");
+  f.note("fill to stay outstanding, and the only way to arrange that");
+  f.note("from a test is to hold the responder off. It refuses on");
+  f.note("channel A, so nothing is half answered while it is high.");
   f.bar();
   RtlPkg::import_of(f, { c.pkg(), RtlPkg::tl_pkg_name() });
   f.ln("module " + mod + " (");
   f.ln("  input  logic  clk,");
   f.ln("  input  logic  rstn,");
+  f.ln("  input  logic  tb_hold,");
   f.ln();
   std::vector<std::string> pv = RtlCache::iface_ports(i, true);
   // the responder is the SLAVE end of a link this node masters, so
@@ -270,8 +277,9 @@ void RtlTb::tb_mem(SvFile &f, const NodeCtx &c,
   f.ln("  wire a_fire = " + a + "_valid && " + a + "_ready;");
   f.ln("  wire d_fire = " + d + "_valid && " + d + "_ready;");
   f.ln();
-  f.ln("  assign " + a + "_ready   = (tstate == T_IDLE) ||");
-  f.ln("                            (tstate == T_WDATA);");
+  f.ln("  assign " + a + "_ready   = !tb_hold &&");
+  f.ln("                            ((tstate == T_IDLE) ||");
+  f.ln("                             (tstate == T_WDATA));");
   f.ln("  assign " + d + "_valid   = (tstate == T_READ) ||");
   f.ln("                            (tstate == T_ACK);");
   f.ln("  assign " + d + "_opcode  = (tstate == T_READ)");
@@ -401,9 +409,168 @@ static void drv_task(SvFile &f, const NodeCtx &c,
                      const NodeCtx::Iface &i)
 {
   const bool tl = i.sig.is_tl();
+  const bool nb = !tl && c.nonblocking() && c.core_iface() == &i;
   const std::string n = i.name;
   const std::string vld = tl ? n + "_a_valid" : n + "_valid";
   const std::string rdy = tl ? n + "_a_ready" : n + "_ready";
+  const std::string qual = c.reserve_qual();
+
+  // ------------------------------------------------------------------
+  // A NON BLOCKING PORT NEEDS MORE THAN ONE DRIVER. The tasks below
+  // present a request WITHOUT waiting for its answer, so a test can
+  // hold several in flight, and a collector standing on the response
+  // port records every answer by the identifier it carries. drv_<n>
+  // is then written on top of them and keeps the shape every other
+  // node's driver has, so the tests that do not care about ordering
+  // are unchanged.
+  // ------------------------------------------------------------------
+  if(nb) {
+    f.ln("  // -------------------------------------------------------");
+    f.ln("  // The response collector. IT STANDS ON THE PORT rather");
+    f.ln("  // than being called, because a response may arrive for an");
+    f.ln("  // identifier no task is currently waiting on, which is");
+    f.ln("  // what out of order return means.");
+    f.ln("  //");
+    f.ln("  // nb_ord is the ARRIVAL ORDER of each identifier's");
+    f.ln("  // answer. Two identifiers whose order is the reverse of");
+    f.ln("  // the order they were presented in is the whole of the");
+    f.ln("  // out of order proof.");
+    f.ln("  // -------------------------------------------------------");
+    f.ln("  int unsigned nb_n;");
+    f.ln("  logic        nb_seen [MaxOutstanding];");
+    f.ln("  word_t       nb_data [MaxOutstanding];");
+    f.ln("  logic        nb_err  [MaxOutstanding];");
+    f.ln("  int unsigned nb_ord  [MaxOutstanding];");
+    f.ln("  int unsigned nb_fill;   // fills the responder was asked "
+         "for");
+    f.ln();
+    f.ln("  always_ff @(posedge clk or negedge rstn) begin");
+    f.ln("    if(!rstn) begin");
+    f.ln("      nb_n    <= 0;");
+    f.ln("      nb_fill <= 0;");
+    f.ln("    end else begin");
+    f.ln("      if(" + n + "_rvalid) begin");
+    f.ln("        nb_seen[" + n + "_rid] <= 1'b1;");
+    f.ln("        nb_data[" + n + "_rid] <= word_t'(" + n +
+         "_rdata);");
+    if(i.sig.err_ret()) {
+      f.ln("        nb_err [" + n + "_rid] <= " + n + "_rerr;");
+    }
+    f.ln("        nb_ord [" + n + "_rid] <= nb_n;");
+    f.ln("        nb_n <= nb_n + 1;");
+    f.ln("      end");
+    const NodeCtx::Iface *mp = c.masters().empty() ? nullptr
+                                                   : c.masters()[0];
+    if(mp != nullptr && mp->sig.is_tl()) {
+      f.ln("      // one count of what actually left for memory, so a");
+      f.ln("      // merge can be shown to have asked for ONE fill");
+      f.ln("      if(" + mp->name + "_a_valid && " + mp->name +
+           "_a_ready) begin");
+      f.ln("        nb_fill <= nb_fill + 1;");
+      f.ln("      end");
+    }
+    f.ln("    end");
+    f.ln("  end");
+    f.ln();
+    f.ln("  // forget every answer so far, so a test starts clean");
+    f.ln("  task automatic nb_clear();");
+    f.ln("    nb_n    = 0;");
+    f.ln("    nb_fill = 0;");
+    f.ln("    for(int unsigned k = 0; k < MaxOutstanding; k++) begin");
+    f.ln("      nb_seen[k] = 1'b0;");
+    f.ln("      nb_data[k] = '0;");
+    f.ln("      nb_err [k] = 1'b0;");
+    f.ln("      nb_ord [k] = 0;");
+    f.ln("    end");
+    f.ln("  endtask");
+    f.ln();
+    f.ln("  // -------------------------------------------------------");
+    f.ln("  // Present one request and return as soon as it has been");
+    f.ln("  // ACCEPTED, not when it has been answered. valid is left");
+    f.ln("  // standing, so calls back to back are accepted one per");
+    f.ln("  // cycle. Call nb_idle when there are no more.");
+    f.ln("  // -------------------------------------------------------");
+    f.ln("  task automatic nb_req(input addr_t a,");
+    f.ln("                        input req_id_t id,");
+    f.ln("                        input logic pf,");
+    f.ln("                        output logic took);");
+    f.ln("    int unsigned spin;");
+    f.ln("    " + n + "_valid = 1'b1;");
+    f.ln("    " + n + "_addr  = a;");
+    f.ln("    " + n + "_id    = id;");
+    if(!qual.empty()) f.ln("    " + n + "_" + qual + " = pf;");
+    f.ln("    spin = 0;");
+    f.ln("    while(!" + rdy + " && spin < cg_limit) begin");
+    f.ln("      @(negedge clk);");
+    f.ln("      spin = spin + 1;");
+    f.ln("    end");
+    f.ln("    took = " + rdy + ";");
+    f.ln("    // the posedge that ends this cycle is the transfer");
+    f.ln("    @(negedge clk);");
+    f.ln("  endtask");
+    f.ln();
+    f.ln("  // take the request down and stop asking");
+    f.ln("  task automatic nb_idle();");
+    f.ln("    " + n + "_valid = 1'b0;");
+    if(!qual.empty()) f.ln("    " + n + "_" + qual + " = 1'b0;");
+    f.ln("    @(negedge clk);");
+    f.ln("  endtask");
+    f.ln();
+    f.ln("  // -------------------------------------------------------");
+    f.ln("  // Ready, WITH NO REQUEST PRESENTED. The node's ready must");
+    f.ln("  // not read valid, so this is a legitimate question and");
+    f.ln("  // the answer is what a request would meet.");
+    f.ln("  // -------------------------------------------------------");
+    f.ln("  task automatic nb_ready(input logic pf, output logic r);");
+    f.ln("    " + n + "_valid = 1'b0;");
+    if(!qual.empty()) f.ln("    " + n + "_" + qual + " = pf;");
+    f.ln("    @(negedge clk);");
+    f.ln("    r = " + rdy + ";");
+    if(!qual.empty()) f.ln("    " + n + "_" + qual + " = 1'b0;");
+    f.ln("  endtask");
+    f.ln();
+    f.ln("  // -------------------------------------------------------");
+    f.ln("  // Present a request for a BOUNDED number of cycles and");
+    f.ln("  // say whether it was taken. A refusal is the answer this");
+    f.ln("  // is asked for, so it gives up quickly and a timeout is");
+    f.ln("  // not counted as a failure.");
+    f.ln("  // -------------------------------------------------------");
+    f.ln("  task automatic nb_try(input addr_t a,");
+    f.ln("                        input req_id_t id,");
+    f.ln("                        input logic pf,");
+    f.ln("                        input int unsigned n,");
+    f.ln("                        output logic took);");
+    f.ln("    int unsigned spin;");
+    f.ln("    " + n + "_valid = 1'b1;");
+    f.ln("    " + n + "_addr  = a;");
+    f.ln("    " + n + "_id    = id;");
+    if(!qual.empty()) f.ln("    " + n + "_" + qual + " = pf;");
+    f.ln("    took = 1'b0;");
+    f.ln("    spin = 0;");
+    f.ln("    while(!took && spin < n) begin");
+    f.ln("      took = " + rdy + ";");
+    f.ln("      if(!took) @(negedge clk);");
+    f.ln("      spin = spin + 1;");
+    f.ln("    end");
+    f.ln("    if(took) @(negedge clk);   // past the transfer edge");
+    f.ln("    " + n + "_valid = 1'b0;");
+    if(!qual.empty()) f.ln("    " + n + "_" + qual + " = 1'b0;");
+    f.ln("    @(negedge clk);");
+    f.ln("  endtask");
+    f.ln();
+    f.ln("  // wait until an identifier's answer has arrived");
+    f.ln("  task automatic nb_wait(input req_id_t id,");
+    f.ln("                         output logic ok);");
+    f.ln("    int unsigned spin;");
+    f.ln("    spin = 0;");
+    f.ln("    while(!nb_seen[id] && spin < cg_limit) begin");
+    f.ln("      @(negedge clk);");
+    f.ln("      spin = spin + 1;");
+    f.ln("    end");
+    f.ln("    ok = nb_seen[id];");
+    f.ln("  endtask");
+    f.ln();
+  }
 
   f.ln("  // -------------------------------------------------------");
   f.ln("  // Drive one request into interface '" + n + "'.");
@@ -415,6 +582,84 @@ static void drv_task(SvFile &f, const NodeCtx &c,
   f.ln("  // before it is looked at. Driving and sampling mid cycle");
   f.ln("  // removes both races and needs no clocking block.");
   f.ln("  // -------------------------------------------------------");
+  if(nb) {
+    // ONE REQUEST AT A TIME, on one identifier, so the tests that do
+    // not care about ordering keep the driver every other node has.
+    // The identifier is fixed rather than rotated because it is
+    // retired by the response this task waits for, and a fixed one
+    // cannot be in flight twice by construction.
+    f.ln("  //");
+    f.ln("  // This is the BLOCKING form, on identifier 0. It is what");
+    f.ln("  // the tests that do not care about ordering use. The");
+    f.ln("  // nb_ tasks above are the ones that hold several in");
+    f.ln("  // flight.");
+    f.ln("  task automatic drv_" + n + "(input addr_t a,");
+    f.ln("                       input logic  wr,");
+    f.ln("                       input word_t d,");
+    f.ln("                       input logic [WordBytes-1:0] be,");
+    f.ln("                       output word_t r);");
+    f.ln("    logic ok;");
+    f.ln("    int unsigned spin;");
+    f.ln();
+    f.ln("    @(negedge clk);");
+    f.ln("    " + n + "_valid = 1'b1;");
+    f.ln("    " + n + "_addr  = a;");
+    f.ln("    " + n + "_id    = '0;");
+    if(!qual.empty()) f.ln("    " + n + "_" + qual + " = 1'b0;");
+    f.ln();
+    f.ln("    ok   = " + rdy + ";");
+    f.ln("    spin = 0;");
+    f.ln("    while(!ok && spin < cg_limit) begin");
+    f.ln("      @(negedge clk);");
+    f.ln("      ok   = " + rdy + ";");
+    f.ln("      spin = spin + 1;");
+    f.ln("    end");
+    f.ln("    if(spin >= cg_limit) begin");
+    f.ln("      cg_fail = cg_fail + 1;");
+    f.ln("      $display(\"FAIL %0t drv_" + n +
+         " request never accepted\", $time);");
+    f.ln("    end");
+    f.ln();
+    f.ln("    @(negedge clk);");
+    f.ln("    " + n + "_valid = 1'b0;");
+    f.ln();
+    f.ln("    // the answer is the one carrying this identifier, and");
+    f.ln("    // nothing else about the response says which it is");
+    f.ln("    r    = '0;");
+    f.ln("    ok   = 1'b0;");
+    f.ln("    spin = 0;");
+    f.ln("    while(!ok && spin < cg_limit) begin");
+    f.ln("      ok = " + n + "_rvalid && (" + n + "_rid == '0);");
+    f.ln("      if(ok) r = word_t'(" + n + "_rdata);");
+    f.ln("      if(!ok) @(negedge clk);");
+    f.ln("      spin = spin + 1;");
+    f.ln("    end");
+    f.ln("    if(spin >= cg_limit) begin");
+    f.ln("      cg_fail = cg_fail + 1;");
+    f.ln("      $display(\"FAIL %0t drv_" + n +
+         " no response\", $time);");
+    f.ln("    end");
+    f.ln();
+    f.ln("    // PAST THE PRESENTATION. The identifier is retired by");
+    f.ln("    // the response being presented and may be reissued in");
+    f.ln("    // the NEXT cycle, so a caller that reissued the moment");
+    f.ln("    // this returned would be presenting it twice in one.");
+    f.ln("    @(negedge clk);");
+    f.ln();
+    f.ln("    // the write arguments are what every other node's");
+    f.ln("    // driver takes; this link declares no write channel");
+    f.ln("    /* verilator lint_off UNUSEDSIGNAL */");
+    f.ln("    if(wr || (|d) || (|be)) begin");
+    f.ln("      cg_fail = cg_fail + 1;");
+    f.ln("      $display(\"FAIL %0t drv_" + n +
+         " asked for a write on a read only link\",");
+    f.ln("               $time);");
+    f.ln("    end");
+    f.ln("    /* verilator lint_on UNUSEDSIGNAL */");
+    f.ln("  endtask");
+    f.ln();
+    return;
+  }
   f.ln("  task automatic drv_" + n + "(input addr_t a,");
   f.ln("                       input logic  wr,");
   f.ln("                       input word_t d,");
@@ -555,10 +800,18 @@ void RtlTb::unit_tb(SvFile &f, const NodeCtx &c)
   f.ln("  );");
   f.ln();
 
+  if(!ms.empty()) {
+    f.ln("  // held high, the responder takes no request. See the note");
+    f.ln("  // on the responder for why a test needs that.");
+    f.ln("  logic tb_hold;");
+    f.ln();
+  }
   for(const NodeCtx::Iface *ip : ms) {
+    if(!ip->sig.is_tl()) continue;
     f.ln("  " + c.mod("tb_mem") + " u_" + ip->name + "_mem (");
-    f.ln("    .clk  (clk),");
-    f.ln("    .rstn (rstn),");
+    f.ln("    .clk     (clk),");
+    f.ln("    .rstn    (rstn),");
+    f.ln("    .tb_hold (tb_hold),");
     f.lines(RtlCache::iface_conn(*ip, ip->name, true));
     f.ln("  );");
     f.ln();
@@ -597,12 +850,16 @@ void RtlTb::unit_tb(SvFile &f, const NodeCtx &c)
 
   f.ln("  initial begin");
   f.ln("    cg_init();");
+  if(!ms.empty()) f.ln("    tb_hold = 1'b0;");
   for(const NodeCtx::Iface *ip : sl) {
     for(const LinkSig::Sig &g : ip->sig.sigs()) {
       if(g.m_drives == ip->master) continue;   // the node owns it
       f.ln("    " + LinkSig::wire(ip->name, g.local) + " = " +
            (g.bits == 1 ? "1'b0" : "'0") + ";");
     }
+  }
+  if(c.nonblocking() && c.core_iface() != nullptr) {
+    f.ln("    nb_clear();");
   }
   f.ln("    cg_reset(rstn);");
   f.ln("    run_tests();");
@@ -650,6 +907,8 @@ void RtlTb::unit_tests(SvFile &f, const NodeCtx &c)
     return;
   }
 
+  const bool nb = c.nonblocking() && c.core_iface() == s0;
+
   f.ln("  task automatic run_tests();");
   f.ln("    addr_t a;");
   f.ln("    word_t r0;");
@@ -659,6 +918,13 @@ void RtlTb::unit_tests(SvFile &f, const NodeCtx &c)
   if(cache) {
     f.ln("    int unsigned t0;");
     f.ln("    int unsigned t1;");
+  }
+  if(nb) {
+    f.ln("    int unsigned k;");
+    f.ln("    logic        took;");
+    f.ln("    logic        all_ok;");
+    f.ln("    logic        rdy_dm;");
+    f.ln("    logic        rdy_pf;");
   }
   f.ln();
 
@@ -803,6 +1069,232 @@ void RtlTb::unit_tests(SvFile &f, const NodeCtx &c)
     }
   }
 
+  // ------------------------------------------------------------------
+  // R-8. THE NON BLOCKING CORE PORT. Nothing above can see any of it:
+  // every test so far issues one request and waits for it, which is
+  // the behaviour a blocking port already had. What is below needs
+  // several requests in flight at once, and it arranges that by
+  // holding the downstream responder off so a fill cannot complete.
+  // ------------------------------------------------------------------
+  if(nb) {
+    const std::string n  = s0->name;
+    const uint64_t line  = c.geom().line_bytes;
+    // Every address below is DERIVED. The stride between them is one
+    // line, so consecutive ones alternate banks where the node has
+    // two, and none of them collides with the addresses the tests
+    // above have already warmed.
+    const uint64_t b_out = 0x00040000;   // the outstanding set
+    const uint64_t b_ord = 0x00050000;   // the out of order pair
+    const uint64_t b_mrg = 0x00060000;   // the merged line
+    const uint64_t b_tgt = 0x00070000;   // the register filled up
+    const uint64_t b_alt = 0x00071000;   // an unrelated line
+    const uint64_t b_pf  = 0x00080000;   // the prefetch reserve set
+    const uint64_t b_pfl = 0x00090000;   // the prefetch itself
+    const int      ab    = c.pa_bits();
+
+    auto lit = [&](uint64_t v) {
+      char buf[64];
+      snprintf(buf, sizeof(buf), "%d'h%08llx", ab,
+               static_cast<unsigned long long>(v));
+      return std::string(buf);
+    };
+
+    f.ln("    // -----------------------------------------------------");
+    f.ln("    // T6. EVERY OUTSTANDING REQUEST IS ACCEPTED BEFORE ANY");
+    f.ln("    // OF THEM IS ANSWERED. The responder is held off, so no");
+    f.ln("    // fill can complete and every request stays in flight;");
+    f.ln("    // a blocking port would have stopped at the first one.");
+    f.ln("    // -----------------------------------------------------");
+    f.ln("    tb_hold = 1'b1;");
+    f.ln("    nb_clear();");
+    f.ln("    all_ok = 1'b1;");
+    f.ln("    for(k = 0; k < MaxOutstanding; k++) begin");
+    f.ln("      nb_req(" + lit(b_out) + " + addr_t'(k) * "
+         "addr_t'(LineBytes),");
+    f.ln("             req_id_t'(k), 1'b0, took);");
+    f.ln("      if(!took) all_ok = 1'b0;");
+    f.ln("    end");
+    f.ln("    nb_idle();");
+    f.ln("    cg_check(\"every outstanding request was accepted\",");
+    f.ln("             all_ok);");
+    f.ln("    cg_check(\"and none of them had been answered yet\",");
+    f.ln("             nb_n == 0);");
+    f.ln();
+    f.ln("    // let them all come back, each on its own identifier");
+    f.ln("    tb_hold = 1'b0;");
+    f.ln("    all_ok  = 1'b1;");
+    f.ln("    for(k = 0; k < MaxOutstanding; k++) begin");
+    f.ln("      nb_wait(req_id_t'(k), took);");
+    f.ln("      if(!took) all_ok = 1'b0;");
+    f.ln("    end");
+    f.ln("    cg_check(\"every identifier was answered\", all_ok);");
+    f.ln("    cg_check(\"one answer per identifier and no more\",");
+    f.ln("             nb_n == MaxOutstanding);");
+    f.ln("    cg_check(\"and two of them carry different lines\",");
+    f.ln("             nb_data[0] != nb_data[1]);");
+    f.ln("    all_ok = 1'b1;");
+    f.ln("    for(k = 0; k < MaxOutstanding; k++) begin");
+    f.ln("      if(nb_err[k]) all_ok = 1'b0;");
+    f.ln("    end");
+    f.ln("    cg_check(\"and no answer carried an error\", all_ok);");
+    f.ln();
+    unit_covers(c, "/miss_handling/mshrs",
+                "every outstanding request was accepted");
+
+    f.ln("    // -----------------------------------------------------");
+    f.ln("    // T7. AN ANSWER OUT OF ORDER. One line is warmed so a");
+    f.ln("    // request for it hits, and a cold line in the other");
+    f.ln("    // bank is left stuck at the held responder. The hit is");
+    f.ln("    // presented SECOND and answered FIRST, and the");
+    f.ln("    // identifier is the only thing that says so.");
+    f.ln("    // -----------------------------------------------------");
+    f.ln("    " + d0 + "(" + lit(b_ord + line) + ", 1'b0, '0, '0, "
+         "r0);");
+    f.ln("    tb_hold = 1'b1;");
+    f.ln("    nb_clear();");
+    f.ln("    nb_req(" + lit(b_ord) + ",        req_id_t'(1), 1'b0, "
+         "took);");
+    f.ln("    nb_req(" + lit(b_ord + line) + ", req_id_t'(2), 1'b0, "
+         "took);");
+    f.ln("    nb_idle();");
+    f.ln("    nb_wait(req_id_t'(2), took);");
+    f.ln("    cg_check(\"the request presented second was answered\",");
+    f.ln("             took);");
+    f.ln("    cg_check(\"while the one presented first was still "
+         "outstanding\",");
+    f.ln("             !nb_seen[1]);");
+    f.ln("    tb_hold = 1'b0;");
+    f.ln("    nb_wait(req_id_t'(1), took);");
+    f.ln("    cg_check(\"the first was answered after it\", took);");
+    f.ln("    cg_check(\"so the two answers came back out of order\",");
+    f.ln("             nb_ord[2] < nb_ord[1]);");
+    f.ln();
+    if(bank) {
+      unit_covers(c, "/geometry/banks",
+                  "so the two answers came back out of order");
+    }
+
+    f.ln("    // -----------------------------------------------------");
+    f.ln("    // T8. TWO REQUESTS FOR ONE LINE ARE ANSWERED");
+    f.ln("    // SEPARATELY. They share one register, so ONE line is");
+    f.ln("    // fetched, and each is answered in its own cycle");
+    f.ln("    // carrying its own identifier and the same 'LineBits'");
+    f.ln("    // bits. The requester sees nothing of the merge.");
+    f.ln("    // -----------------------------------------------------");
+    f.ln("    tb_hold = 1'b1;");
+    f.ln("    nb_clear();");
+    f.ln("    all_ok = 1'b1;");
+    f.ln("    nb_req(" + lit(b_mrg) + ", req_id_t'(3), 1'b0, took);");
+    f.ln("    if(!took) all_ok = 1'b0;");
+    f.ln("    nb_req(" + lit(b_mrg) + ", req_id_t'(4), 1'b0, took);");
+    f.ln("    if(!took) all_ok = 1'b0;");
+    f.ln("    nb_idle();");
+    f.ln("    cg_check(\"both requests for one line were accepted\",");
+    f.ln("             all_ok);");
+    f.ln("    tb_hold = 1'b0;");
+    f.ln("    nb_wait(req_id_t'(3), took);");
+    f.ln("    all_ok = took;");
+    f.ln("    nb_wait(req_id_t'(4), took);");
+    f.ln("    cg_check(\"and both were answered\", all_ok && took);");
+    f.ln("    cg_check(\"each with its own identifier and one "
+         "line\",");
+    f.ln("             nb_data[3] == nb_data[4]);");
+    f.ln("    cg_check(\"one line was fetched for the two of them\",");
+    f.ln("             nb_fill == 1);");
+    f.ln();
+    unit_covers(c, "/miss_handling/mshr_targets",
+                "one line was fetched for the two of them");
+
+    f.ln("    // -----------------------------------------------------");
+    f.ln("    // T9. THE TARGET AFTER THE LAST ONE IS REFUSED. Filling");
+    f.ln("    // one register's targets takes ready down, and it stays");
+    f.ln("    // down for a request naming an UNRELATED line, because");
+    f.ln("    // ready reads the occupancy and never the address.");
+    f.ln("    // -----------------------------------------------------");
+    f.ln("    tb_hold = 1'b1;");
+    f.ln("    nb_clear();");
+    f.ln("    all_ok = 1'b1;");
+    f.ln("    for(k = 0; k < MshrTargets; k++) begin");
+    f.ln("      nb_req(" + lit(b_tgt) + ", req_id_t'(k), 1'b0, took);");
+    f.ln("      if(!took) all_ok = 1'b0;");
+    f.ln("    end");
+    f.ln("    nb_idle();");
+    f.ln("    cg_check(\"every target of one register was accepted\",");
+    f.ln("             all_ok);");
+    f.ln("    nb_ready(1'b0, rdy_dm);");
+    f.ln("    cg_check(\"the target after the last one is refused\",");
+    f.ln("             !rdy_dm);");
+    f.ln("    nb_try(" + lit(b_alt) + ", req_id_t'(8), 1'b0, 8, "
+         "took);");
+    f.ln("    cg_check(\"and so is a request to an unrelated line\",");
+    f.ln("             !took);");
+    f.ln("    tb_hold = 1'b0;");
+    f.ln("    all_ok  = 1'b1;");
+    f.ln("    for(k = 0; k < MshrTargets; k++) begin");
+    f.ln("      nb_wait(req_id_t'(k), took);");
+    f.ln("      if(!took) all_ok = 1'b0;");
+    f.ln("    end");
+    f.ln("    cg_check(\"every one of them was answered separately\",");
+    f.ln("             all_ok && (nb_n == MshrTargets));");
+    f.ln("    nb_ready(1'b0, rdy_dm);");
+    f.ln("    cg_check(\"and ready came back once it had drained\",");
+    f.ln("             rdy_dm);");
+    f.ln();
+
+    if(c.prefetch_reserve() > 0) {
+      const std::string q = c.reserve_qual();
+      const int res = c.prefetch_reserve();
+      f.ln("    // ---------------------------------------------------");
+      f.ln("    // T10. THE '" + q + "' RESERVE. With fewer than " +
+           std::to_string(res) + " registers");
+      f.ln("    // free a request carrying the bit is refused and a");
+      f.ln("    // request without it is not. That difference is the");
+      f.ln("    // whole of what the bit does.");
+      f.ln("    // ---------------------------------------------------");
+      f.ln("    tb_hold = 1'b1;");
+      f.ln("    nb_clear();");
+      f.ln("    all_ok = 1'b1;");
+      f.ln("    for(k = 0; k < Mshrs - 1; k++) begin");
+      f.ln("      nb_req(" + lit(b_pf) + " + addr_t'(k) * "
+           "addr_t'(LineBytes),");
+      f.ln("             req_id_t'(k), 1'b0, took);");
+      f.ln("      if(!took) all_ok = 1'b0;");
+      f.ln("    end");
+      f.ln("    nb_idle();");
+      f.ln("    cg_check(\"the file was filled to one free "
+           "register\",");
+      f.ln("             all_ok);");
+      f.ln("    nb_ready(1'b1, rdy_pf);");
+      f.ln("    nb_ready(1'b0, rdy_dm);");
+      f.ln("    cg_check(\"a " + q + " is refused inside the "
+           "reserve\",");
+      f.ln("             !rdy_pf);");
+      f.ln("    cg_check(\"and a request without the bit is not\",");
+      f.ln("             rdy_dm);");
+      f.ln();
+      f.ln("    tb_hold = 1'b0;");
+      f.ln("    all_ok  = 1'b1;");
+      f.ln("    for(k = 0; k < Mshrs - 1; k++) begin");
+      f.ln("      nb_wait(req_id_t'(k), took);");
+      f.ln("      if(!took) all_ok = 1'b0;");
+      f.ln("    end");
+      f.ln("    cg_check(\"the file drained\", all_ok);");
+      f.ln("    nb_ready(1'b1, rdy_pf);");
+      f.ln("    cg_check(\"a " + q + " is accepted outside the "
+           "reserve\",");
+      f.ln("             rdy_pf);");
+      f.ln("    nb_clear();");
+      f.ln("    nb_req(" + lit(b_pfl) + ", req_id_t'(0), 1'b1, "
+           "took);");
+      f.ln("    nb_idle();");
+      f.ln("    nb_wait(req_id_t'(0), rdy_pf);");
+      f.ln("    cg_check(\"and it is answered like any other "
+           "request\",");
+      f.ln("             took && rdy_pf);");
+      f.ln();
+    }
+  }
+
   f.ln("  endtask");
 }
 
@@ -931,8 +1423,22 @@ void RtlTb::sys_tb(SvFile &f, const Model &m,
     const std::string path = "u_dut.u_" + memn->name + ".u_" +
                              mi.name + "_slv";
     const int beat = mi.sig.data_bits();
-    const int wbits = ag.empty() ? 32 : ag[0]->ifaces()[0].sig.data_bits();
-    const int abits = ag.empty() ? 32 : ag[0]->ifaces()[0].sig.addr_bits();
+    // ------------------------------------------------------------
+    // THE AGENTS NEED NOT BE THE SAME WIDTH. A word out of the
+    // memory is compared against what an agent read back, so the
+    // width that belongs here is the NARROWEST agent's: the memory
+    // holds a word of that size at that address, and a wider agent
+    // returns it in the low bits of a whole line.
+    // ------------------------------------------------------------
+    int wbits = 0;
+    int abits = 0;
+    for(const NodeCtx *a : ag) {
+      const int w = a->ifaces()[0].sig.data_bits();
+      if(wbits == 0 || w < wbits) wbits = w;
+      abits = std::max(abits, a->ifaces()[0].sig.addr_bits());
+    }
+    if(wbits == 0) wbits = 32;
+    if(abits == 0) abits = 32;
     const int wsh   = Replacement::log2i(wbits / 8);
     const int wsel  = Replacement::log2i(beat / wbits);
 
@@ -1074,10 +1580,23 @@ void RtlTb::sys_tests(SvFile &f, const Model &m,
   // and the number of lines that forces a line out of every level is
   // twice the widest associativity plus one.
   // ------------------------------------------------------------------
-  const int abits = paths.empty()
-                    ? 32 : paths[0].agent->ifaces()[0].sig.addr_bits();
-  const int wbits = paths.empty()
-                    ? 32 : paths[0].agent->ifaces()[0].sig.data_bits();
+  // ------------------------------------------------------------------
+  // THE AGENTS NEED NOT BE THE SAME WIDTH. wbits is the NARROWEST of
+  // them, because it is the width every cross agent comparison and
+  // every comparison against the memory has to be made at: a wider
+  // agent reads a whole line and the narrow one reads a word out of
+  // the front of it. Each agent's own r0 and r1 are declared at its
+  // OWN width, so nothing is truncated on the way in.
+  // ------------------------------------------------------------------
+  int abits = 0;
+  int wbits = 0;
+  for(const Path &p : paths) {
+    const int w = p.agent->ifaces()[0].sig.data_bits();
+    if(wbits == 0 || w < wbits) wbits = w;
+    abits = std::max(abits, p.agent->ifaces()[0].sig.addr_bits());
+  }
+  if(abits == 0) abits = 32;
+  if(wbits == 0) wbits = 32;
 
   uint64_t stride = 0;
   int      ways   = 1;
@@ -1117,8 +1636,9 @@ void RtlTb::sys_tests(SvFile &f, const Model &m,
   f.ln("  task automatic run_tests();");
   for(const Path &p : paths) {
     const std::string a = p.agent->name();
-    f.ln("    logic [" + i2s(wbits - 1) + ":0] " + a + "_r0;");
-    f.ln("    logic [" + i2s(wbits - 1) + ":0] " + a + "_r1;");
+    const int w = p.agent->ifaces()[0].sig.data_bits();
+    f.ln("    logic [" + i2s(w - 1) + ":0] " + a + "_r0;");
+    f.ln("    logic [" + i2s(w - 1) + ":0] " + a + "_r1;");
   }
   f.ln("    logic [" + i2s(wbits - 1) + ":0] wv;");
   f.ln("    logic [" + i2s(abits - 1) + ":0] ea;");
@@ -1414,9 +1934,14 @@ void RtlTb::sys_tests(SvFile &f, const Model &m,
            }
            return e;
          }() + ");");
+    // The two agents may read different widths of the same line, so
+    // the comparison is made at the NARROWER of them. Both addresses
+    // are line aligned, so the narrow agent's word is the front of
+    // the wide one's line and there is nothing else to compare.
     f.ln("    cg_check(\"and they agree about what is at it\",");
-    f.ln("             " + paths[0].agent->name() + "_r0 == " +
-         paths[1].agent->name() + "_r0);");
+    f.ln("             " + i2s(wbits) + "'(" +
+         paths[0].agent->name() + "_r0) == " + i2s(wbits) + "'(" +
+         paths[1].agent->name() + "_r0));");
     for(const Path &p : paths) {
       top_covers(p.l1, "/indexing", bench,
                  "and they agree about what is at it");
@@ -1492,11 +2017,22 @@ void RtlTb::tb_slv(SvFile &f, const NodeCtx &c,
   f.ln("    end else begin");
   f.ln("      " + LinkSig::wire(n, "rvalid") + " <= 1'b0;");
   f.ln("      if(fire) begin");
-  f.ln("        if(" + LinkSig::wire(n, "rw") + ") begin");
-  f.ln("          store[key_of(" + LinkSig::wire(n, "addr") + ")] =");
-  f.ln("              " + LinkSig::wire(n, "wdata") + ";");
-  f.ln("        end else begin");
+  if(!i.sig.read_only()) {
+    f.ln("        if(" + LinkSig::wire(n, "rw") + ") begin");
+    f.ln("          store[key_of(" + LinkSig::wire(n, "addr") +
+         ")] =");
+    f.ln("              " + LinkSig::wire(n, "wdata") + ";");
+    f.ln("        end else begin");
+  } else {
+    f.ln("        // the link declares no write channel, so every");
+    f.ln("        // request is a read and the store is read only");
+    f.ln("        begin");
+  }
   f.ln("          " + LinkSig::wire(n, "rvalid") + " <= 1'b1;");
+  if(i.sig.id_bits() > 0) {
+    f.ln("          " + LinkSig::wire(n, "rid") + " <= " +
+         LinkSig::wire(n, "id") + ";");
+  }
   f.ln("          " + LinkSig::wire(n, "rdata") + " <=");
   f.ln("              (store.exists(key_of(" +
        LinkSig::wire(n, "addr") + ")) != 0)");
@@ -1514,10 +2050,34 @@ void RtlTb::tb_slv(SvFile &f, const NodeCtx &c,
   f.ln("  end");
   f.ln("  /* verilator lint_on BLKSEQ */");
   f.ln();
-  f.ln("  /* verilator lint_off UNUSEDSIGNAL */");
-  f.ln("  wire unused = |{" + LinkSig::wire(n, "wstrb") + "};");
-  f.ln("  /* verilator lint_on UNUSEDSIGNAL */");
-  f.ln();
+  if(i.sig.err_ret()) {
+    f.ln("  // this responder has no error to return");
+    f.ln("  assign " + LinkSig::wire(n, "rerr") + " = 1'b0;");
+    f.ln();
+  }
+  {
+    std::vector<std::string> unread;
+    for(const LinkSig::Sig &g : i.sig.sigs()) {
+      if(!g.m_drives) continue;      // the responder drives it
+      if(g.local == "valid" || g.local == "addr" ||
+         g.local == "rw" || g.local == "wdata") continue;
+      if(g.local == "id" && i.sig.id_bits() > 0) continue;
+      unread.push_back(LinkSig::wire(n, g.local));
+    }
+    if(!unread.empty()) {
+      f.ln("  /* verilator lint_off UNUSEDSIGNAL */");
+      f.ln("  wire unused = |{");
+      std::string acc;
+      for(const std::string &s : unread) {
+        if(!acc.empty()) acc += ",\n";
+        acc += "      " + s;
+      }
+      f.ln(acc);
+      f.ln("  };");
+      f.ln("  /* verilator lint_on UNUSEDSIGNAL */");
+      f.ln();
+    }
+  }
   f.ln("endmodule");
 }
 
@@ -1649,11 +2209,33 @@ void RtlTb::agent_tests(SvFile &f, const NodeCtx &c)
   f.ln("    cg_check(\"a read returns the responder's seed\",");
   f.ln("             r0 == WordBits'(a));");
   f.ln();
-  f.ln("    // a write is visible to the read that follows it");
-  f.ln("    go(a, 1'b1, WordBits'(32'hdead_beef), r1);");
-  f.ln("    go(a, 1'b0, '0, r1);");
-  f.ln("    cg_check(\"a read sees the write before it\",");
-  f.ln("             r1 == WordBits'(32'hdead_beef));");
+  const NodeCtx::Iface *i0 = c.ifaces().empty() ? nullptr
+                                                : &c.ifaces()[0];
+  const bool rdonly = i0 != nullptr && i0->sig.read_only();
+
+  if(rdonly) {
+    // The link declares no write channel, so there is no write to
+    // see. What is left to check is that the agent runs a SECOND
+    // request at all: it is one outstanding, so the second one
+    // cannot start until the first has been answered, and a driver
+    // that never released would hang here rather than pass.
+    f.ln("    // this link declares no write channel, so the second");
+    f.ln("    // request is another read. A DIFFERENT ADDRESS, so a");
+    f.ln("    // driver that answered from the first request's data");
+    f.ln("    // would be caught rather than agreed with.");
+    f.ln("    a = AddrBits'(32'h0000_2000);");
+    f.ln("    go(a, 1'b0, '0, r1);");
+    f.ln("    cg_check(\"a second read returns its own seed\",");
+    f.ln("             r1 == WordBits'(a));");
+    f.ln("    cg_check(\"and it is not the first read's answer\",");
+    f.ln("             r1 != r0);");
+  } else {
+    f.ln("    // a write is visible to the read that follows it");
+    f.ln("    go(a, 1'b1, WordBits'(32'hdead_beef), r1);");
+    f.ln("    go(a, 1'b0, '0, r1);");
+    f.ln("    cg_check(\"a read sees the write before it\",");
+    f.ln("             r1 == WordBits'(32'hdead_beef));");
+  }
   f.ln();
   f.ln("    cg_check(\"the agent went idle after the last request\",");
   f.ln("             !cmd_busy);");

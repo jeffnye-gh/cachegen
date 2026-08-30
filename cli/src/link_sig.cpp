@@ -88,11 +88,21 @@ void LinkSig::add(const std::string &local, int bits, bool m_drives,
 }
 
 // --------------------------------------------------------------------
+const LinkSig::Qual *LinkSig::qual_of(const std::string &policy) const
+{
+  for(const Qual &q : quals_) {
+    if(q.policy == policy) return &q;
+  }
+  return nullptr;
+}
+
+// --------------------------------------------------------------------
 bool LinkSig::build(const json &link, std::string &why,
                     const LinkRef &site)
 {
   sigs_.clear();
   tied_.clear();
+  quals_.clear();
 
   protocol_ = link.value("protocol", std::string());
   if(!site.file.empty() && link.contains("protocol")) {
@@ -206,8 +216,17 @@ bool LinkSig::custom(const json &cu, std::string &why,
   conformance_ = "custom";
   addr_bits_ = as_int(cu, "address_width_bits", 32, site, "custom");
 
+  // ------------------------------------------------------------------
+  // A READ ONLY LINK IS write_width_bits 0, or the field absent.
+  // TD-L1I-7. The node knowing it is read only was never enough: the
+  // LINK has to say so, or the adapter carries a write channel tied
+  // off into an unused net and the two disagree about the port list.
+  // ------------------------------------------------------------------
   const int rw_bits = as_int(cu, "read_width_bits",  32, site, "custom");
-  const int ww_bits = as_int(cu, "write_width_bits", 32, site, "custom");
+  const int ww_bits = as_int(cu, "write_width_bits",  0, site, "custom");
+  read_bits_  = rw_bits;
+  write_bits_ = ww_bits;
+  const bool rd_only = (ww_bits == 0);
   data_bits_  = rw_bits > ww_bits ? rw_bits : ww_bits;
   data_bytes_ = data_bits_ / 8;
 
@@ -229,17 +248,35 @@ bool LinkSig::custom(const json &cu, std::string &why,
   const std::string data_ch =
       as_str(ch, "data", "split_read_write", site, "custom/channels");
 
+  const std::string rsp_acc =
+      as_str(hs, "response_accept", "none", site, "custom/handshake");
+
   const int id_bits = as_int(cu, "id_width_bits", 0, site, "custom");
+  id_bits_     = id_bits;
+  outstanding_ = as_int(cu, "outstanding_requests", 1, site, "custom");
+  ret_         = ret;
 
   // ------------------------------------------------------------------
-  // request strobes
+  // request strobes. A READ ONLY LINK CARRIES NO STROBE AT ALL: a
+  // read/write bit would take one constant value, and a separate
+  // write valid would name a channel the link does not have.
   // ------------------------------------------------------------------
   if(strobes == "single_valid_with_rw") {
     add("valid", 1, true, "a request is live");
-    add("rw",    1, true, "1 write, 0 read");
+    if(rd_only) {
+      tied_.push_back("no read/write strobe, the link declares no "
+                      "write channel and every request is a read");
+    } else {
+      add("rw", 1, true, "1 write, 0 read");
+    }
   } else if(strobes == "separate_read_write") {
     add("rd_valid", 1, true, "a read is live");
-    add("wr_valid", 1, true, "a write is live");
+    if(rd_only) {
+      tied_.push_back("no write valid, the link declares no write "
+                      "channel");
+    } else {
+      add("wr_valid", 1, true, "a write is live");
+    }
   } else {
     why = "request_strobes '" + strobes + "' is not covered";
     return false;
@@ -261,9 +298,39 @@ bool LinkSig::custom(const json &cu, std::string &why,
   add("id", id_bits, true, "request id");
 
   // ------------------------------------------------------------------
+  // THE REQUESTER SUPPLIED QUALIFIERS, TD-L1I-9. One bit each,
+  // presented with the request. The policy travels with the wire so
+  // that the rule reading it is emitted from the declaration rather
+  // than written once per node.
+  // ------------------------------------------------------------------
+  if(cu.contains("request_qualifiers")) {
+    if(!site.file.empty()) {
+      cfg_read(site.file, site.ptr + "/custom/request_qualifiers");
+    }
+    for(const json &q : cu["request_qualifiers"]) {
+      Qual k;
+      k.name    = q.value("name", std::string());
+      k.policy  = q.value("policy", std::string());
+      k.reserve = q.value("reserve", 0);
+      if(k.name.empty()) {
+        why = "a request qualifier carries no name";
+        return false;
+      }
+      if(k.policy != "mshr_reserve") {
+        why = "request qualifier '" + k.name + "' policy '" +
+              k.policy + "' is not covered";
+        return false;
+      }
+      quals_.push_back(k);
+      add(k.name, 1, true, "requester qualifier, " + k.policy);
+    }
+  }
+
+  // ------------------------------------------------------------------
   // write data and its strobes
   // ------------------------------------------------------------------
-  const int gran = as_int(cu, "write_granularity_bytes", 0, site,
+  const int gran = rd_only ? 0
+                 : as_int(cu, "write_granularity_bytes", 0, site,
                           "custom");
   const int wstrb = gran > 0 ? (ww_bits / 8) / gran : 0;
 
@@ -278,9 +345,11 @@ bool LinkSig::custom(const json &cu, std::string &why,
     add("wdata", ww_bits, true, "write data, master half");
     add("wstrb", wstrb, true, "per writeable unit");
     add("rdata", rw_bits, false, "read data, slave half");
-    tied_.push_back("the shared bidirectional data channel, emitted "
-                    "as a directed write half and a directed read "
-                    "half");
+    if(!rd_only) {
+      tied_.push_back("the shared bidirectional data channel, emitted "
+                      "as a directed write half and a directed read "
+                      "half");
+    }
   } else {
     why = "data channel '" + data_ch + "' is not covered";
     return false;
@@ -319,6 +388,34 @@ bool LinkSig::custom(const json &cu, std::string &why,
   } else {
     why = "read_data_return '" + ret + "' is not covered";
     return false;
+  }
+
+  // ------------------------------------------------------------------
+  // THE RESPONSE SIDE HANDSHAKE, TD-IF-3. `accept` above governs the
+  // REQUEST side only. Whether the responder can be held off on the
+  // response is a separate declaration, and its ABSENCE is as much a
+  // decision as its presence: without this field the emitted
+  // behaviour was a tool policy nothing in the input could state.
+  // ------------------------------------------------------------------
+  if(rsp_acc == "ready") {
+    rsp_ready_ = true;
+    add("rready", 1, true, "the requester took the response");
+  } else if(rsp_acc == "none") {
+    rsp_ready_ = false;
+    tied_.push_back("no response ready, the requester accepts every "
+                    "response in the cycle it is presented");
+  } else {
+    why = "response_accept '" + rsp_acc + "' is not covered";
+    return false;
+  }
+
+  // ------------------------------------------------------------------
+  // THE ERROR RETURN, TD-IF-2. Without it a slave that knows its
+  // answer is bad has no wire to say so on, and the adapter drops it.
+  // ------------------------------------------------------------------
+  err_ret_ = as_bool(cu, "error_response", false, site, "custom");
+  if(err_ret_) {
+    add("rerr", 1, false, "the response carries an error");
   }
 
   if(as_bool(cu, "write_response", false, site, "custom")) {

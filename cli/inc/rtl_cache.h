@@ -13,6 +13,12 @@
 //   <n>_data_array    line storage
 //   <n>_ctrl          the control of one bank
 //   <n>_bank          one bank, the arrays and the control
+//   <n>_mshr          the miss handling file, on a node whose core
+//                     link is not blocking. It sits between the core
+//                     adapter and the banks and owns everything the
+//                     blocking control had no place for: what is in
+//                     flight, which requester each answer belongs to,
+//                     and which requests share one line
 //   <n>               the node, the adapters, the banks and the
 //                     arbitration between them
 //
@@ -38,6 +44,7 @@ public:
   static void data_array(SvFile &f, const NodeCtx &c);
   static void ctrl(SvFile &f, const NodeCtx &c);
   static void bank(SvFile &f, const NodeCtx &c);
+  static void mshr(SvFile &f, const NodeCtx &c);
   static void top(SvFile &f, const NodeCtx &c);
 
   // the port list of one interface, from this node's point of view.

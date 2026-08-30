@@ -208,6 +208,19 @@ TEST(Negative, SchemaViolation)
 }
 
 // --------------------------------------------------------------------
+// A LINK RETURNING valid_with_id AND NAMING NO IDENTIFIER. The two
+// fields exist independently and either one alone is meaningless: an
+// identifier nothing returns cannot correlate anything, and a
+// response keyed by a zero width identifier keys on nothing. The
+// schema ties them, so the pair is refused before any stage reads
+// either of them.
+// --------------------------------------------------------------------
+TEST(Negative, ValidWithIdNeedsANonZeroIdentifierWidth)
+{
+  expect_one("neg_id_width_zero", "schema.violation", "l_core");
+}
+
+// --------------------------------------------------------------------
 // the schema directory, which is the tool's environment and not the
 // configuration. CGEN_SCHEMA_DIR is moved for the run and put back.
 // --------------------------------------------------------------------

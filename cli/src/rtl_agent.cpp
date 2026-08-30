@@ -113,7 +113,10 @@ void RtlAgent::top(SvFile &f, const NodeCtx &c)
     return;
   }
 
-  const std::string n = i.name;
+  const std::string n  = i.name;
+  const bool rdonly    = i.sig.read_only();
+  const int  idb       = i.sig.id_bits();
+
   f.ln("  typedef enum logic [1:0] {");
   f.ln("    A_IDLE, A_REQ, A_WAIT, A_DONE");
   f.ln("  } astate_e;");
@@ -126,14 +129,30 @@ void RtlAgent::top(SvFile &f, const NodeCtx &c)
   f.ln();
   f.ln("  assign " + pad(LinkSig::wire(n, "valid"), 18) +
        "= (astate == A_REQ);");
-  f.ln("  assign " + pad(LinkSig::wire(n, "rw"), 18) +
-       "= cmd_go_write;");
+  if(!rdonly) {
+    f.ln("  assign " + pad(LinkSig::wire(n, "rw"), 18) +
+         "= cmd_go_write;");
+  }
   f.ln("  assign " + pad(LinkSig::wire(n, "addr"), 18) +
        "= cmd_go_addr;");
-  f.ln("  assign " + pad(LinkSig::wire(n, "wdata"), 18) +
-       "= cmd_go_wdata;");
-  f.ln("  assign " + pad(LinkSig::wire(n, "wstrb"), 18) +
-       "= cmd_go_wstrb;");
+  if(!rdonly) {
+    f.ln("  assign " + pad(LinkSig::wire(n, "wdata"), 18) +
+         "= cmd_go_wdata;");
+    f.ln("  assign " + pad(LinkSig::wire(n, "wstrb"), 18) +
+         "= cmd_go_wstrb;");
+  }
+  if(idb > 0) {
+    f.ln();
+    f.ln("  // ONE REQUEST AT A TIME, so one identifier is enough. An");
+    f.ln("  // agent that presented several would need a free list, "
+         "and");
+    f.ln("  // the command port it is driven from has no room for one.");
+    f.ln("  assign " + pad(LinkSig::wire(n, "id"), 18) + "= '0;");
+  }
+  for(const LinkSig::Qual &q : i.sig.quals()) {
+    f.ln("  // this agent presents no " + q.name + " request");
+    f.ln("  assign " + pad(LinkSig::wire(n, q.name), 18) + "= 1'b0;");
+  }
   f.ln();
   f.ln("  always_ff @(posedge clk or negedge rstn) begin");
   f.ln("    if(!rstn) begin");
@@ -177,6 +196,41 @@ void RtlAgent::top(SvFile &f, const NodeCtx &c)
   f.ln("    end");
   f.ln("  end");
   f.ln();
+
+  // ------------------------------------------------------------------
+  // Whatever the link returns and this agent does not read. One
+  // outstanding request means the returned identifier says nothing
+  // the state machine does not already know.
+  // ------------------------------------------------------------------
+  {
+    std::vector<std::string> unread;
+    for(const LinkSig::Sig &g : i.sig.sigs()) {
+      if(g.m_drives) continue;              // the agent drives it
+      if(g.local == "rdata" || g.local == "ready" ||
+         g.local == "rvalid") continue;     // consumed above
+      unread.push_back(LinkSig::wire(n, g.local));
+    }
+    if(rdonly) {
+      unread.push_back("cmd_go_write");
+      unread.push_back("cmd_go_wdata");
+      unread.push_back("cmd_go_wstrb");
+    }
+    if(!unread.empty()) {
+      f.ln("  // what the link carries and this agent does not read");
+      f.ln("  /* verilator lint_off UNUSEDSIGNAL */");
+      f.ln("  wire unused_ag = |{");
+      std::string acc;
+      for(const std::string &s : unread) {
+        if(!acc.empty()) acc += ",\n";
+        acc += "      " + s;
+      }
+      f.ln(acc);
+      f.ln("  };");
+      f.ln("  /* verilator lint_on UNUSEDSIGNAL */");
+      f.ln();
+    }
+  }
+
   f.ln("endmodule");
 }
 

@@ -249,6 +249,11 @@ void Emitter::emit_node(const NodeCtx &c)
     { SvFile f = file(c.mod("bank") + ".sv");
       RtlCache::bank(f, c);
       emit_rtl(c.mod("bank") + ".sv", f); }
+    if(c.nonblocking() && c.slaves().size() == 1) {
+      SvFile f = file(c.mod("mshr") + ".sv");
+      RtlCache::mshr(f, c);
+      emit_rtl(c.mod("mshr") + ".sv", f);
+    }
     { SvFile f = file(c.mod() + ".sv");
       RtlCache::top(f, c);
       emit_rtl(c.mod() + ".sv", f); }

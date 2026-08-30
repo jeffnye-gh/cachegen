@@ -1,5 +1,5 @@
 {
-  "schema_version": "0.12.0",
+  "schema_version": "0.13.0",
   "file_type": "links",
   "include": [],
   "links": {
@@ -28,6 +28,40 @@
       "master_port_type": "pe_mstr",
       "slave_port_type": "pe_slv"
     },
+    "pe_port_i": {
+      "protocol": "custom",
+      "custom": {
+        "handshake": {
+          "request_strobes": "single_valid_with_rw",
+          "accept": "ready",
+          "read_data_return": "valid_with_id",
+          "response_accept": "none"
+        },
+        "channels": {
+          "address": "shared",
+          "data": "split_read_write"
+        },
+        "address_granularity": "byte",
+        "address_width_bits": 36,
+        "address_alignment_bytes": 64,
+        "read_width_bits": 512,
+        "write_width_bits": 0,
+        "read_byte_enables": false,
+        "write_response": false,
+        "outstanding_requests": 16,
+        "id_width_bits": 4,
+        "error_response": true,
+        "request_qualifiers": [
+          {
+            "name": "prefetch",
+            "policy": "mshr_reserve",
+            "reserve": 2
+          }
+        ]
+      },
+      "master_port_type": "pe_mstr",
+      "slave_port_type": "pe_slv"
+    },
     "tl_l1i_l2": {
       "protocol": "tilelink",
       "tilelink": {
@@ -35,7 +69,7 @@
         "data_bus_bytes": 32,
         "address_bits": 36,
         "size_bits": 3,
-        "source_bits": 3,
+        "source_bits": 4,
         "sink_bits": 2
       },
       "master_port_type": "tl_mstr",

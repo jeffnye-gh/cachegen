@@ -86,8 +86,29 @@ public:
   bool range_check() const;
 
   int  mshrs() const;
+  int  mshr_targets() const;
   int  read_latency() const;
   const std::string &tag_stage() const;
+
+  // ------------------------------------------------------------------
+  // NON BLOCKING. The core link declares more than one outstanding
+  // request and returns a response keyed by an identifier, so the
+  // node needs a miss handling file rather than a single busy flag.
+  // Both halves are required: outstanding requests with no identifier
+  // could only return in order, and an identifier with one
+  // outstanding request has nothing to disambiguate.
+  // ------------------------------------------------------------------
+  bool nonblocking() const;
+
+  // the first slave interface, which is the core port. Null on a
+  // node that has none
+  const Iface *core_iface() const;
+
+  // how many miss handling registers must stay free for a request
+  // carrying the reserve qualifier, and the qualifier's wire name.
+  // Zero and empty when the core link declares no such qualifier.
+  int prefetch_reserve() const;
+  std::string reserve_qual() const;
 
   const std::string &array_kind(const char *which) const;
   bool cleared_on_reset(const char *which) const;
@@ -148,6 +169,7 @@ private:
   Model::Geom geom_;
   int  pa_bits_{32};
   int  mshrs_{0};
+  int  mshr_targets_{0};
   int  read_latency_{1};
   bool range_check_{false};
 
