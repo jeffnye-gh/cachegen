@@ -303,8 +303,13 @@ void RtlCache::slave(SvFile &f, const NodeCtx &c,
   f.ln();
   f.ln("  // one internal request per beat, at that beat's address");
   f.ln("  assign req_valid = (sstate == S_REQ);");
+  // The shift is done at addr_t width, not at the beat counter's
+  // width. Widening after the shift would compute the beat offset in
+  // 16 bits however wide the address is, and a hand written zero
+  // extension to a fixed 32 would stop agreeing with pa_bits the
+  // moment pa_bits moved.
   f.ln("  assign req_addr  = base_q +");
-  f.ln("      addr_t'({16'd0, beat_i} << WordShift);");
+  f.ln("      (addr_t'(beat_i) << WordShift);");
   if(c.has_writes()) {
     f.ln("  assign req_write = write_q;");
     f.ln("  assign req_wdata = wdata_q;");

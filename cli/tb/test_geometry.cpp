@@ -56,9 +56,13 @@ TEST(GeometryMath, FieldDecomposition)
 }
 
 // --------------------------------------------------------------------
-// 32KB, 8 way, 64 byte line, against pa_bits 32 and a 4KB page. Eight
+// 32KB, 8 way, 64 byte line, against pa_bits 36 and a 4KB page. Eight
 // ways puts 4096 bytes in a way, exactly one page, so the index stops
 // at bit 11 and no index bit is translated.
+//
+// The tag is what pa_bits moves. Offset and index come from the
+// geometry alone, so 36 bit addressing widens the tag to 24 and
+// leaves everything below bit 12 where it was.
 // --------------------------------------------------------------------
 TEST(GeometryPacino, L1iDerivation)
 {
@@ -74,17 +78,17 @@ TEST(GeometryPacino, L1iDerivation)
   EXPECT_EQ(uint64_t(4096), g.bytes_per_way);
   EXPECT_EQ(6,  g.offset_bits);
   EXPECT_EQ(6,  g.index_bits);
-  EXPECT_EQ(20, g.tag_bits);
+  EXPECT_EQ(24, g.tag_bits);
   EXPECT_EQ(0,  g.bank_bits);
-  EXPECT_EQ(32, g.offset_bits + g.index_bits + g.tag_bits);
+  EXPECT_EQ(36, g.offset_bits + g.index_bits + g.tag_bits);
 
-  EXPECT_EQ(uint64_t(0x0000003f), g.offset.mask);
-  EXPECT_EQ(uint64_t(0x00000fc0), g.index.mask);
-  EXPECT_EQ(uint64_t(0xfffff000), g.tag.mask);
+  EXPECT_EQ(uint64_t(0x00000003f), g.offset.mask);
+  EXPECT_EQ(uint64_t(0x000000fc0), g.index.mask);
+  EXPECT_EQ(uint64_t(0xffffff000), g.tag.mask);
   EXPECT_EQ(0,  g.offset.shift);
   EXPECT_EQ(6,  g.index.shift);
   EXPECT_EQ(12, g.tag.shift);
-  EXPECT_EQ(31, g.tag.msb);
+  EXPECT_EQ(35, g.tag.msb);
 
   // the index stops one bit below the 4096 byte page offset
   EXPECT_EQ(11, g.index.msb);
@@ -110,7 +114,7 @@ TEST(GeometryPacino, L2Derivation)
   EXPECT_EQ(uint64_t(65536), g.bytes_per_way);
   EXPECT_EQ(6,  g.offset_bits);
   EXPECT_EQ(10, g.index_bits);
-  EXPECT_EQ(16, g.tag_bits);
+  EXPECT_EQ(20, g.tag_bits);
   EXPECT_EQ(1,  g.bank_bits);
   EXPECT_EQ(2,  g.refill_beats);
 }
@@ -129,7 +133,7 @@ TEST(GeometryPacino, MemoryIsTerminal)
 
   EXPECT_EQ(uint64_t(16777216), g.sets);
   EXPECT_EQ(uint64_t(2097152),  g.sets_per_bank);
-  EXPECT_EQ(2,  g.tag_bits);
+  EXPECT_EQ(6,  g.tag_bits);
   EXPECT_EQ(3,  g.bank_bits);
   EXPECT_EQ(-1, g.refill_beats);
   EXPECT_FALSE(g.refill_note.empty());

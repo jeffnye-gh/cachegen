@@ -163,15 +163,17 @@ TEST(Bank, L2DecomposesAsTheRulingSays)
   ASSERT_TRUE(g.valid);
   ASSERT_TRUE(g.bank_resolved) << g.bank_note;
 
-  // 512 KB, 8 ways, 64 B lines, 2 banks, line granularity, 32 bit PA
+  // 512 KB, 8 ways, 64 B lines, 2 banks, line granularity, 36 bit PA
   EXPECT_EQ(6,  g.offset.bits);  EXPECT_EQ(0,  g.offset.lsb);
   EXPECT_EQ(5,  g.offset.msb);
 
   EXPECT_EQ(10, g.index.bits);   EXPECT_EQ(6,  g.index.lsb);
   EXPECT_EQ(15, g.index.msb);
 
-  EXPECT_EQ(16, g.tag.bits);     EXPECT_EQ(16, g.tag.lsb);
-  EXPECT_EQ(31, g.tag.msb);
+  // pa_bits moves the tag and nothing else. The bank select and the
+  // set index sit inside the index, which the geometry alone fixes.
+  EXPECT_EQ(20, g.tag.bits);     EXPECT_EQ(16, g.tag.lsb);
+  EXPECT_EQ(35, g.tag.msb);
 
   // the ruling. CLI-004 emitted bank [15:15] and setidx [14:6].
   EXPECT_EQ(1, g.bank.bits);     EXPECT_EQ(6,  g.bank.lsb);

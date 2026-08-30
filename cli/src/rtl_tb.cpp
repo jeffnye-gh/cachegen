@@ -1276,9 +1276,14 @@ void RtlTb::sys_tests(SvFile &f, const Model &m,
       f.ln("    // ---------------------------------------------------");
       f.ln("    for(k = 0; k < " + std::to_string(evictions) +
            "; k++) begin");
+      // The stride arithmetic is done at the address width. k is an
+      // int, so casting the whole expression afterwards would compute
+      // it in 32 bits and widen the answer, which stops being the
+      // same answer once pa_bits passes 32.
       f.ln("      ea = " + addr_lit(abits, hot) + " +");
-      f.ln("           " + i2s(abits) + "'((k + 1) * " +
-           std::to_string(stride) + ");");
+      f.ln("           (" + i2s(abits) + "'(k) + " + i2s(abits) +
+           "'d1) * " + i2s(abits) + "'d" +
+           std::to_string(stride) + ";");
       f.ln("      go_" + a + "(ea, 1'b1, " + i2s(wbits) +
            "'hbeef_0000 + " + i2s(wbits) + "'(k), " + a + "_r0);");
       f.ln("    end");
@@ -1495,9 +1500,14 @@ void RtlTb::tb_slv(SvFile &f, const NodeCtx &c,
   f.ln("          " + LinkSig::wire(n, "rdata") + " <=");
   f.ln("              (store.exists(key_of(" +
        LinkSig::wire(n, "addr") + ")) != 0)");
+  // A read of an address never written answers with the address
+  // itself, which makes an unbacked read visible in a waveform. The
+  // address and the read data are independently sized, so the value
+  // is cast to the data width rather than assumed equal to it.
   f.ln("              ? store[key_of(" + LinkSig::wire(n, "addr") +
        ")]");
-  f.ln("              : " + LinkSig::wire(n, "addr") + ";");
+  f.ln("              : WordBits'(" + LinkSig::wire(n, "addr") +
+       ");");
   f.ln("        end");
   f.ln("      end");
   f.ln("    end");

@@ -334,11 +334,107 @@ void Checker::link_agree(Model &m)
 }
 
 // --------------------------------------------------------------------
+// T-10. The address width a link declares. The field is named per
+// protocol, so the lookup is per protocol too.
+// --------------------------------------------------------------------
+bool Checker::link_addr_bits(const std::string &link,
+                             int &bits,
+                             std::string &file,
+                             std::string &ptr) const
+{
+  const SymbolTable::Entry *l = syms_.find(Kind::Link, link);
+  if(l == nullptr || l->body == nullptr) return false;
+  if(!l->body->is_object())              return false;
+
+  const json &b = *l->body;
+  if(!b.contains("protocol") || !b["protocol"].is_string()) return false;
+
+  const std::string proto = b["protocol"].get<std::string>();
+
+  const char *group = nullptr;
+  const char *key   = nullptr;
+  if(proto == "tilelink") { group = "tilelink"; key = "address_bits"; }
+  else if(proto == "custom") { group = "custom";
+                               key   = "address_width_bits"; }
+  else return false;
+
+  if(!b.contains(group) || !b[group].is_object()) return false;
+  const json &g = b[group];
+  if(!g.contains(key) || !g[key].is_number_integer()) return false;
+
+  bits = g[key].get<int>();
+  file = l->file;
+  ptr  = l->path + "/" + group + "/" + key;
+  cfg_read(file, ptr);
+  return true;
+}
+
+// --------------------------------------------------------------------
+// T-10. A node whose emitted address type is pa_bits wide. Every
+// cache and the memory decompose an address; an agent and an
+// interconnect do not, and neither does a node whose type never
+// resolved.
+// --------------------------------------------------------------------
+bool Checker::is_addressed(const Model &m, const std::string &node) const
+{
+  const Model::Node *n = m.node(node);
+  if(n == nullptr) return false;
+
+  const std::string &t = n->node_type;
+  return t == "icache" || t == "dcache" || t == "unified" ||
+         t == "memory";
+}
+
+// --------------------------------------------------------------------
+// T-10. A link address width and the system pa_bits are independent
+// integers in two documents and nothing else compares them. The
+// generated address type is pa_bits wide, so a link that is narrower
+// zero extends on the way into a node and truncates on the way out,
+// and a tree in that state builds and runs.
+//
+// The rule fires on an edge that touches a cache or a memory node,
+// because that is where the address meets a pa_bits wide type. An
+// agent to agent edge carries no such type and is left alone.
+//
+// One diagnostic per offending LINK, not per edge. The width is one
+// value in one file, so one edit clears it, and a link carried by two
+// edges would otherwise report the same field twice.
+// --------------------------------------------------------------------
+void Checker::addr_width(Model &m)
+{
+  if(!m.has_addressing) return;    // T-8.no_addressing has that case
+
+  std::set<std::string> reported;
+
+  for(const Model::Edge &e : m.edges) {
+    if(!e.link_ok || e.link.empty())         continue;
+    if(reported.count(e.link))               continue;
+    if(!is_addressed(m, e.from) && !is_addressed(m, e.to)) continue;
+
+    int         bits = 0;
+    std::string file;
+    std::string ptr;
+    if(!link_addr_bits(e.link, bits, file, ptr)) continue;
+    if(bits == m.pa_bits)                        continue;
+
+    reported.insert(e.link);
+    diags_.error(file, ptr, code::t10_addr_width,
+                 "link " + msg->tq(e.link) + " declares an address "
+                 "width of " + std::to_string(bits) + " bits and the "
+                 "system pa_bits is " + std::to_string(m.pa_bits) +
+                 ". Edge " + msg->tq(m.label(e)) + " carries it into "
+                 "a node whose address type is pa_bits wide, so the "
+                 "two must agree");
+  }
+}
+
+// --------------------------------------------------------------------
 void Checker::run(Model &m)
 {
   link_agree(m);
   port_types(m);
   port_roles(m);
+  addr_width(m);
   graph(m);
   groups();
   occupancy(m);

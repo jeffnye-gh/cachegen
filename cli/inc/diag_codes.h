@@ -74,6 +74,7 @@ namespace cgen
   X(t5_cycle,            "T-5.cycle",           Fixture, "")          \
   X(t6_group,            "T-6.group",           Fixture, "")          \
   X(t9_link_agree,       "T-9.link_agree",      Fixture, "")          \
+  X(t10_addr_width,      "T-10.addr_width",     Fixture, "")          \
   X(t8_sets_integer,     "T-8.sets_integer",    Fixture, "")          \
   X(t8_sets_pow2,        "T-8.sets_pow2",       Fixture, "")          \
   X(t8_capacity_pow2,    "T-8.capacity_pow2",   Fixture, "")          \

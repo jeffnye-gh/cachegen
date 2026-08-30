@@ -81,12 +81,13 @@ TEST(Pacino, EverythingElseResolves)
   EXPECT_EQ(size_t(0), d.count_code("T-5.cycle"));
   EXPECT_EQ(size_t(0), d.count_code("T-6.group"));
   EXPECT_EQ(size_t(0), d.count_code("T-9.link_agree"));
+  EXPECT_EQ(size_t(0), d.count_code("T-10.addr_width"));
   EXPECT_EQ(size_t(0), d.count_code("T-8.vipt_index"));
 
   const cgen::Model &m = drv->model();
   EXPECT_EQ(size_t(6), m.nodes.size());
   EXPECT_EQ(size_t(5), m.edges.size());
-  EXPECT_EQ(32,   m.pa_bits);
+  EXPECT_EQ(36,   m.pa_bits);
   EXPECT_EQ(39,   m.va_bits);
   EXPECT_EQ(4096, m.page_bytes);
 

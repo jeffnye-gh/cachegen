@@ -157,6 +157,18 @@ TEST(Negative, TwoTopologyFilesDisagreeOnAddressing)
 }
 
 // --------------------------------------------------------------------
+// T-10, a link address width against the system pa_bits. The fixture
+// widens l_core to 40 and leaves the addressing block at 32, so the
+// edge that carries l_core into the icache is the one that reports.
+// l_mem is untouched and stays silent, which is what makes the count
+// exactly one.
+// --------------------------------------------------------------------
+TEST(Negative, LinkAddressWidthDisagreesWithPaBits)
+{
+  expect_one("neg_link_addr_width", "T-10.addr_width", "address width");
+}
+
+// --------------------------------------------------------------------
 // the loader
 // --------------------------------------------------------------------
 TEST(Negative, IncludeCycle)

@@ -3,7 +3,7 @@
   "file_type": "topology",
   "include": [],
   "addressing": {
-    "pa_bits": 32,
+    "pa_bits": 36,
     "va_bits": 39,
     "page_bytes": 4096
   },

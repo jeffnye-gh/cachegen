@@ -16,7 +16,7 @@
           "data": "split_read_write"
         },
         "address_granularity": "byte",
-        "address_width_bits": 32,
+        "address_width_bits": 36,
         "address_alignment_bytes": 4,
         "read_width_bits": 32,
         "write_width_bits": 32,
@@ -33,7 +33,7 @@
       "tilelink": {
         "conformance": "TL-UH",
         "data_bus_bytes": 32,
-        "address_bits": 32,
+        "address_bits": 36,
         "size_bits": 3,
         "source_bits": 3,
         "sink_bits": 2
@@ -46,7 +46,7 @@
       "tilelink": {
         "conformance": "TL-C",
         "data_bus_bytes": 32,
-        "address_bits": 32,
+        "address_bits": 36,
         "size_bits": 3,
         "source_bits": 4,
         "sink_bits": 2
@@ -59,7 +59,7 @@
       "tilelink": {
         "conformance": "TL-UH",
         "data_bus_bytes": 32,
-        "address_bits": 32,
+        "address_bits": 36,
         "size_bits": 3,
         "source_bits": 5,
         "sink_bits": 3
