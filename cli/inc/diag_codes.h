@@ -97,6 +97,8 @@ namespace cgen
     "topology.schema.json requires page_bytes inside addressing")     \
   X(emit_refused,        "emit.refused",        Fixture, "")          \
   X(emit_unsupported,    "emit.unsupported",    Fixture, "")          \
+  X(t11_read_latency,    "T-11.read_latency",   Fixture, "")          \
+  X(t11_tag_stage,       "T-11.tag_stage",      Fixture, "")          \
   X(emit_mkdir,          "emit.mkdir",          Env,                  \
     "a directory under the output tree that cannot be created. "      \
     "That is a permission or a full filesystem, and neither is "      \

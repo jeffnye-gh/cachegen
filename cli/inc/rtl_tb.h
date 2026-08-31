@@ -35,6 +35,12 @@ public:
   static void tb_mem(SvFile &f, const NodeCtx &c,
                      const NodeCtx::Iface &i);
 
+  // the same thing for a pipelined node, which may have one fill in
+  // flight per miss handling register. It holds one per source and
+  // lets a test choose the order the beats come back in
+  static void tb_mem_pipe(SvFile &f, const NodeCtx &c,
+                          const NodeCtx::Iface &i);
+
   // the same thing for the ad hoc processor port, so an agent has
   // something to talk to in its own unit testbench
   static void tb_slv(SvFile &f, const NodeCtx &c,

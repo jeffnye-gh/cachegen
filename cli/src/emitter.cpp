@@ -133,6 +133,29 @@ bool Emitter::build_nodes(const Model &m, const Loader &loader)
       ok = false;
       continue;
     }
+
+    // ----------------------------------------------------------------
+    // T-11. THE DECLARED TIMING HAS TO BE BUILDABLE. The check is on
+    // the nodes whose control is a pipeline, because those are the
+    // ones read_latency_cycles and tag_compare_stage shape. A
+    // blocking control does not read either field and the emitter
+    // does not invent a range for it.
+    // ----------------------------------------------------------------
+    if(c.pipelined()) {
+      std::string field;
+      const std::string bad = c.timing_why(field);
+      if(!bad.empty()) {
+        diags_.error(n.file, n.path + "/timing/" + field,
+                     field == "tag_compare_stage"
+                       ? code::t11_tag_stage
+                       : code::t11_read_latency,
+                     "node " + msg->tq(n.name) + ", " + bad);
+        skipped_.push_back({ n.name, bad });
+        ok = false;
+        continue;
+      }
+    }
+
     nodes_[n.name] = c;
   }
   return ok;

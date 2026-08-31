@@ -100,6 +100,51 @@ public:
   // ------------------------------------------------------------------
   bool nonblocking() const;
 
+  // ------------------------------------------------------------------
+  // PIPELINED. A non blocking node whose control is a pipeline rather
+  // than a per bank state machine. It takes one access a cycle and
+  // answers a hit read_latency_cycles later.
+  //
+  // A node that writes or that holds dirty lines is NOT pipelined:
+  // a writeback is a second array read and a second downstream
+  // request in the middle of the same access, and no field in the
+  // configuration says how those sequence against the accesses
+  // behind them. Such a node keeps the blocking control.
+  // ------------------------------------------------------------------
+  bool pipelined() const;
+
+  // ------------------------------------------------------------------
+  // THE PIPELINE THE TIMING CONFIGURATION ASKS FOR. Stage 0 is the
+  // cycle the access is accepted and its set is presented to the
+  // arrays.
+  //
+  //   cmp_stage()   the stage the tag compare is in. next_cycle
+  //                 puts it one after the array read was issued,
+  //                 same_cycle puts it in the same one
+  //   array_stage() the first stage the array output can be read
+  //                 in. A registered read port is one, a
+  //                 combinational one is zero
+  //   min_latency() cmp_stage + 1, the answer being registered out
+  //                 after the compare
+  //   pipe_pad()    read_latency_cycles - min_latency, the stages
+  //                 that carry the answer and do nothing else
+  //
+  // MaxLatency caps the padding. Every pad stage is a register file
+  // of the answer bundle and nothing in the specification asks for
+  // a deeper one.
+  // ------------------------------------------------------------------
+  static constexpr int MaxLatency = 8;
+
+  int cmp_stage() const;
+  int array_stage() const;
+  int min_latency() const;
+  int pipe_pad() const;
+
+  // Why the declared timing cannot be built, empty when it can.
+  // The two arguments come back naming the field at fault so a
+  // diagnostic can point at it.
+  std::string timing_why(std::string &field) const;
+
   // the first slave interface, which is the core port. Null on a
   // node that has none
   const Iface *core_iface() const;

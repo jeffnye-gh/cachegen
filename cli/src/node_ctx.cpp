@@ -152,6 +152,94 @@ bool NodeCtx::nonblocking() const
 }
 
 // --------------------------------------------------------------------
+// A writing node keeps the blocking control, see the note in the
+// header. has_writes and has_dirty are asked in that order so a read
+// only node does not mark write_hit for a reason it never had.
+// --------------------------------------------------------------------
+bool NodeCtx::pipelined() const
+{
+  if(!nonblocking()) return false;
+  if(slaves().size() != 1) return false;
+  if(has_writes()) return false;
+  return !has_dirty();
+}
+
+// --------------------------------------------------------------------
+// The compare is in the cycle after the array read was ISSUED when
+// tag_compare_stage is next_cycle, and in the same cycle when it is
+// same_cycle. Stage 0 is the acceptance.
+// --------------------------------------------------------------------
+int NodeCtx::cmp_stage() const
+{
+  return tag_stage() == "next_cycle" ? 1 : 0;
+}
+
+// --------------------------------------------------------------------
+// The tag array is the one the compare reads. A registered read port
+// puts its output one cycle after the set was presented.
+// --------------------------------------------------------------------
+int NodeCtx::array_stage() const
+{
+  return registered_read("tag") ? 1 : 0;
+}
+
+// --------------------------------------------------------------------
+int NodeCtx::min_latency() const
+{
+  return cmp_stage() + 1;
+}
+
+// --------------------------------------------------------------------
+int NodeCtx::pipe_pad() const
+{
+  const int p = read_latency() - min_latency();
+  return p > 0 ? p : 0;
+}
+
+// --------------------------------------------------------------------
+// THE RANGE THE EMITTER SUPPORTS, stated as the three ways a
+// declaration falls outside it. Nothing here reads a default: every
+// value named comes from the configuration.
+// --------------------------------------------------------------------
+std::string NodeCtx::timing_why(std::string &field) const
+{
+  field.clear();
+
+  if(array_stage() > cmp_stage()) {
+    field = "tag_compare_stage";
+    return "tag_compare_stage '" + tag_stage() + "' puts the compare "
+           "in stage " + std::to_string(cmp_stage()) +
+           ", and the tag array declares a " + std::string(
+             registered_read("tag") ? "registered" : "combinational") +
+           " read port whose output is not there until stage " +
+           std::to_string(array_stage()) +
+           ". A registered read needs tag_compare_stage next_cycle";
+  }
+
+  if(read_latency() < min_latency()) {
+    field = "read_latency_cycles";
+    return "read_latency_cycles " + std::to_string(read_latency()) +
+           " is shorter than the array read plus the compare. The "
+           "compare is in stage " + std::to_string(cmp_stage()) +
+           " and the answer is registered after it, so the shortest "
+           "hit this geometry can answer in is " +
+           std::to_string(min_latency()) + " cycles";
+  }
+
+  if(read_latency() > MaxLatency) {
+    field = "read_latency_cycles";
+    return "read_latency_cycles " + std::to_string(read_latency()) +
+           " is longer than the " + std::to_string(MaxLatency) +
+           " the emitter builds. Every cycle beyond " +
+           std::to_string(min_latency()) + " is a stage that carries "
+           "the answer and does nothing else, and the emitter stops "
+           "adding them at " + std::to_string(MaxLatency);
+  }
+
+  return std::string();
+}
+
+// --------------------------------------------------------------------
 int NodeCtx::prefetch_reserve() const
 {
   const Iface *i = core_iface();

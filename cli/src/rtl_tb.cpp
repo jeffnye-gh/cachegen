@@ -188,6 +188,287 @@ void RtlTb::tasks(SvFile &f)
 }
 
 // --------------------------------------------------------------------
+// THE RESPONDER OF A PIPELINED NODE'S UNIT TESTBENCH. The node under
+// test may have one fill in flight per miss handling register, so a
+// responder that holds one at a time cannot show what it does. This
+// one holds one per source and lets a test choose the order the
+// beats come back in.
+//
+//   tb_hold   channel A is refused, so a fill cannot start
+//   tb_dhold  channel D is held, so fills accumulate and none
+//             completes
+//   tb_ilv    beats are handed out round robin, so the beats of two
+//             fills INTERLEAVE
+//   tb_rev    the HIGHEST numbered pending source is served first,
+//             so a fill issued later completes before one issued
+//             earlier
+//
+// With none of them set it serves the lowest numbered pending fill
+// and keeps the link until that line is done, which is the ordinary
+// case and is deterministic.
+//
+// READ ONLY. A pipelined node here is one that does not write, so
+// this responder answers Get and reports anything else rather than
+// carrying a store it can never be asked to fill.
+// --------------------------------------------------------------------
+void RtlTb::tb_mem_pipe(SvFile &f, const NodeCtx &c,
+                        const NodeCtx::Iface &i)
+{
+  const std::string mod = c.mod("tb_mem");
+  const int shift = Replacement::log2i(i.sig.data_bytes());
+  int src_bits = 0;
+  for(const LinkSig::Sig &g : i.sig.sigs()) {
+    if(g.local == "a_source") src_bits = g.bits;
+  }
+  if(src_bits <= 0) src_bits = 1;
+  const int nsrc = 1 << src_bits;
+
+  f.note("A downstream responder for the unit testbench of node '" +
+         c.name() + "'.");
+  f.note("");
+  f.note("NOT SYNTHESIZABLE and not part of the design. Beats come "
+         "back");
+  f.note("with the address baked into them, so a test can predict "
+         "what a");
+  f.note("fill should contain without keeping its own model.");
+  f.note("");
+  f.note("IT HOLDS ONE FILL PER SOURCE, " + i2s(nsrc) +
+         " of them, because the node");
+  f.note("under test may have that many in flight. A master holds at "
+         "most");
+  f.note("one request per source, so the source IS the index and no");
+  f.note("search is needed.");
+  f.note("");
+  f.note("Four inputs let a test choose what the memory side does:");
+  f.note("");
+  f.note("  tb_hold   channel A is refused, so no fill can start");
+  f.note("  tb_dhold  channel D is held, so fills accumulate and");
+  f.note("            none of them completes");
+  f.note("  tb_ilv    beats go out round robin, so the beats of two");
+  f.note("            fills INTERLEAVE");
+  f.note("  tb_rev    the HIGHEST numbered pending source is served");
+  f.note("            first, so a fill issued later completes first");
+  f.note("");
+  f.note("With none of them set it serves the lowest numbered "
+         "pending");
+  f.note("fill and keeps the link until that line is done.");
+  f.bar();
+  RtlPkg::import_of(f, { c.pkg(), RtlPkg::tl_pkg_name() });
+  f.ln("module " + mod + " (");
+  f.ln("  input  logic  clk,");
+  f.ln("  input  logic  rstn,");
+  f.ln("  input  logic  tb_hold,");
+  f.ln("  input  logic  tb_dhold,");
+  f.ln("  input  logic  tb_ilv,");
+  f.ln("  input  logic  tb_rev,");
+  f.ln();
+  std::vector<std::string> pv = RtlCache::iface_ports(i, true);
+  for(std::string &s : pv) {
+    if(s.compare(2, 6, "output") == 0)     s.replace(2, 6, "input ");
+    else if(s.compare(2, 5, "input") == 0) s.replace(2, 5, "output");
+  }
+  f.lines(pv);
+  f.ln(");");
+  f.ln();
+
+  const std::string a = i.name + "_a";
+  const std::string d = i.name + "_d";
+  const std::string sb = i2s(src_bits);
+
+  f.ln("  localparam int unsigned BeatShift = " + i2s(shift) + ";");
+  f.ln("  localparam int unsigned NSrc      = " + i2s(nsrc) + ";");
+  f.ln();
+  f.ln("  typedef logic [" + i2s(src_bits - 1) + ":0] src_t;");
+  f.ln();
+  f.ln("  // one pending fill per source");
+  f.ln("  logic        p_val  [NSrc];");
+  f.ln("  addr_t       p_addr [NSrc];");
+  f.ln("  logic [2:0]  p_size [NSrc];");
+  f.ln("  logic [15:0] p_beat [NSrc];");
+  f.ln("  logic [15:0] p_beats[NSrc];");
+  f.ln();
+  f.ln("  // where the round robin walk starts, so consecutive beats");
+  f.ln("  // go to different fills when tb_ilv is set");
+  f.ln("  src_t rr;");
+  f.ln();
+  f.ln("  function automatic logic [15:0] beats_of"
+       "(input logic [2:0] s);");
+  f.ln("    beats_of = (int'(s) > int'(BeatShift))");
+  f.ln("             ? 16'(1 << (int'(s) - int'(BeatShift)))");
+  f.ln("             : 16'd1;");
+  f.ln("  endfunction");
+  f.ln();
+  f.ln("  function automatic longint unsigned key_of");
+  f.ln("      (input addr_t base, input logic [15:0] n);");
+  f.ln("    key_of = longint'({32'd0, base}) >> BeatShift;");
+  f.ln("    key_of = key_of + longint'({48'd0, n});");
+  f.ln("  endfunction");
+  f.ln();
+  f.ln("  // a beat carries its own key, so a test can predict a fill");
+  f.ln("  // without keeping a second model. The tests file carries");
+  f.ln("  // the same two functions, emitted from the same place.");
+  f.ln("  function automatic beat_t seed_of"
+       "(input longint unsigned k);");
+  f.ln("    seed_of = beat_t'(k) ^ beat_t'(64'hcafe_0000_0000_0001);");
+  f.ln("  endfunction");
+  f.ln();
+  f.ln("  wire a_fire = " + a + "_valid && " + a + "_ready;");
+  f.ln("  wire d_fire = " + d + "_valid && " + d + "_ready;");
+  f.ln();
+  f.ln("  // ---------------------------------------------------------");
+  f.ln("  // CHANNEL A. A request is taken unless the source it names");
+  f.ln("  // already has a fill pending, so several may be in flight");
+  f.ln("  // and nothing here serialises them.");
+  f.ln("  // ---------------------------------------------------------");
+  f.ln("  assign " + a + "_ready = rstn && !tb_hold &&");
+  f.ln("                            !p_val[" + a + "_source];");
+  f.ln();
+  f.ln("  // ---------------------------------------------------------");
+  f.ln("  // CHANNEL D. Which pending fill gets this cycle's beat.");
+  f.ln("  // ---------------------------------------------------------");
+  f.ln("  logic d_any;");
+  f.ln("  src_t d_sel;");
+  f.ln();
+  f.ln("  always_comb begin");
+  f.ln("    d_any = 1'b0;");
+  f.ln("    d_sel = '0;");
+  f.ln("    if(tb_ilv) begin");
+  f.ln("      // start one past the source the last beat went to");
+  f.ln("      for(int unsigned k = 0; k < NSrc; k++) begin");
+  f.ln("        automatic src_t s = src_t'(");
+  f.ln("            (int'(rr) + int'(k) >= int'(NSrc))");
+  f.ln("            ? (int'(rr) + int'(k) - int'(NSrc))");
+  f.ln("            : (int'(rr) + int'(k)));");
+  f.ln("        if(!d_any && p_val[s]) begin");
+  f.ln("          d_any = 1'b1;");
+  f.ln("          d_sel = s;");
+  f.ln("        end");
+  f.ln("      end");
+  f.ln("    end else if(tb_rev) begin");
+  f.ln("      // counting up leaves the HIGHEST pending source");
+  f.ln("      for(int unsigned s = 0; s < NSrc; s++) begin");
+  f.ln("        if(p_val[s]) begin");
+  f.ln("          d_any = 1'b1;");
+  f.ln("          d_sel = src_t'(s);");
+  f.ln("        end");
+  f.ln("      end");
+  f.ln("    end else begin");
+  f.ln("      // counting down leaves the LOWEST pending source");
+  f.ln("      for(int unsigned s = NSrc; s > 0; s--) begin");
+  f.ln("        if(p_val[s-1]) begin");
+  f.ln("          d_any = 1'b1;");
+  f.ln("          d_sel = src_t'(s-1);");
+  f.ln("        end");
+  f.ln("      end");
+  f.ln("    end");
+  f.ln();
+  f.ln("    // unless a test asked for interleaving, a line that has");
+  f.ln("    // beats out already keeps the link until it is done");
+  f.ln("    if(!tb_ilv) begin");
+  f.ln("      for(int unsigned s = NSrc; s > 0; s--) begin");
+  f.ln("        if(p_val[s-1] && (p_beat[s-1] != 16'd0)) begin");
+  f.ln("          d_any = 1'b1;");
+  f.ln("          d_sel = src_t'(s-1);");
+  f.ln("        end");
+  f.ln("      end");
+  f.ln("    end");
+  f.ln("  end");
+  f.ln();
+  f.ln("  assign " + d + "_valid   = d_any && !tb_dhold;");
+  f.ln("  assign " + d + "_opcode  = TlDAccessAckData;");
+  f.ln("  assign " + d + "_param   = TlParamZero;");
+  f.ln("  assign " + d + "_size    = p_size[d_sel];");
+  f.ln("  assign " + d + "_source  = " + sb + "'(d_sel);");
+  f.ln("  assign " + d + "_sink    = '0;");
+  f.ln("  assign " + d + "_denied  = 1'b0;");
+  f.ln("  assign " + d + "_corrupt = 1'b0;");
+  f.ln("  assign " + d + "_data    =");
+  f.ln("      seed_of(key_of(p_addr[d_sel], p_beat[d_sel]));");
+  f.ln();
+  f.ln("  always_ff @(posedge clk or negedge rstn) begin");
+  f.ln("    if(!rstn) begin");
+  f.ln("      for(int unsigned s = 0; s < NSrc; s++) begin");
+  f.ln("        p_val  [s] <= 1'b0;");
+  f.ln("        p_addr [s] <= '0;");
+  f.ln("        p_size [s] <= 3'd0;");
+  f.ln("        p_beat [s] <= 16'd0;");
+  f.ln("        p_beats[s] <= 16'd1;");
+  f.ln("      end");
+  f.ln("      rr <= '0;");
+  f.ln("    end else begin");
+  f.ln("      // a_fire needs the source free and d_fire needs it");
+  f.ln("      // taken, so the two cannot name one source in one");
+  f.ln("      // cycle and these writes cannot collide");
+  f.ln("      if(a_fire) begin");
+  f.ln("        p_val  [" + a + "_source] <= 1'b1;");
+  f.ln("        p_addr [" + a + "_source] <= " + a + "_address;");
+  f.ln("        p_size [" + a + "_source] <= " + a + "_size;");
+  f.ln("        p_beat [" + a + "_source] <= 16'd0;");
+  f.ln("        p_beats[" + a + "_source] <= beats_of(" + a +
+       "_size);");
+  f.ln("      end");
+  f.ln();
+  f.ln("      if(d_fire) begin");
+  f.ln("        rr <= (d_sel == src_t'(NSrc-1))");
+  f.ln("              ? src_t'(0) : d_sel + src_t'(1);");
+  f.ln("        if(p_beat[d_sel] == p_beats[d_sel] - 16'd1) begin");
+  f.ln("          p_beat[d_sel] <= 16'd0;");
+  f.ln("          p_val [d_sel] <= 1'b0;");
+  f.ln("        end else begin");
+  f.ln("          p_beat[d_sel] <= p_beat[d_sel] + 16'd1;");
+  f.ln("        end");
+  f.ln("      end");
+  f.ln("    end");
+  f.ln("  end");
+  f.ln();
+  f.ln("  // THIS RESPONDER ANSWERS READS. The node under test is");
+  f.ln("  // read only on its core boundary and writes nothing back,");
+  f.ln("  // so anything but a Get is a defect in the master rather");
+  f.ln("  // than a case to carry.");
+  f.ln("  always_ff @(posedge clk) begin");
+  f.ln("    if(a_fire && (" + a + "_opcode != TlAGet)) begin");
+  f.ln("      $error(\"" + mod + ": opcode %0d is not a Get\",");
+  f.ln("             " + a + "_opcode);");
+  f.ln("    end");
+  f.ln("  end");
+  f.ln();
+  if(i.sig.has_bce()) {
+    f.ln("  // TL-C channels the responder does not run, tied off");
+    for(const LinkSig::Sig &g : i.sig.sigs()) {
+      if(g.local.size() < 2 || g.local[1] != '_') continue;
+      const char ch = g.local[0];
+      if(ch != 'b' && ch != 'c' && ch != 'e') continue;
+      if(g.m_drives == i.master) continue;
+      f.ln("  assign " + LinkSig::wire(i.name, g.local) + " = " +
+           (g.bits == 1 ? "1'b0" : "'0") + ";");
+    }
+    f.ln();
+    f.ln("  /* verilator lint_off UNUSEDSIGNAL */");
+    f.ln("  wire unused_bce = |{");
+    std::string acc;
+    for(const LinkSig::Sig &g : i.sig.sigs()) {
+      if(g.local.size() < 2 || g.local[1] != '_') continue;
+      const char ch = g.local[0];
+      if(ch != 'b' && ch != 'c' && ch != 'e') continue;
+      if(g.m_drives != i.master) continue;
+      if(!acc.empty()) acc += ",\n";
+      acc += "      " + LinkSig::wire(i.name, g.local);
+    }
+    if(acc.empty()) acc = "      1'b0";
+    f.ln(acc);
+    f.ln("  };");
+    f.ln("  /* verilator lint_on UNUSEDSIGNAL */");
+    f.ln();
+  }
+  f.ln("  /* verilator lint_off UNUSEDSIGNAL */");
+  f.ln("  wire unused_a = |{" + a + "_param, " + a + "_mask, " +
+       a + "_data, " + a + "_corrupt};");
+  f.ln("  /* verilator lint_on UNUSEDSIGNAL */");
+  f.ln();
+  f.ln("endmodule");
+}
+
+// --------------------------------------------------------------------
 // A TileLink responder for a unit testbench. Smaller than the system
 // memory model and generated from the same link bundle, so the unit
 // testbench of a node exercises the exact port list the node has.
@@ -195,6 +476,13 @@ void RtlTb::tasks(SvFile &f)
 void RtlTb::tb_mem(SvFile &f, const NodeCtx &c,
                    const NodeCtx::Iface &i)
 {
+  // A pipelined node needs a responder that holds many fills at
+  // once. See tb_mem_pipe.
+  if(c.pipelined()) {
+    tb_mem_pipe(f, c, i);
+    return;
+  }
+
   const std::string mod = c.mod("tb_mem");
   const int shift = Replacement::log2i(i.sig.data_bytes());
 
@@ -443,6 +731,14 @@ static void drv_task(SvFile &f, const NodeCtx &c,
     f.ln("  int unsigned nb_ord  [MaxOutstanding];");
     f.ln("  int unsigned nb_fill;   // fills the responder was asked "
          "for");
+    if(c.pipelined()) {
+      f.ln();
+      f.ln("  // WHEN each identifier was accepted and when it was");
+      f.ln("  // answered, in cycles, so a test can MEASURE a latency");
+      f.ln("  // rather than assume one.");
+      f.ln("  int unsigned nb_acc [MaxOutstanding];");
+      f.ln("  int unsigned nb_rsp [MaxOutstanding];");
+    }
     f.ln();
     f.ln("  always_ff @(posedge clk or negedge rstn) begin");
     f.ln("    if(!rstn) begin");
@@ -457,8 +753,16 @@ static void drv_task(SvFile &f, const NodeCtx &c,
       f.ln("        nb_err [" + n + "_rid] <= " + n + "_rerr;");
     }
     f.ln("        nb_ord [" + n + "_rid] <= nb_n;");
+    if(c.pipelined()) {
+      f.ln("        nb_rsp [" + n + "_rid] <= cg_cycle;");
+    }
     f.ln("        nb_n <= nb_n + 1;");
     f.ln("      end");
+    if(c.pipelined()) {
+      f.ln("      if(" + n + "_valid && " + n + "_ready) begin");
+      f.ln("        nb_acc[" + n + "_id] <= cg_cycle;");
+      f.ln("      end");
+    }
     const NodeCtx::Iface *mp = c.masters().empty() ? nullptr
                                                    : c.masters()[0];
     if(mp != nullptr && mp->sig.is_tl()) {
@@ -472,6 +776,71 @@ static void drv_task(SvFile &f, const NodeCtx &c,
     f.ln("    end");
     f.ln("  end");
     f.ln();
+    const NodeCtx::Iface *mm = c.masters().empty() ? nullptr
+                                                  : c.masters()[0];
+    if(c.pipelined() && mm != nullptr && mm->sig.is_tl()) {
+      const std::string ma = mm->name + "_a";
+      const std::string md = mm->name + "_d";
+      f.ln("  // -----------------------------------------------------");
+      f.ln("  // THE MEMORY SIDE, COUNTED AT THE LINK. A fill is in");
+      f.ln("  // flight from the cycle its A beat is taken to the");
+      f.ln("  // cycle ITS last D beat arrives, so this counts what");
+      f.ln("  // the node actually has outstanding rather than what");
+      f.ln("  // it is allowed to.");
+      f.ln("  //");
+      f.ln("  // nb_ilv counts the beats that arrived for one fill");
+      f.ln("  // WHILE ANOTHER was part way through its own line,");
+      f.ln("  // which is the whole of what interleaving is. A");
+      f.ln("  // responder that finishes one line before starting the");
+      f.ln("  // next leaves it at zero.");
+      f.ln("  // -----------------------------------------------------");
+      f.ln("  int unsigned nb_flt;    // in flight right now");
+      f.ln("  int unsigned nb_pk;     // the most there ever were");
+      f.ln("  int unsigned nb_ilv;    // interleaved beats");
+      f.ln("  int unsigned nb_bt [Mshrs];  // beats of each fill so far");
+      f.ln();
+      f.ln("  wire nb_a_fire = " + ma + "_valid && " + ma + "_ready;");
+      f.ln("  wire nb_d_fire = " + md + "_valid && " + md + "_ready;");
+      f.ln("  wire nb_d_last = nb_d_fire &&");
+      f.ln("      (nb_bt[" + md + "_source] == Beats-1);");
+      f.ln();
+      f.ln("  logic        nb_other;");
+      f.ln("  int unsigned nb_flt_nx;");
+      f.ln();
+      f.ln("  always_comb begin");
+      f.ln("    nb_other = 1'b0;");
+      f.ln("    for(int unsigned m = 0; m < Mshrs; m++) begin");
+      f.ln("      if((m != int'(" + md + "_source)) &&");
+      f.ln("         (nb_bt[m] != 0)) nb_other = 1'b1;");
+      f.ln("    end");
+      f.ln();
+      f.ln("    // one net change, so an A and the last D of another");
+      f.ln("    // fill in the same cycle do not lose each other");
+      f.ln("    nb_flt_nx = nb_flt;");
+      f.ln("    if(nb_a_fire) nb_flt_nx = nb_flt_nx + 1;");
+      f.ln("    if(nb_d_last) nb_flt_nx = nb_flt_nx - 1;");
+      f.ln("  end");
+      f.ln();
+      f.ln("  always_ff @(posedge clk or negedge rstn) begin");
+      f.ln("    if(!rstn) begin");
+      f.ln("      nb_flt <= 0;");
+      f.ln("      nb_pk  <= 0;");
+      f.ln("      nb_ilv <= 0;");
+      f.ln("      for(int unsigned m = 0; m < Mshrs; m++) begin");
+      f.ln("        nb_bt[m] <= 0;");
+      f.ln("      end");
+      f.ln("    end else begin");
+      f.ln("      nb_flt <= nb_flt_nx;");
+      f.ln("      if(nb_flt_nx > nb_pk) nb_pk <= nb_flt_nx;");
+      f.ln("      if(nb_d_fire && nb_other) nb_ilv <= nb_ilv + 1;");
+      f.ln("      if(nb_d_fire) begin");
+      f.ln("        nb_bt[" + md + "_source] <=");
+      f.ln("            nb_d_last ? 0 : nb_bt[" + md + "_source] + 1;");
+      f.ln("      end");
+      f.ln("    end");
+      f.ln("  end");
+      f.ln();
+    }
     f.ln("  // forget every answer so far, so a test starts clean");
     f.ln("  task automatic nb_clear();");
     f.ln("    nb_n    = 0;");
@@ -481,7 +850,15 @@ static void drv_task(SvFile &f, const NodeCtx &c,
     f.ln("      nb_data[k] = '0;");
     f.ln("      nb_err [k] = 1'b0;");
     f.ln("      nb_ord [k] = 0;");
+    if(c.pipelined()) {
+      f.ln("      nb_acc [k] = 0;");
+      f.ln("      nb_rsp [k] = 0;");
+    }
     f.ln("    end");
+    if(c.pipelined() && mm != nullptr && mm->sig.is_tl()) {
+      f.ln("    nb_pk  = 0;");
+      f.ln("    nb_ilv = 0;");
+    }
     f.ln("  endtask");
     f.ln();
     f.ln("  // -------------------------------------------------------");
@@ -804,6 +1181,16 @@ void RtlTb::unit_tb(SvFile &f, const NodeCtx &c)
     f.ln("  // held high, the responder takes no request. See the note");
     f.ln("  // on the responder for why a test needs that.");
     f.ln("  logic tb_hold;");
+    if(c.pipelined()) {
+      f.ln();
+      f.ln("  // the rest of what a test can ask the responder for:");
+      f.ln("  // hold channel D so fills accumulate, interleave their");
+      f.ln("  // beats, and serve the highest numbered source first");
+      f.ln("  // so a later fill completes before an earlier one");
+      f.ln("  logic tb_dhold;");
+      f.ln("  logic tb_ilv;");
+      f.ln("  logic tb_rev;");
+    }
     f.ln();
   }
   for(const NodeCtx::Iface *ip : ms) {
@@ -812,6 +1199,11 @@ void RtlTb::unit_tb(SvFile &f, const NodeCtx &c)
     f.ln("    .clk     (clk),");
     f.ln("    .rstn    (rstn),");
     f.ln("    .tb_hold (tb_hold),");
+    if(c.pipelined()) {
+      f.ln("    .tb_dhold(tb_dhold),");
+      f.ln("    .tb_ilv  (tb_ilv),");
+      f.ln("    .tb_rev  (tb_rev),");
+    }
     f.lines(RtlCache::iface_conn(*ip, ip->name, true));
     f.ln("  );");
     f.ln();
@@ -850,7 +1242,14 @@ void RtlTb::unit_tb(SvFile &f, const NodeCtx &c)
 
   f.ln("  initial begin");
   f.ln("    cg_init();");
-  if(!ms.empty()) f.ln("    tb_hold = 1'b0;");
+  if(!ms.empty()) {
+    f.ln("    tb_hold = 1'b0;");
+    if(c.pipelined()) {
+      f.ln("    tb_dhold = 1'b0;");
+      f.ln("    tb_ilv   = 1'b0;");
+      f.ln("    tb_rev   = 1'b0;");
+    }
+  }
   for(const NodeCtx::Iface *ip : sl) {
     for(const LinkSig::Sig &g : ip->sig.sigs()) {
       if(g.m_drives == ip->master) continue;   // the node owns it
@@ -882,6 +1281,9 @@ void RtlTb::unit_tests(SvFile &f, const NodeCtx &c)
   const bool wr    = c.has_writes();
   const bool cache = c.is_cache();
   const bool bank  = c.geom().banks > 1 && c.geom().bank_resolved;
+  const NodeCtx::Iface *m0 = c.masters().empty() ? nullptr
+                                                 : c.masters()[0];
+  const bool pipe  = c.pipelined() && m0 != nullptr && m0->sig.is_tl();
 
   f.note("Self checking tests for node '" + c.name() + "'.");
   f.note("");
@@ -898,6 +1300,38 @@ void RtlTb::unit_tests(SvFile &f, const NodeCtx &c)
   f.note("and a truncated one is not.");
   f.bar();
   f.ln();
+
+  // ------------------------------------------------------------------
+  // WHAT THE DOWNSTREAM RESPONDER WOULD RETURN. A fill checked only
+  // against another fill cannot tell a line reassembled in the wrong
+  // order from one reassembled in the right one, so the tests need
+  // the expected line itself. The two functions below are emitted
+  // from the same place the responder's own copy is, so a test
+  // cannot predict a fill the responder would not give.
+  // ------------------------------------------------------------------
+  if(pipe) {
+    const int shift = Replacement::log2i(m0->sig.data_bytes());
+    f.ln("  // the beat the responder returns for one line address");
+    f.ln("  // and one beat index, and the whole line built from");
+    f.ln("  // them. Emitted from the same place the responder's own");
+    f.ln("  // copy is.");
+    f.ln("  function automatic beat_t tb_seed(input addr_t base,");
+    f.ln("                                    input int unsigned n);");
+    f.ln("    longint unsigned k;");
+    f.ln("    k = (longint'({32'd0, base}) >> " + i2s(shift) + ") +");
+    f.ln("        longint'(n);");
+    f.ln("    tb_seed = beat_t'(k) ^ beat_t'(64'hcafe_0000_0000_0001);");
+    f.ln("  endfunction");
+    f.ln();
+    f.ln("  function automatic line_t tb_line(input addr_t base);");
+    f.ln("    tb_line = '0;");
+    f.ln("    for(int unsigned b = 0; b < Beats; b++) begin");
+    f.ln("      tb_line[b*BeatBits +: BeatBits] =");
+    f.ln("          tb_seed(line_base(base), b);");
+    f.ln("    end");
+    f.ln("  endfunction");
+    f.ln();
+  }
 
   if(s0 == nullptr) {
     f.ln("  task automatic run_tests();");
@@ -1293,6 +1727,259 @@ void RtlTb::unit_tests(SvFile &f, const NodeCtx &c)
       f.ln("             took && rdy_pf);");
       f.ln();
     }
+
+  // ------------------------------------------------------------------
+  // T11 THROUGH T16, THE PIPELINE AND THE FILLS IN FLIGHT. Every one
+  // of them passes on a queue in front of a blocking cache only if
+  // the design behind the queue actually pipelines and actually
+  // holds more than one fill; T6 through T10 above do not, which is
+  // why these are here.
+  //
+  // The stride is TWO lines, so every address in one group lands in
+  // the SAME bank on a node with two of them. A hit under a miss in
+  // a DIFFERENT bank proves nothing about a pipeline: two blocking
+  // banks already do that, and T7 already shows it.
+  // ------------------------------------------------------------------
+  if(pipe) {
+    const uint64_t b_str = 0x000a0000;   // the hit stream
+    const uint64_t b_lat = 0x000a4000;   // the measured latency
+    const uint64_t b_hum = 0x000a8000;   // hit under miss, the warm one
+    const uint64_t b_hux = 0x000ac000;   // hit under miss, the cold one
+    const uint64_t b_flt = 0x000b0000;   // the fills in flight
+    const uint64_t b_ilv = 0x000b8000;   // the interleaved pair
+    const uint64_t b_ooo = 0x000bc000;   // the out of order pair
+    const uint64_t bstep = 2 * line;     // one bank, consecutive sets
+    const int      nstr  = 4;            // the length of the stream
+
+    f.ln("    // ---------------------------------------------------");
+    f.ln("    // THE SEED THE RESPONDER RETURNS, so a fill can be");
+    f.ln("    // checked against what it should contain rather than");
+    f.ln("    // only against another fill. Emitted from the same");
+    f.ln("    // place the responder's own copy is.");
+    f.ln("    // ---------------------------------------------------");
+    f.ln();
+
+    f.ln("    // ---------------------------------------------------");
+    f.ln("    // T11. A HIT STREAM, ONE ANSWER PER CYCLE. " +
+         i2s(nstr) + " warm");
+    f.ln("    // lines in ONE bank are asked for back to back, and");
+    f.ln("    // the answers come out on consecutive cycles. A bank");
+    f.ln("    // that serves one access at a time cannot do that,");
+    f.ln("    // however many registers stand in front of it.");
+    f.ln("    // L1I-5, hit throughput one request per cycle.");
+    f.ln("    // ---------------------------------------------------");
+    f.ln("    for(k = 0; k < " + i2s(nstr) + "; k++) begin");
+    f.ln("      " + d0 + "(" + lit(b_str) + " + addr_t'(k) * "
+         "addr_t'(" + i2s(bstep) + "),");
+    f.ln("               1'b0, '0, '0, r0);");
+    f.ln("    end");
+    f.ln("    nb_clear();");
+    f.ln("    all_ok = 1'b1;");
+    f.ln("    for(k = 0; k < " + i2s(nstr) + "; k++) begin");
+    f.ln("      nb_req(" + lit(b_str) + " + addr_t'(k) * "
+         "addr_t'(" + i2s(bstep) + "),");
+    f.ln("             req_id_t'(k), 1'b0, took);");
+    f.ln("      if(!took) all_ok = 1'b0;");
+    f.ln("    end");
+    f.ln("    nb_idle();");
+    f.ln("    cg_check(\"a hit stream is accepted one per cycle\",");
+    f.ln("             all_ok);");
+    f.ln("    for(k = 0; k < " + i2s(nstr) + "; k++) begin");
+    f.ln("      nb_wait(req_id_t'(k), took);");
+    f.ln("      if(!took) all_ok = 1'b0;");
+    f.ln("    end");
+    f.ln("    cg_check(\"and every one of them was answered\",");
+    f.ln("             all_ok);");
+    f.ln();
+    f.ln("    // the answers land on consecutive cycles, which is one");
+    f.ln("    // hit a cycle sustained across the whole stream");
+    f.ln("    all_ok = 1'b1;");
+    f.ln("    for(k = 1; k < " + i2s(nstr) + "; k++) begin");
+    f.ln("      if(nb_rsp[k] != nb_rsp[k-1] + 1) all_ok = 1'b0;");
+    f.ln("    end");
+    f.ln("    cg_check_eq(\"MEASURED hits per " + i2s(nstr) +
+         " cycles on a hit stream\",");
+    f.ln("                longint'(nb_rsp[" + i2s(nstr - 1) +
+         "]) - longint'(nb_rsp[0]) + 1,");
+    f.ln("                longint'(" + i2s(nstr) + "));");
+    f.ln("    cg_check(\"a hit stream is answered one per cycle\",");
+    f.ln("             all_ok);");
+    f.ln();
+    f.ln("    // and none of them waited on the one in front");
+    f.ln("    all_ok = 1'b1;");
+    f.ln("    for(k = 0; k < " + i2s(nstr) + "; k++) begin");
+    f.ln("      if((nb_rsp[k] - nb_acc[k]) != ReadLatency) begin");
+    f.ln("        all_ok = 1'b0;");
+    f.ln("      end");
+    f.ln("    end");
+    f.ln("    cg_check(\"and none of them waited on the one in "
+         "front\",");
+    f.ln("             all_ok);");
+    f.ln();
+
+    f.ln("    // ---------------------------------------------------");
+    f.ln("    // T12. THE HIT LATENCY IS read_latency_cycles,");
+    f.ln("    // MEASURED. ReadLatency is the configuration's number,");
+    f.ln("    // carried into the package, so this compares the");
+    f.ln("    // design against what was asked for and not against a");
+    f.ln("    // literal in a test.");
+    f.ln("    // ---------------------------------------------------");
+    f.ln("    // the package's own three numbers agree: the answer");
+    f.ln("    // is registered out of the compare, and every stage");
+    f.ln("    // between that and ReadLatency is a pad stage");
+    f.ln("    cg_check(\"the pipeline depth adds up to ReadLatency\",");
+    f.ln("             (CmpStage + PipePad + 1) == ReadLatency);");
+    f.ln("    " + d0 + "(" + lit(b_lat) + ", 1'b0, '0, '0, r0);");
+    f.ln("    nb_clear();");
+    f.ln("    nb_req(" + lit(b_lat) + ", req_id_t'(5), 1'b0, took);");
+    f.ln("    nb_idle();");
+    f.ln("    nb_wait(req_id_t'(5), took);");
+    f.ln("    cg_check(\"the warm line was answered\", took);");
+    f.ln("    cg_check_eq(\"MEASURED hit latency in cycles\",");
+    f.ln("                longint'(nb_rsp[5]) - longint'(nb_acc[5]),");
+    f.ln("                longint'(ReadLatency));");
+    f.ln();
+
+    // R-8. What T11 and T12 cover. The two timing fields shape the
+    // pipeline the hit walks down, and the latency measured at the
+    // port is what they shape it into.
+    unit_covers(c, "/timing/read_latency_cycles",
+                "MEASURED hit latency in cycles");
+    unit_covers(c, "/timing/tag_compare_stage",
+                "MEASURED hit latency in cycles");
+
+    f.ln("    // ---------------------------------------------------");
+    f.ln("    // T13. A HIT UNDER A MISS, IN THE SAME BANK. The cold");
+    f.ln("    // line is asked for FIRST and the responder is held,");
+    f.ln("    // so its fill cannot complete. The warm line is in the");
+    f.ln("    // SAME bank and is answered anyway, at the same");
+    f.ln("    // latency it would have had on its own. A blocking");
+    f.ln("    // bank is stuck waiting for the fill and cannot.");
+    f.ln("    // ---------------------------------------------------");
+    f.ln("    " + d0 + "(" + lit(b_hum) + ", 1'b0, '0, '0, r0);");
+    f.ln("    cg_check(\"the two lines are in one bank\",");
+    f.ln("             bank_of(" + lit(b_hum) + ") == bank_of(" +
+         lit(b_hux) + "));");
+    f.ln("    tb_hold = 1'b1;");
+    f.ln("    nb_clear();");
+    f.ln("    nb_req(" + lit(b_hux) + ", req_id_t'(6), 1'b0, took);");
+    f.ln("    nb_req(" + lit(b_hum) + ", req_id_t'(7), 1'b0, took);");
+    f.ln("    nb_idle();");
+    f.ln("    nb_wait(req_id_t'(7), took);");
+    f.ln("    cg_check(\"the hit was answered under the miss\", took);");
+    f.ln("    cg_check(\"while the miss was still outstanding\",");
+    f.ln("             !nb_seen[6]);");
+    f.ln("    cg_check_eq(\"and at the hit latency, not the miss's\",");
+    f.ln("                longint'(nb_rsp[7]) - longint'(nb_acc[7]),");
+    f.ln("                longint'(ReadLatency));");
+    f.ln("    tb_hold = 1'b0;");
+    f.ln("    nb_wait(req_id_t'(6), took);");
+    f.ln("    cg_check(\"and the miss completed after it\",");
+    f.ln("             took && (nb_ord[7] < nb_ord[6]));");
+    f.ln();
+
+    f.ln("    // ---------------------------------------------------");
+    f.ln("    // T14. Mshrs FILLS IN FLIGHT AT ONCE, counted at the");
+    f.ln("    // memory side. Channel D is held, so no fill can");
+    f.ln("    // complete and every one that left is still out. A");
+    f.ln("    // master that carries one fill at a time peaks at one");
+    f.ln("    // however many registers are behind it. L1I-23.");
+    f.ln("    // ---------------------------------------------------");
+    f.ln("    tb_dhold = 1'b1;");
+    f.ln("    nb_clear();");
+    f.ln("    all_ok = 1'b1;");
+    f.ln("    for(k = 0; k < Mshrs; k++) begin");
+    f.ln("      nb_req(" + lit(b_flt) + " + addr_t'(k) * "
+         "addr_t'(LineBytes),");
+    f.ln("             req_id_t'(k), 1'b0, took);");
+    f.ln("      if(!took) all_ok = 1'b0;");
+    f.ln("    end");
+    f.ln("    nb_idle();");
+    f.ln("    cg_check(\"every one of them was accepted\", all_ok);");
+    f.ln("    // one fill leaves a cycle, so give them room to");
+    f.ln("    cg_tick(4 * Mshrs);");
+    f.ln("    cg_check_eq(\"MEASURED fills in flight at once\",");
+    f.ln("                longint'(nb_pk), longint'(Mshrs));");
+    f.ln("    cg_check(\"and not one of them had completed\",");
+    f.ln("             nb_n == 0);");
+    f.ln("    tb_dhold = 1'b0;");
+    f.ln("    all_ok   = 1'b1;");
+    f.ln("    for(k = 0; k < Mshrs; k++) begin");
+    f.ln("      nb_wait(req_id_t'(k), took);");
+    f.ln("      if(!took) all_ok = 1'b0;");
+    f.ln("    end");
+    f.ln("    cg_check(\"and all of them then came back\", all_ok);");
+    f.ln();
+
+    f.ln("    // ---------------------------------------------------");
+    f.ln("    // T15. TWO FILLS WHOSE BEATS INTERLEAVE. The responder");
+    f.ln("    // hands out beats round robin, so a beat of one line");
+    f.ln("    // arrives while the other line is part way through.");
+    f.ln("    // Both have to be reassembled per source, and both");
+    f.ln("    // answers are checked against the line the responder");
+    f.ln("    // would return rather than only against each other.");
+    f.ln("    // ---------------------------------------------------");
+    f.ln("    tb_dhold = 1'b1;");
+    f.ln("    tb_ilv   = 1'b1;");
+    f.ln("    nb_clear();");
+    f.ln("    nb_req(" + lit(b_ilv) + ", req_id_t'(1), 1'b0, took);");
+    f.ln("    nb_req(" + lit(b_ilv + bstep) + ", req_id_t'(2), 1'b0, "
+         "took);");
+    f.ln("    nb_idle();");
+    f.ln("    cg_tick(16);");
+    f.ln("    cg_check_eq(\"two fills are outstanding together\",");
+    f.ln("                longint'(nb_pk), 2);");
+    f.ln("    tb_dhold = 1'b0;");
+    f.ln("    nb_wait(req_id_t'(1), took);");
+    f.ln("    all_ok = took;");
+    f.ln("    nb_wait(req_id_t'(2), took);");
+    f.ln("    cg_check(\"both interleaved fills were answered\",");
+    f.ln("             all_ok && took);");
+    f.ln("    cg_check(\"the beats of the two did interleave\",");
+    f.ln("             nb_ilv > 0);");
+    f.ln("    cg_check(\"the first line was reassembled correctly\",");
+    f.ln("             nb_data[1] == word_t'(tb_line(" + lit(b_ilv) +
+         ")));");
+    f.ln("    cg_check(\"and so was the second\",");
+    f.ln("             nb_data[2] == word_t'(tb_line(" +
+         lit(b_ilv + bstep) + ")));");
+    f.ln("    tb_ilv = 1'b0;");
+    f.ln();
+
+    f.ln("    // ---------------------------------------------------");
+    f.ln("    // T16. A LATER FILL COMPLETES FIRST. The responder is");
+    f.ln("    // told to serve the highest numbered source first, so");
+    f.ln("    // the fill issued SECOND comes back FIRST. The right");
+    f.ln("    // register has to retire: each identifier gets the");
+    f.ln("    // line ITS request asked for.");
+    f.ln("    // ---------------------------------------------------");
+    f.ln("    tb_dhold = 1'b1;");
+    f.ln("    tb_rev   = 1'b1;");
+    f.ln("    nb_clear();");
+    f.ln("    nb_req(" + lit(b_ooo) + ", req_id_t'(1), 1'b0, took);");
+    f.ln("    nb_req(" + lit(b_ooo + bstep) + ", req_id_t'(2), 1'b0, "
+         "took);");
+    f.ln("    nb_idle();");
+    f.ln("    cg_tick(16);");
+    f.ln("    cg_check_eq(\"both fills are outstanding together\",");
+    f.ln("                longint'(nb_pk), 2);");
+    f.ln("    tb_dhold = 1'b0;");
+    f.ln("    nb_wait(req_id_t'(2), took);");
+    f.ln("    cg_check(\"the fill issued second came back\", took);");
+    f.ln("    cg_check(\"before the one issued first\", !nb_seen[1]);");
+    f.ln("    nb_wait(req_id_t'(1), took);");
+    f.ln("    cg_check(\"and the first came back after it\",");
+    f.ln("             took && (nb_ord[2] < nb_ord[1]));");
+    f.ln("    cg_check(\"the first line went to the register that "
+         "asked for it\",");
+    f.ln("             nb_data[1] == word_t'(tb_line(" + lit(b_ooo) +
+         ")));");
+    f.ln("    cg_check(\"and the same for the second\",");
+    f.ln("             nb_data[2] == word_t'(tb_line(" +
+         lit(b_ooo + bstep) + ")));");
+    f.ln("    tb_rev = 1'b0;");
+    f.ln();
+  }
   }
 
   f.ln("  endtask");

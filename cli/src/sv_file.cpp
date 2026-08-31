@@ -116,7 +116,8 @@ const std::vector<std::string> &SvFile::members()
     "ReplBits", "ReplReset", "ReplStates", "ReplVictimTable",
     "ReplUpdateTable", "RankBits", "AddrBits",
     "Mshrs", "MshrTargets", "MshrIdxBits", "MshrTgtBits",
-    "MshrCntBits", "ReqIdBits", "MaxOutstanding", "QualReserve"
+    "MshrCntBits", "ReqIdBits", "MaxOutstanding", "QualReserve",
+    "ReadLatency", "CmpStage", "PipePad"
   };
   return m;
 }

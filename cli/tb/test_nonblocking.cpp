@@ -301,6 +301,11 @@ TEST(NonBlocking, AnErrorReturnIsDrivenRatherThanDropped)
 // The memory side names the requester. mem_a_source was tied to zero
 // on every node, so a response could not be matched to the fill that
 // asked for it even in principle.
+//
+// It is no longer LATCHED from one in flight register, because there
+// is no longer one: the miss handling file offers a fill and its own
+// index rides channel A with it. The assertion moved with the design
+// and did not lapse.
 // --------------------------------------------------------------------
 TEST(NonBlocking, TheMemorySideSourceComesFromTheInFlightState)
 {
@@ -309,15 +314,15 @@ TEST(NonBlocking, TheMemorySideSourceComesFromTheInFlightState)
 
   EXPECT_FALSE(contains(mst, "mem_a_source  = '0"))
     << "the memory side source is still tied to zero";
-  EXPECT_TRUE(contains(mst, "mem_a_source  = 4'(src_q)"))
-    << "the source is not driven from the in flight register";
-  EXPECT_TRUE(contains(mst, "src_q   <= mreq_src;"))
-    << "the source is not latched from the miss handling file";
+  EXPECT_TRUE(contains(mst, "mem_a_source  = 4'(mreq_src)"))
+    << "the source is not the register the fill belongs to";
 
   const std::string top = emitted("nb_src_t", "l1i/rtl/l1i.sv");
   ASSERT_FALSE(top.empty());
-  EXPECT_TRUE(contains(top, "assign m_req_src = b_src[m_sel];"))
-    << "the node does not route the register to the master adapter";
+  EXPECT_TRUE(contains(top, ".m_req_src   (m_req_src)"))
+    << "the file does not drive the source of the master adapter";
+  EXPECT_TRUE(contains(top, ".m_rsp_src   (m_rsp_src)"))
+    << "the return does not name the register back to the file";
 }
 
 // --------------------------------------------------------------------

@@ -107,9 +107,15 @@ int Driver::run()
       } else {
         msg->emsg("nothing was emitted");
       }
+      // Every code the emitter can raise on its own. The check
+      // path's report ran before this stage, so a diagnostic
+      // raised here would otherwise reach the list and never
+      // reach the console.
       for(const Diag &d : diags_.all()) {
         if(d.code() == std::string(code::emit_refused) ||
-           d.code() == std::string(code::emit_unsupported)) {
+           d.code() == std::string(code::emit_unsupported) ||
+           d.code() == std::string(code::t11_read_latency) ||
+           d.code() == std::string(code::t11_tag_stage)) {
           msg->emsg("  " + d.message());
         }
       }

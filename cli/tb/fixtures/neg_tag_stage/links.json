@@ -1,0 +1,42 @@
+{
+  "schema_version": "0.13.0",
+  "file_type": "links",
+  "links": {
+    "l_core": {
+      "protocol": "custom",
+      "master_port_type": "p_init",
+      "slave_port_type": "p_targ",
+      "custom": {
+        "handshake": {
+          "request_strobes": "single_valid_with_rw",
+          "accept": "ready",
+          "read_data_return": "valid_with_id",
+          "response_accept": "none"
+        },
+        "channels": {
+          "address": "shared",
+          "data": "split_read_write"
+        },
+        "address_granularity": "byte",
+        "address_width_bits": 32,
+        "read_width_bits": 512,
+        "write_width_bits": 0,
+        "outstanding_requests": 4,
+        "id_width_bits": 2
+      }
+    },
+    "l_mem": {
+      "protocol": "tilelink",
+      "tilelink": {
+        "conformance": "TL-UH",
+        "data_bus_bytes": 32,
+        "address_bits": 32,
+        "size_bits": 3,
+        "source_bits": 2,
+        "sink_bits": 2
+      },
+      "master_port_type": "t_mstr",
+      "slave_port_type": "t_slv"
+    }
+  }
+}

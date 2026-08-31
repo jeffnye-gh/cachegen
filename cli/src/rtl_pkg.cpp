@@ -464,6 +464,36 @@ void RtlPkg::node(SvFile &f, const NodeCtx &c)
     f.ln();
   }
 
+  // ------------------------------------------------------------------
+  // THE PIPELINE, on a node whose control is one. Every number here
+  // comes from timing/read_latency_cycles and
+  // timing/tag_compare_stage against the declared array read port,
+  // and a testbench measuring a hit reads ReadLatency rather than
+  // carrying a literal of its own.
+  // ------------------------------------------------------------------
+  if(c.pipelined()) {
+    f.ln("  // -----------------------------------------------------"
+         "-----------");
+    f.ln("  // Pipeline. Stage 0 is the cycle the access is accepted");
+    f.ln("  // and its set is presented to the arrays. The tag "
+         "compare");
+    f.ln("  // is in stage " + std::to_string(c.cmp_stage()) +
+         ", which is tag_compare_stage " + c.tag_stage() + ",");
+    f.ln("  // and the answer is registered out after it. " +
+         std::to_string(c.pipe_pad()) + " stage" +
+         (c.pipe_pad() == 1 ? "" : "s") + " of the");
+    f.ln("  // " + std::to_string(c.read_latency()) +
+         " carry the answer and do nothing else.");
+    f.ln("  // -----------------------------------------------------"
+         "-----------");
+    f.lines({
+      lp("ReadLatency", i(c.read_latency())),
+      lp("CmpStage",    i(c.cmp_stage())),
+      lp("PipePad",     i(c.pipe_pad()))
+    });
+    f.ln();
+  }
+
   f.ln("  // -----------------------------------------------------"
        "-----------");
   f.ln("  // Types");

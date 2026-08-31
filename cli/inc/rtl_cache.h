@@ -40,9 +40,22 @@ public:
                     const NodeCtx::Iface &i);
   static void master(SvFile &f, const NodeCtx &c,
                      const NodeCtx::Iface &i);
+
+  // the master adapter of a pipelined node. It holds one partial
+  // line per miss handling register, so many fills may be in flight
+  // and their beats may arrive interleaved and out of order.
+  static void master_pipe(SvFile &f, const NodeCtx &c,
+                          const NodeCtx::Iface &i);
   static void meta_array(SvFile &f, const NodeCtx &c);
   static void data_array(SvFile &f, const NodeCtx &c);
   static void ctrl(SvFile &f, const NodeCtx &c);
+
+  // the pipelined form of the control, on a node the timing
+  // configuration and the core link together ask for one. It takes
+  // an access every cycle and answers a hit ReadLatency cycles
+  // later; the miss handling file owns everything a miss needs.
+  static void ctrl_pipe(SvFile &f, const NodeCtx &c);
+
   static void bank(SvFile &f, const NodeCtx &c);
   static void mshr(SvFile &f, const NodeCtx &c);
   static void top(SvFile &f, const NodeCtx &c);
